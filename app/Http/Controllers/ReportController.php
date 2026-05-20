@@ -1,0 +1,807 @@
+<?php
+
+namespace App\Http\Controllers;
+
+use Illuminate\Http\Request;
+use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\DB;
+use ZipArchive;
+
+class ReportController extends Controller
+{
+    public function index()
+    {
+        return view('user.report');
+    }
+
+    public function data(Request $request)
+    {
+        try {
+            $tab = $this->normalizeTab($request->get('tab', 'overview'));
+            $summary = $this->buildSummary($request);
+
+            if ($tab === 'transaksi') {
+                $payload = $this->getTransaksiData($request);
+            } elseif ($tab === 'workorder') {
+                $payload = $this->getWorkOrderData($request);
+            } else {
+                $payload = $this->getOverviewData($request);
+            }
+
+            return response()->json([
+                'success' => true,
+                'tab' => $tab,
+                'summary' => $summary,
+                'data' => $payload['data'],
+                'pagination' => $payload['pagination'] ?? null,
+                'meta' => $payload['meta'] ?? [],
+            ]);
+        } catch (\Throwable $e) {
+            report($e);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Gagal memuat report: ' . $e->getMessage(),
+            ], 500);
+        }
+    }
+
+    public function export(Request $request)
+    {
+        try {
+            $tab = $this->normalizeTab($request->get('tab', 'overview'));
+            $timestamp = now()->format('Ymd_His');
+
+            if ($tab === 'workorder') {
+                [$headers, $rows, $sheetName] = $this->buildWorkOrderExport($request);
+                $filename = "report_work_order_{$timestamp}.xlsx";
+            } elseif ($tab === 'transaksi') {
+                [$headers, $rows, $sheetName] = $this->buildTransaksiExport($request);
+                $filename = "report_permintaan_barang_{$timestamp}.xlsx";
+            } else {
+                [$headers, $rows, $sheetName] = $this->buildOverviewExport($request);
+                $filename = "report_overview_{$timestamp}.xlsx";
+            }
+
+            $tempPath = storage_path('app/temp/' . $filename);
+
+            if (!is_dir(dirname($tempPath))) {
+                mkdir(dirname($tempPath), 0755, true);
+            }
+
+            $this->createSimpleXlsx($tempPath, $sheetName, $headers, $rows);
+
+            return response()->download($tempPath, $filename, [
+                'Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+                'Cache-Control' => 'max-age=0, no-cache, no-store, must-revalidate',
+                'Pragma' => 'public',
+            ])->deleteFileAfterSend(true);
+        } catch (\Throwable $e) {
+            report($e);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Gagal export report: ' . $e->getMessage(),
+            ], 500);
+        }
+    }
+
+    private function normalizeTab(?string $tab): string
+    {
+        $tab = strtolower((string) $tab);
+
+        return in_array($tab, ['overview', 'transaksi', 'workorder'], true)
+            ? $tab
+            : 'overview';
+    }
+
+    private function buildSummary(Request $request): array
+    {
+        $pbBase = DB::table('trBPB');
+        $this->applyDateRange($pbBase, $request, 'tanggal_permintaan');
+
+        $woBase = DB::table('trWorkOrder');
+        $this->applyDateRange($woBase, $request, 'created_at');
+
+        $detailBase = DB::table('trBPBDetail as d')
+            ->join('trBPB as pb', 'd.trbpb_id', '=', 'pb.id');
+        $this->applyDateRange($detailBase, $request, 'pb.tanggal_permintaan');
+
+        return [
+            'pb_total' => (clone $pbBase)->count(),
+            'pb_pending' => (clone $pbBase)->where('status', 'pending')->count(),
+            'pb_approved' => (clone $pbBase)->where('status', 'approved')->count(),
+            'pb_rejected' => (clone $pbBase)->where('status', 'rejected')->count(),
+            'pb_items' => (clone $detailBase)->count(),
+            'pb_qty' => (float) ((clone $detailBase)->sum('d.jumlah') ?? 0),
+
+            'wo_total' => (clone $woBase)->count(),
+            'wo_draft' => (clone $woBase)->where('status', 'draft')->count(),
+            'wo_submitted' => (clone $woBase)->where('status', 'submitted')->count(),
+            'wo_approved' => (clone $woBase)->where('status', 'approved')->count(),
+            'wo_rejected' => (clone $woBase)->where('status', 'rejected')->count(),
+            'wo_completed' => (clone $woBase)->where('status', 'completed')->count(),
+            'wo_open' => (clone $woBase)
+                ->where('status', 'approved')
+                ->where(function ($q) {
+                    $q->whereNull('progress_status')->orWhere('progress_status', 'open');
+                })
+                ->count(),
+            'wo_progress' => (clone $woBase)
+                ->where('status', 'approved')
+                ->where('progress_status', 'progress')
+                ->count(),
+            'wo_closed' => (clone $woBase)
+                ->where(function ($q) {
+                    $q->where('status', 'completed')->orWhere('progress_status', 'closed');
+                })
+                ->count(),
+        ];
+    }
+
+    private function getOverviewData(Request $request): array
+    {
+        $pbStatus = $this->statusBreakdown('trBPB', 'status', $request, 'tanggal_permintaan');
+        $woStatus = $this->statusBreakdown('trWorkOrder', 'status', $request, 'created_at');
+
+        $pbJenis = DB::table('trBPB')
+            ->select('jenis_pekerjaan as label', DB::raw('COUNT(*) as total'))
+            ->when(true, fn ($q) => $this->applyDateRange($q, $request, 'tanggal_permintaan'))
+            ->groupBy('jenis_pekerjaan')
+            ->orderByDesc('total')
+            ->get()
+            ->map(fn ($row) => [
+                'label' => $this->pretty($row->label ?: '-'),
+                'total' => (int) $row->total,
+            ])
+            ->values();
+
+        $pbUntuk = DB::table('trBPB')
+            ->select('untuk as label', DB::raw('COUNT(*) as total'))
+            ->when(true, fn ($q) => $this->applyDateRange($q, $request, 'tanggal_permintaan'))
+            ->groupBy('untuk')
+            ->orderByDesc('total')
+            ->get()
+            ->map(fn ($row) => [
+                'label' => $this->pretty($row->label ?: '-'),
+                'total' => (int) $row->total,
+            ])
+            ->values();
+
+        return [
+            'data' => [
+                'pb_status' => $pbStatus,
+                'wo_status' => $woStatus,
+                'pb_jenis' => $pbJenis,
+                'pb_untuk' => $pbUntuk,
+            ],
+            'meta' => [
+                'mode' => 'overview',
+            ],
+        ];
+    }
+
+    private function statusBreakdown(string $table, string $column, Request $request, string $dateColumn)
+    {
+        $query = DB::table($table)
+            ->select($column . ' as label', DB::raw('COUNT(*) as total'));
+
+        $this->applyDateRange($query, $request, $dateColumn);
+
+        return $query
+            ->groupBy($column)
+            ->orderByDesc('total')
+            ->get()
+            ->map(fn ($row) => [
+                'label' => $this->pretty($row->label ?: '-'),
+                'raw' => $row->label ?: '-',
+                'total' => (int) $row->total,
+            ])
+            ->values();
+    }
+
+    private function getTransaksiData(Request $request): array
+    {
+        $perPage = $this->getPerPage($request);
+        $query = $this->baseTransaksiQuery($request);
+
+        $data = $query->orderByDesc('pb.tanggal_permintaan')
+            ->orderByDesc('pb.id')
+            ->paginate($perPage);
+
+        return [
+            'data' => collect($data->items())->map(fn ($row) => $this->formatTransaksiRow($row))->values(),
+            'pagination' => $this->paginationPayload($data),
+        ];
+    }
+
+    private function getWorkOrderData(Request $request): array
+    {
+        $perPage = $this->getPerPage($request);
+        $query = $this->baseWorkOrderQuery($request);
+
+        $data = $query->orderByDesc('wo.created_at')
+            ->orderByDesc('wo.id')
+            ->paginate($perPage);
+
+        return [
+            'data' => collect($data->items())->map(fn ($row) => $this->formatWorkOrderRow($row))->values(),
+            'pagination' => $this->paginationPayload($data),
+        ];
+    }
+
+    private function baseTransaksiQuery(Request $request)
+    {
+        $query = DB::table('trBPB as pb')
+            ->leftJoin('users as requester', 'pb.user_id', '=', 'requester.id')
+            ->leftJoin('mtMesin as mesin', 'pb.untuk_id', '=', 'mesin.msnID')
+            ->leftJoin('mtBangunan as bangunan', 'pb.untuk_id', '=', 'bangunan.buildID')
+            ->select([
+                'pb.id',
+                'pb.nomor_pb',
+                'pb.tanggal_permintaan',
+                'pb.tanggal_diperlukan',
+                'pb.bagian',
+                'pb.untuk',
+                'pb.untuk_id',
+                'pb.dari_gudang',
+                'pb.jenis_pekerjaan',
+                'pb.status',
+                'pb.keterangan',
+                'pb.created_at',
+                'pb.updated_at',
+                'requester.name as requester_name',
+                'requester.email as requester_email',
+                DB::raw("CASE
+                    WHEN pb.untuk = 'mesin' THEN COALESCE(mesin.msnName, '-')
+                    WHEN pb.untuk = 'bangunan' THEN COALESCE(bangunan.buildName, '-')
+                    ELSE '-'
+                END as tujuan_nama"),
+                DB::raw("CASE
+                    WHEN pb.untuk = 'mesin' THEN COALESCE(mesin.msnCode, '-')
+                    WHEN pb.untuk = 'bangunan' THEN COALESCE(bangunan.buildCode, '-')
+                    ELSE '-'
+                END as tujuan_kode"),
+                DB::raw("(SELECT COUNT(*) FROM trBPBDetail d WHERE d.trbpb_id = pb.id) as jumlah_barang"),
+                DB::raw("(SELECT COALESCE(SUM(d.jumlah), 0) FROM trBPBDetail d WHERE d.trbpb_id = pb.id) as total_jumlah"),
+            ]);
+
+        $this->applyDateRange($query, $request, 'pb.tanggal_permintaan');
+
+        if ($request->filled('search')) {
+            $search = trim($request->get('search'));
+            $query->where(function ($q) use ($search) {
+                $q->where('pb.nomor_pb', 'LIKE', "%{$search}%")
+                    ->orWhere('pb.jenis_pekerjaan', 'LIKE', "%{$search}%")
+                    ->orWhere('pb.dari_gudang', 'LIKE', "%{$search}%")
+                    ->orWhere('pb.keterangan', 'LIKE', "%{$search}%")
+                    ->orWhere('requester.name', 'LIKE', "%{$search}%")
+                    ->orWhere('mesin.msnName', 'LIKE', "%{$search}%")
+                    ->orWhere('bangunan.buildName', 'LIKE', "%{$search}%");
+            });
+        }
+
+        if ($request->filled('status') && $request->get('status') !== 'all') {
+            $query->where('pb.status', $request->get('status'));
+        }
+
+        if ($request->filled('jenis_pekerjaan') && $request->get('jenis_pekerjaan') !== 'all') {
+            $query->where('pb.jenis_pekerjaan', $request->get('jenis_pekerjaan'));
+        }
+
+        if ($request->filled('untuk') && $request->get('untuk') !== 'all') {
+            $query->where('pb.untuk', $request->get('untuk'));
+        }
+
+        return $query;
+    }
+
+    private function baseWorkOrderQuery(Request $request)
+    {
+        $query = DB::table('trWorkOrder as wo')
+            ->leftJoin('users as creator', 'wo.created_by', '=', 'creator.id')
+            ->leftJoin('users as approver', 'wo.approved_by', '=', 'approver.id')
+            ->leftJoin('users as rejector', 'wo.rejected_by', '=', 'rejector.id')
+            ->select([
+                'wo.id',
+                'wo.nomor',
+                'wo.judul',
+                'wo.deskripsi',
+                'wo.status',
+                'wo.progress_status',
+                'wo.created_at',
+                'wo.updated_at',
+                'wo.submitted_at',
+                'wo.approved_at',
+                'wo.rejected_at',
+                'wo.completed_at',
+                'wo.open_at',
+                'wo.progress_at',
+                'wo.closed_at',
+                'wo.rejection_notes',
+                'creator.name as created_by_name',
+                'creator.email as created_by_email',
+                'approver.name as approved_by_name',
+                'rejector.name as rejected_by_name',
+            ]);
+
+        $this->applyDateRange($query, $request, 'wo.created_at');
+
+        if ($request->filled('search')) {
+            $search = trim($request->get('search'));
+            $query->where(function ($q) use ($search) {
+                $q->where('wo.nomor', 'LIKE', "%{$search}%")
+                    ->orWhere('wo.judul', 'LIKE', "%{$search}%")
+                    ->orWhere('wo.deskripsi', 'LIKE', "%{$search}%")
+                    ->orWhere('creator.name', 'LIKE', "%{$search}%");
+            });
+        }
+
+        if ($request->filled('status') && $request->get('status') !== 'all') {
+            $status = $request->get('status');
+
+            if (in_array($status, ['open', 'progress', 'closed'], true)) {
+                if ($status === 'open') {
+                    $query->where('wo.status', 'approved')
+                        ->where(function ($q) {
+                            $q->whereNull('wo.progress_status')->orWhere('wo.progress_status', 'open');
+                        });
+                } elseif ($status === 'closed') {
+                    $query->where(function ($q) {
+                        $q->where('wo.status', 'completed')->orWhere('wo.progress_status', 'closed');
+                    });
+                } else {
+                    $query->where('wo.status', 'approved')
+                        ->where('wo.progress_status', $status);
+                }
+            } else {
+                $query->where('wo.status', $status);
+            }
+        }
+
+        return $query;
+    }
+
+    private function applyDateRange($query, Request $request, string $column): void
+    {
+        if ($request->filled('date_from')) {
+            $query->whereDate($column, '>=', $request->get('date_from'));
+        }
+
+        if ($request->filled('date_to')) {
+            $query->whereDate($column, '<=', $request->get('date_to'));
+        }
+    }
+
+    private function formatTransaksiRow($row): array
+    {
+        return [
+            'id' => $row->id,
+            'nomor' => $row->nomor_pb,
+            'tanggal' => $this->formatDate($row->tanggal_permintaan),
+            'tanggal_raw' => $row->tanggal_permintaan,
+            'tanggal_diperlukan' => $this->formatDate($row->tanggal_diperlukan),
+            'bagian' => $row->bagian ?: '-',
+            'untuk' => $this->pretty($row->untuk),
+            'tujuan' => trim(($row->tujuan_kode ?: '-') . ' - ' . ($row->tujuan_nama ?: '-'), ' -'),
+            'gudang' => $this->formatGudang($row->dari_gudang),
+            'jenis_pekerjaan' => $this->pretty($row->jenis_pekerjaan),
+            'status' => $row->status ?: '-',
+            'status_label' => $this->pretty($row->status),
+            'requester' => $row->requester_name ?: '-',
+            'jumlah_barang' => (int) $row->jumlah_barang,
+            'total_jumlah' => (float) $row->total_jumlah,
+            'keterangan' => $row->keterangan ?: '-',
+        ];
+    }
+
+    private function formatWorkOrderRow($row): array
+    {
+        $progressStatus = $row->progress_status;
+
+        if ($row->status === 'approved' && !$progressStatus) {
+            $progressStatus = 'open';
+        }
+
+        if ($row->status === 'completed') {
+            $progressStatus = 'closed';
+        }
+
+        return [
+            'id' => $row->id,
+            'nomor' => $row->nomor,
+            'judul' => $row->judul,
+            'deskripsi' => $row->deskripsi ?: '-',
+            'status' => $row->status ?: '-',
+            'status_label' => $this->pretty($row->status),
+            'progress_status' => $progressStatus ?: '-',
+            'progress_label' => $this->pretty($progressStatus),
+            'created_by' => $row->created_by_name ?: '-',
+            'tanggal_dibuat' => $this->formatDate($row->created_at),
+            'submitted_at' => $this->formatDateTime($row->submitted_at),
+            'approved_at' => $this->formatDateTime($row->approved_at),
+            'closed_at' => $this->formatDateTime($row->closed_at ?: $row->completed_at),
+            'lead_time' => $this->calculateLeadTime($row->open_at, $row->closed_at ?: $row->completed_at),
+            'rejection_notes' => $row->rejection_notes ?: '-',
+        ];
+    }
+
+    private function paginationPayload($paginator): array
+    {
+        return [
+            'current_page' => $paginator->currentPage(),
+            'per_page' => $paginator->perPage(),
+            'total' => $paginator->total(),
+            'last_page' => $paginator->lastPage(),
+        ];
+    }
+
+    private function getPerPage(Request $request): int
+    {
+        $perPage = (int) $request->get('per_page', 20);
+
+        return in_array($perPage, [10, 20, 50, 100], true) ? $perPage : 20;
+    }
+
+    private function buildTransaksiExport(Request $request): array
+    {
+        $rows = $this->baseTransaksiQuery($request)
+            ->orderByDesc('pb.tanggal_permintaan')
+            ->orderByDesc('pb.id')
+            ->get()
+            ->map(fn ($row, $index) => [
+                $index + 1,
+                $row->nomor_pb,
+                $this->formatDate($row->tanggal_permintaan),
+                $this->formatDate($row->tanggal_diperlukan),
+                $row->requester_name ?: '-',
+                $this->pretty($row->untuk),
+                trim(($row->tujuan_kode ?: '-') . ' - ' . ($row->tujuan_nama ?: '-'), ' -'),
+                $this->formatGudang($row->dari_gudang),
+                $this->pretty($row->jenis_pekerjaan),
+                (int) $row->jumlah_barang,
+                (float) $row->total_jumlah,
+                $this->pretty($row->status),
+                $row->keterangan ?: '-',
+            ])
+            ->values()
+            ->all();
+
+        return [[
+            'No',
+            'Nomor PB',
+            'Tanggal Permintaan',
+            'Tanggal Diperlukan',
+            'Requester',
+            'Untuk',
+            'Detail Tujuan',
+            'Gudang',
+            'Jenis Pekerjaan',
+            'Jumlah Item',
+            'Total Qty',
+            'Status',
+            'Keterangan',
+        ], $rows, 'Report PB'];
+    }
+
+    private function buildWorkOrderExport(Request $request): array
+    {
+        $rows = $this->baseWorkOrderQuery($request)
+            ->orderByDesc('wo.created_at')
+            ->orderByDesc('wo.id')
+            ->get()
+            ->map(function ($row, $index) {
+                $formatted = $this->formatWorkOrderRow($row);
+
+                return [
+                    $index + 1,
+                    $formatted['nomor'],
+                    $formatted['judul'],
+                    $formatted['deskripsi'],
+                    $formatted['created_by'],
+                    $formatted['tanggal_dibuat'],
+                    $formatted['status_label'],
+                    $formatted['progress_label'],
+                    $formatted['submitted_at'],
+                    $formatted['approved_at'],
+                    $formatted['closed_at'],
+                    $formatted['lead_time'],
+                    $formatted['rejection_notes'],
+                ];
+            })
+            ->values()
+            ->all();
+
+        return [[
+            'No',
+            'Nomor WO',
+            'Judul',
+            'Deskripsi',
+            'Dibuat Oleh',
+            'Tanggal Dibuat',
+            'Status Approval',
+            'Progress',
+            'Submitted At',
+            'Approved At',
+            'Closed At',
+            'Lead Time',
+            'Catatan Reject',
+        ], $rows, 'Report WO'];
+    }
+
+    private function buildOverviewExport(Request $request): array
+    {
+        $summary = $this->buildSummary($request);
+        $overview = $this->getOverviewData($request)['data'];
+
+        $rows = [
+            [1, 'PB Total', $summary['pb_total'], 'Permintaan barang'],
+            [2, 'PB Pending', $summary['pb_pending'], 'Menunggu approval'],
+            [3, 'PB Approved', $summary['pb_approved'], 'Disetujui'],
+            [4, 'PB Rejected', $summary['pb_rejected'], 'Ditolak'],
+            [5, 'PB Item Detail', $summary['pb_items'], 'Jumlah baris barang'],
+            [6, 'PB Total Qty', $summary['pb_qty'], 'Total kuantitas barang'],
+            [7, 'WO Total', $summary['wo_total'], 'Work order'],
+            [8, 'WO Draft', $summary['wo_draft'], 'Belum submit'],
+            [9, 'WO Submitted', $summary['wo_submitted'], 'Menunggu approval'],
+            [10, 'WO Approved', $summary['wo_approved'], 'Disetujui'],
+            [11, 'WO Progress', $summary['wo_progress'], 'Sedang dikerjakan'],
+            [12, 'WO Closed', $summary['wo_closed'], 'Selesai/closed'],
+        ];
+
+        $counter = count($rows) + 1;
+
+        foreach ($overview['pb_status'] as $row) {
+            $rows[] = [$counter++, 'PB Status - ' . $row['label'], $row['total'], 'Breakdown status PB'];
+        }
+
+        foreach ($overview['wo_status'] as $row) {
+            $rows[] = [$counter++, 'WO Status - ' . $row['label'], $row['total'], 'Breakdown status WO'];
+        }
+
+        return [[
+            'No',
+            'Metric',
+            'Total',
+            'Keterangan',
+        ], $rows, 'Overview'];
+    }
+
+    private function formatDate($value): string
+    {
+        if (!$value) {
+            return '-';
+        }
+
+        try {
+            return Carbon::parse($value)->format('d/m/Y');
+        } catch (\Throwable $e) {
+            return (string) $value;
+        }
+    }
+
+    private function formatDateTime($value): string
+    {
+        if (!$value) {
+            return '-';
+        }
+
+        try {
+            return Carbon::parse($value)->format('d/m/Y H:i');
+        } catch (\Throwable $e) {
+            return (string) $value;
+        }
+    }
+
+    private function calculateLeadTime($start, $end): string
+    {
+        if (!$start || !$end) {
+            return '-';
+        }
+
+        try {
+            $startDate = Carbon::parse($start);
+            $endDate = Carbon::parse($end);
+            $hours = round($startDate->diffInMinutes($endDate) / 60, 2);
+
+            return $hours . ' jam';
+        } catch (\Throwable $e) {
+            return '-';
+        }
+    }
+
+    private function pretty($value): string
+    {
+        if ($value === null || $value === '') {
+            return '-';
+        }
+
+        return ucwords(str_replace('_', ' ', strtolower((string) $value)));
+    }
+
+    private function formatGudang($value): string
+    {
+        if (!$value) {
+            return '-';
+        }
+
+        $value = (string) $value;
+
+        if ($value === 'gudang_11') {
+            return 'Gudang 11 (Spareparts & Packaging)';
+        }
+
+        return $value;
+    }
+
+    private function createSimpleXlsx(string $path, string $sheetName, array $headers, array $rows): void
+    {
+        if (!class_exists(ZipArchive::class)) {
+            throw new \RuntimeException('PHP ZipArchive/php-zip belum aktif di server.');
+        }
+
+        $sheetName = $this->sanitizeSheetName($sheetName);
+        $allRows = array_merge([$headers], $rows);
+
+        $zip = new ZipArchive();
+
+        if ($zip->open($path, ZipArchive::CREATE | ZipArchive::OVERWRITE) !== true) {
+            throw new \RuntimeException('Gagal membuat file XLSX.');
+        }
+
+        $zip->addFromString('[Content_Types].xml', $this->xlsxContentTypes());
+        $zip->addFromString('_rels/.rels', $this->xlsxRootRels());
+        $zip->addFromString('xl/workbook.xml', $this->xlsxWorkbook($sheetName));
+        $zip->addFromString('xl/_rels/workbook.xml.rels', $this->xlsxWorkbookRels());
+        $zip->addFromString('xl/styles.xml', $this->xlsxStyles());
+        $zip->addFromString('xl/worksheets/sheet1.xml', $this->xlsxWorksheet($allRows));
+        $zip->close();
+    }
+
+    private function sanitizeSheetName(string $name): string
+    {
+        $name = str_replace(['\\', '/', '?', '*', '[', ']', ':'], ' ', $name);
+        $name = trim($name);
+
+        return mb_substr($name ?: 'Report', 0, 31);
+    }
+
+    private function xlsxWorksheet(array $rows): string
+    {
+        $maxColumns = 1;
+
+        foreach ($rows as $row) {
+            $maxColumns = max($maxColumns, count($row));
+        }
+
+        $cols = '';
+
+        for ($i = 1; $i <= $maxColumns; $i++) {
+            $width = $i === 1 ? 8 : 22;
+            $cols .= '<col min="' . $i . '" max="' . $i . '" width="' . $width . '" customWidth="1"/>';
+        }
+
+        $sheetData = '';
+
+        foreach ($rows as $rowIndex => $row) {
+            $excelRow = $rowIndex + 1;
+            $height = $excelRow === 1 ? ' ht="22" customHeight="1"' : '';
+            $sheetData .= '<row r="' . $excelRow . '"' . $height . '>';
+
+            foreach ($row as $colIndex => $value) {
+                $cellRef = $this->excelColumn($colIndex + 1) . $excelRow;
+                $isHeader = $excelRow === 1;
+
+                if (is_int($value) || is_float($value)) {
+                    $style = $isHeader ? 1 : (is_int($value) ? 2 : 3);
+                    $sheetData .= '<c r="' . $cellRef . '" s="' . $style . '"><v>' . $this->xmlNumber($value) . '</v></c>';
+                } else {
+                    $style = $isHeader ? 1 : 0;
+                    $sheetData .= '<c r="' . $cellRef . '" s="' . $style . '" t="inlineStr"><is><t>' . $this->xml((string) $value) . '</t></is></c>';
+                }
+            }
+
+            $sheetData .= '</row>';
+        }
+
+        $lastCol = $this->excelColumn($maxColumns);
+        $lastRow = max(1, count($rows));
+
+        return '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+            . '<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" '
+            . 'xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">'
+            . '<sheetViews><sheetView workbookViewId="0"><pane ySplit="1" topLeftCell="A2" activePane="bottomLeft" state="frozen"/></sheetView></sheetViews>'
+            . '<cols>' . $cols . '</cols>'
+            . '<sheetData>' . $sheetData . '</sheetData>'
+            . '<autoFilter ref="A1:' . $lastCol . $lastRow . '"/>'
+            . '</worksheet>';
+    }
+
+    private function xml(string $value): string
+    {
+        return htmlspecialchars($value, ENT_XML1 | ENT_COMPAT, 'UTF-8');
+    }
+
+    private function xmlNumber($value): string
+    {
+        return rtrim(rtrim(number_format((float) $value, 6, '.', ''), '0'), '.');
+    }
+
+    private function excelColumn(int $index): string
+    {
+        $column = '';
+
+        while ($index > 0) {
+            $index--;
+            $column = chr(65 + ($index % 26)) . $column;
+            $index = intdiv($index, 26);
+        }
+
+        return $column;
+    }
+
+    private function xlsxContentTypes(): string
+    {
+        return '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+            . '<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">'
+            . '<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>'
+            . '<Default Extension="xml" ContentType="application/xml"/>'
+            . '<Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>'
+            . '<Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>'
+            . '<Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/>'
+            . '</Types>';
+    }
+
+    private function xlsxRootRels(): string
+    {
+        return '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+            . '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
+            . '<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/>'
+            . '</Relationships>';
+    }
+
+    private function xlsxWorkbook(string $sheetName): string
+    {
+        return '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+            . '<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" '
+            . 'xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">'
+            . '<sheets><sheet name="' . $this->xml($sheetName) . '" sheetId="1" r:id="rId1"/></sheets>'
+            . '</workbook>';
+    }
+
+    private function xlsxWorkbookRels(): string
+    {
+        return '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+            . '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
+            . '<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/>'
+            . '<Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/>'
+            . '</Relationships>';
+    }
+
+    private function xlsxStyles(): string
+    {
+        return '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+            . '<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">'
+            . '<fonts count="2">'
+            . '<font><sz val="11"/><name val="Calibri"/></font>'
+            . '<font><b/><sz val="11"/><color rgb="FFFFFFFF"/><name val="Calibri"/></font>'
+            . '</fonts>'
+            . '<fills count="2">'
+            . '<fill><patternFill patternType="none"/></fill>'
+            . '<fill><patternFill patternType="solid"><fgColor rgb="FF1F4E79"/><bgColor indexed="64"/></patternFill></fill>'
+            . '</fills>'
+            . '<borders count="2">'
+            . '<border><left/><right/><top/><bottom/><diagonal/></border>'
+            . '<border><left style="thin"><color rgb="FFD9E2F3"/></left><right style="thin"><color rgb="FFD9E2F3"/></right><top style="thin"><color rgb="FFD9E2F3"/></top><bottom style="thin"><color rgb="FFD9E2F3"/></bottom><diagonal/></border>'
+            . '</borders>'
+            . '<cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>'
+            . '<cellXfs count="4">'
+            . '<xf numFmtId="0" fontId="0" fillId="0" borderId="1" xfId="0" applyBorder="1"/>'
+            . '<xf numFmtId="0" fontId="1" fillId="1" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf>'
+            . '<xf numFmtId="1" fontId="0" fillId="0" borderId="1" xfId="0" applyNumberFormat="1" applyBorder="1"/>'
+            . '<xf numFmtId="2" fontId="0" fillId="0" borderId="1" xfId="0" applyNumberFormat="1" applyBorder="1"/>'
+            . '</cellXfs>'
+            . '<cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles>'
+            . '</styleSheet>';
+    }
+}

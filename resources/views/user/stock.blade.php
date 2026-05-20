@@ -192,7 +192,7 @@
 </div>
 
 <!-- Summary Cards -->
-<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 mb-6">
+<div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-6 gap-4 mb-6">
     <div class="summary-card stat-card">
         <div class="label">Total Item</div>
         <div class="value text-gray-800" id="totalItems">0</div>
@@ -212,9 +212,15 @@
     </div>
     
     <div class="summary-card stat-card">
+        <div class="label">Stok Aman</div>
+        <div class="value text-emerald-600" id="safeStock">0</div>
+        <div class="text-xs text-gray-500 mt-1">Stok di atas minimum</div>
+    </div>
+    
+    <div class="summary-card stat-card">
         <div class="label">Stok Menipis</div>
         <div class="value text-orange-500" id="lowStock">0</div>
-        <div class="text-xs text-gray-500 mt-1">Di bawah minimum</div>
+        <div class="text-xs text-gray-500 mt-1">Stok 1 sampai 5</div>
     </div>
     
     <div class="summary-card stat-card">
@@ -244,13 +250,7 @@
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path>
                 </svg>
-                Export
-            </button>
-            <button onclick="openStockOpname()" class="px-3 py-1.5 text-xs bg-blue-600 text-white rounded hover:bg-blue-700 flex items-center gap-1">
-                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"></path>
-                </svg>
-                Stock Opname
+                Export XLSX
             </button>
         </div>
     </div>
@@ -318,7 +318,7 @@
                         <th></th>
                         <th></th>
                         <th></th>
-                        <th><select class="col-filter" data-key="status"><option value="">All</option></select></th>
+                        <th></th>
                         <th></th>
                         <th></th>
                         <th></th>
@@ -378,57 +378,6 @@
     </div>
 </div>
 
-<!-- Modal Stock Opname -->
-<div id="stockOpnameModal" class="fixed inset-0 modal hidden items-center justify-center z-50">
-    <div class="bg-white rounded-xl w-full max-w-4xl p-6 relative fade-in max-h-[80vh] overflow-y-auto">
-        <h2 class="text-lg font-semibold mb-4">Stock Opname</h2>
-        
-        <div class="mb-4 grid grid-cols-2 gap-4">
-            <div>
-                <label class="block text-sm font-medium mb-1">Pilih Lokasi</label>
-                <select id="opnameLocation" class="border rounded w-full px-3 py-2">
-                    <option value="">-- Pilih Gudang --</option>
-                    @foreach($locations ?? [] as $loc)
-                        <option value="{{ $loc->kode_gudang }}">{{ $loc->kode_gudang }}</option>
-                    @endforeach
-                </select>
-            </div>
-            <div>
-                <label class="block text-sm font-medium mb-1">Cari Sparepart</label>
-                <input type="text" id="opnameSearch" class="border rounded w-full px-3 py-2" placeholder="Ketik kode atau nama sparepart...">
-            </div>
-        </div>
-        
-        <div class="overflow-x-auto max-h-96">
-            <table class="min-w-full text-sm border">
-                <thead class="bg-gray-50 sticky top-0">
-                    <tr>
-                        <th class="p-2 text-left">Kode</th>
-                        <th class="p-2 text-left">Nama</th>
-                        <th class="p-2 text-center">Stok Sistem</th>
-                        <th class="p-2 text-center">Stok Fisik</th>
-                        <th class="p-2 text-center">Selisih</th>
-                    </tr>
-                </thead>
-                <tbody id="opnameBody">
-                    <tr>
-                        <td colspan="5" class="text-center py-4 text-gray-500">
-                            Pilih lokasi untuk memuat data
-                        </td>
-                    </tr>
-                </tbody>
-            </table>
-        </div>
-        
-        <div class="flex justify-end gap-2 mt-6">
-            <button onclick="closeStockOpname()" class="px-4 py-2 rounded bg-gray-200 hover:bg-gray-300">Batal</button>
-            <button onclick="saveStockOpname()" class="px-4 py-2 rounded bg-blue-600 text-white hover:bg-blue-700">Simpan Opname</button>
-        </div>
-        
-        <button onclick="closeStockOpname()" class="absolute top-2 right-2 text-gray-400 hover:text-gray-600 font-bold text-xl">?</button>
-    </div>
-</div>
-
 <!-- Modal Detail Sparepart -->
 <div id="detailModal" class="fixed inset-0 modal hidden items-center justify-center z-50">
     <div class="bg-white rounded-xl w-full max-w-3xl p-6 relative fade-in">
@@ -453,16 +402,16 @@
             </div>
         </div>
         
-        <h3 class="font-semibold text-sm mb-2">Histori Mutasi (30 hari terakhir)</h3>
+        <h3 class="font-semibold text-sm mb-2">Histori Transaksi (30 hari terakhir)</h3>
         <div class="overflow-x-auto max-h-60">
             <table class="min-w-full text-sm border">
                 <thead class="bg-gray-50 sticky top-0">
                     <tr>
                         <th class="p-2 text-left">Tanggal</th>
+                        <th class="p-2 text-left">No. Transaksi</th>
                         <th class="p-2 text-left">Tipe</th>
                         <th class="p-2 text-right">Qty</th>
-                        <th class="p-2 text-left">Lokasi</th>
-                        <th class="p-2 text-left">Keterangan</th>
+                        <th class="p-2 text-left">Satuan</th>
                     </tr>
                 </thead>
                 <tbody id="detailHistory">
@@ -477,7 +426,12 @@
             <button onclick="closeDetailModal()" class="px-4 py-2 bg-gray-200 rounded hover:bg-gray-300">Tutup</button>
         </div>
         
-        <button onclick="closeDetailModal()" class="absolute top-2 right-2 text-gray-400 hover:text-gray-600 font-bold text-xl">?</button>
+        <button type="button" onclick="closeDetailModal()" aria-label="Tutup modal detail sparepart" title="Tutup"
+            class="absolute top-3 right-3 inline-flex h-8 w-8 items-center justify-center rounded-full bg-white text-gray-400 shadow-sm ring-1 ring-gray-200 transition hover:bg-gray-50 hover:text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500">
+            <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M6 6l12 12M18 6L6 18" />
+            </svg>
+        </button>
     </div>
 </div>
 
@@ -533,16 +487,6 @@ function initEventListeners() {
             currentPage = 1;
             loadStockData();
         });
-    });
-    
-    // Opname search
-    document.getElementById('opnameSearch').addEventListener('input', debounce(function() {
-        filterOpnameItems();
-    }, 300));
-    
-    // Opname location change
-    document.getElementById('opnameLocation').addEventListener('change', function() {
-        loadOpnameItems(this.value);
     });
 }
 
@@ -669,11 +613,6 @@ function renderStockTable() {
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
                         </svg>
                     </button>
-                    <button onclick='openStockOpname("${item.code}")' class="text-green-600 hover:text-green-800 mx-1" title="Opname">
-                        <svg class="w-4 h-4 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"></path>
-                        </svg>
-                    </button>
                  </td>`;
         html += '</tr>';
     });
@@ -688,6 +627,7 @@ function updateSummaryCards(summary) {
     document.getElementById('totalItems').textContent = formatNumber(summary.total_items || 0);
     document.getElementById('totalStock').textContent = formatDecimal(summary.total_stock || 0);
     document.getElementById('totalValue').textContent = formatRupiah(summary.total_value || 0);
+    document.getElementById('safeStock').textContent = formatNumber(summary.safe_stock || 0);
     document.getElementById('lowStock').textContent = formatNumber(summary.low_stock || 0);
     document.getElementById('outOfStock').textContent = formatNumber(summary.out_of_stock || 0);
 }
@@ -763,11 +703,6 @@ function renderStockTable() {
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
                         </svg>
                     </button>
-                    <button onclick='openStockOpname("${item.code}")' class="text-green-600 hover:text-green-800 mx-1" title="Opname">
-                        <svg class="w-4 h-4 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"></path>
-                        </svg>
-                    </button>
                  </td>`;
         html += '</tr>';
     });
@@ -809,10 +744,8 @@ function populateColumnFilters() {
     if (!filteredData || filteredData.length === 0) return;
     
     const unitOptions = [...new Set(filteredData.map(item => item.unit).filter(Boolean))];
-    const statusOptions = [...new Set(filteredData.map(item => item.status).filter(Boolean))];
     
     populateSelect('select[data-key="unit"]', unitOptions);
-    populateSelect('select[data-key="status"]', statusOptions);
 }
 
 function populateSelect(selector, options) {
@@ -906,204 +839,121 @@ function showMovementError(message) {
     `;
 }
 
-// Stock opname functions
-function openStockOpname(code = '') {
-    document.getElementById('stockOpnameModal').classList.remove('hidden');
-    document.getElementById('stockOpnameModal').classList.add('flex');
-    
-    if (code) {
-        document.getElementById('opnameSearch').value = code;
-    }
-}
+// Detail modal
+function showDetail(item) {
+    const detailModal = document.getElementById('detailModal');
+    const itemCode = String(item?.code || '').trim();
 
-function closeStockOpname() {
-    document.getElementById('stockOpnameModal').classList.add('hidden');
-    document.getElementById('stockOpnameModal').classList.remove('flex');
-}
-
-function loadOpnameItems(location) {
-    if (!location) {
-        document.getElementById('opnameBody').innerHTML = `
-            <tr>
-                <td colspan="5" class="text-center py-4 text-gray-500">
-                    Pilih lokasi untuk memuat data
-                </td>
-            </tr>
-        `;
+    if (!itemCode) {
+        alert('Kode sparepart tidak valid.');
         return;
     }
-    
-    document.getElementById('opnameBody').innerHTML = `
-        <tr>
-            <td colspan="5" class="text-center py-4">
-                <div class="spinner"></div>
-                <p class="text-sm text-gray-500 mt-2">Memuat data...</p>
-            </td>
-        </tr>
-    `;
-    
-    // Load items for this location
-    fetch(`/stock/by-location/${location}`)
-        .then(response => response.json())
-        .then(result => {
-            if (result.success && result.data[location]) {
-                renderOpnameItems(result.data[location]);
-            } else {
-                document.getElementById('opnameBody').innerHTML = `
-                    <tr>
-                        <td colspan="5" class="text-center py-4 text-gray-500">
-                            Tidak ada item di lokasi ini
-                        </td>
-                    </tr>
-                `;
+
+    document.getElementById('detailTitle').textContent = 'Detail Sparepart: ' + itemCode;
+    document.getElementById('detailCode').textContent = itemCode;
+    document.getElementById('detailName').textContent = item?.name || '-';
+    document.getElementById('detailUnit').textContent = item?.unit || '-';
+    document.getElementById('detailCategory').textContent = item?.category || '-';
+
+    setDetailHistoryLoading();
+
+    detailModal.classList.remove('hidden');
+    detailModal.classList.add('flex');
+
+    fetch(`/api/stock/history/${encodeURIComponent(itemCode)}`, {
+        method: 'GET',
+        headers: {
+            'Accept': 'application/json',
+            'X-Requested-With': 'XMLHttpRequest'
+        },
+        credentials: 'same-origin'
+    })
+        .then(async response => {
+            const result = await response.json().catch(() => null);
+
+            if (!response.ok || !result || !result.success) {
+                throw new Error(result?.message || `Gagal mengambil histori transaksi (${response.status})`);
             }
+
+            return result;
+        })
+        .then(result => {
+            const master = result.data?.master || null;
+
+            if (master) {
+                document.getElementById('detailTitle').textContent = 'Detail Sparepart: ' + (master.code || itemCode);
+                document.getElementById('detailCode').textContent = master.code || itemCode;
+                document.getElementById('detailName').textContent = master.name || item?.name || '-';
+                document.getElementById('detailUnit').textContent = master.unit || item?.unit || '-';
+                document.getElementById('detailCategory').textContent = master.category || item?.category || '-';
+            }
+
+            renderDetailHistory(result.data?.history || []);
         })
         .catch(error => {
-            console.error('Error:', error);
-            document.getElementById('opnameBody').innerHTML = `
-                <tr>
-                    <td colspan="5" class="text-center py-4 text-red-500">
-                        Gagal memuat data
-                    </td>
-                </tr>
-            `;
+            console.error('Error loading stock transaction history:', error);
+            showDetailHistoryError(error.message || 'Gagal memuat histori transaksi');
         });
 }
 
-function renderOpnameItems(items) {
-    let html = '';
-    items.forEach(item => {
-        html += '<tr>';
-        html += `<td class="p-2 font-mono text-xs">${item.kode_material}</td>`;
-        html += `<td class="p-2">${item.nama_material}</td>`;
-        html += `<td class="p-2 text-center"><span class="system-stock" data-code="${item.kode_material}">${item.stok}</span></td>`;
-        html += `<td class="p-2"><input type="number" class="physical-stock w-20 border rounded px-2 py-1 text-center" data-code="${item.kode_material}" value="${item.stok}" onchange="calculateDifference('${item.kode_material}')"></td>`;
-        html += `<td class="p-2 text-center"><span class="difference" data-code="${item.kode_material}">0</span></td>`;
-        html += '</tr>';
-    });
-    
-    document.getElementById('opnameBody').innerHTML = html;
+function setDetailHistoryLoading() {
+    const historyBody = document.getElementById('detailHistory');
+
+    historyBody.innerHTML = `
+        <tr>
+            <td colspan="5" class="text-center py-6 text-gray-500">
+                <div class="spinner mx-auto mb-2"></div>
+                <p class="text-sm">Memuat histori transaksi 30 hari terakhir...</p>
+            </td>
+        </tr>
+    `;
 }
 
-function filterOpnameItems() {
-    const search = document.getElementById('opnameSearch').value.toLowerCase();
-    const rows = document.querySelectorAll('#opnameBody tr');
-    
-    rows.forEach(row => {
-        const text = row.textContent.toLowerCase();
-        if (text.includes(search) || search === '') {
-            row.style.display = '';
-        } else {
-            row.style.display = 'none';
-        }
-    });
-}
+function showDetailHistoryError(message) {
+    const historyBody = document.getElementById('detailHistory');
 
-function calculateDifference(code) {
-    const systemStock = parseFloat(document.querySelector(`.system-stock[data-code="${code}"]`).textContent);
-    const physicalStock = parseFloat(document.querySelector(`.physical-stock[data-code="${code}"]`).value);
-    const difference = physicalStock - systemStock;
-    
-    document.querySelector(`.difference[data-code="${code}"]`).textContent = difference;
-}
-
-function saveStockOpname() {
-    const location = document.getElementById('opnameLocation').value;
-    
-    if (!location) {
-        alert('Pilih lokasi terlebih dahulu');
-        return;
-    }
-    
-    const items = [];
-    document.querySelectorAll('#opnameBody tr').forEach(row => {
-        const code = row.querySelector('.system-stock')?.dataset.code;
-        const systemStock = parseFloat(row.querySelector('.system-stock')?.textContent || 0);
-        const physicalInput = row.querySelector('.physical-stock');
-        
-        if (code && physicalInput) {
-            const physicalStock = parseFloat(physicalInput.value) || 0;
-            const difference = physicalStock - systemStock;
-            
-            items.push({
-                material_id: code,
-                system_stock: systemStock,
-                physical_stock: physicalStock,
-                difference: difference
-            });
-        }
-    });
-    
-    fetch('/stock/opname', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-            'X-CSRF-TOKEN': '{{ csrf_token() }}'
-        },
-        body: JSON.stringify({
-            location: location,
-            items: items,
-            notes: 'Stock opname ' + new Date().toLocaleDateString()
-        })
-    })
-    .then(response => response.json())
-    .then(result => {
-        if (result.success) {
-            alert('Stock opname berhasil disimpan!');
-            closeStockOpname();
-            loadStockData(); // Refresh data
-        } else {
-            alert('Gagal: ' + result.message);
-        }
-    })
-    .catch(error => {
-        console.error('Error:', error);
-        alert('Gagal menyimpan stock opname');
-    });
-}
-
-// Detail modal
-function showDetail(item) {
-    document.getElementById('detailTitle').textContent = 'Detail Sparepart: ' + item.code;
-    document.getElementById('detailCode').textContent = item.code;
-    document.getElementById('detailName').textContent = item.name;
-    document.getElementById('detailUnit').textContent = item.unit;
-    document.getElementById('detailCategory').textContent = item.category || '-';
-    
-    // Load history
-    fetch(`/stock/history/${item.code}`)
-        .then(response => response.json())
-        .then(result => {
-            if (result.success) {
-                renderDetailHistory(result.data.history);
-            }
-        })
-        .catch(error => console.error('Error loading history:', error));
-    
-    document.getElementById('detailModal').classList.remove('hidden');
-    document.getElementById('detailModal').classList.add('flex');
+    historyBody.innerHTML = `
+        <tr>
+            <td colspan="5" class="text-center py-6 text-red-500">
+                <p class="font-medium">Gagal memuat histori transaksi</p>
+                <p class="text-xs mt-1 text-red-400">${escapeHtml(message)}</p>
+            </td>
+        </tr>
+    `;
 }
 
 function renderDetailHistory(history) {
     const historyBody = document.getElementById('detailHistory');
-    
-    if (!history || history.length === 0) {
-        historyBody.innerHTML = '<tr><td colspan="5" class="text-center py-4 text-gray-500">Tidak ada histori mutasi</td></tr>';
+
+    if (!Array.isArray(history) || history.length === 0) {
+        historyBody.innerHTML = '<tr><td colspan="5" class="text-center py-6 text-gray-500">Tidak ada histori transaksi 30 hari terakhir</td></tr>';
         return;
     }
-    
+
     let html = '';
+
     history.forEach(item => {
-        html += '<tr>';
-        html += `<td class="p-2">${item.tanggal}</td>`;
-        html += `<td class="p-2"><span class="badge badge-${item.tipe_badge}">${item.tipe}</span></td>`;
-        html += `<td class="p-2 text-right">${item.qty}</td>`;
-        html += `<td class="p-2">${item.lokasi}</td>`;
-        html += `<td class="p-2">${item.keterangan || '-'}</td>`;
+        const badgeType = escapeHtml(item.tipe_badge || 'info');
+
+        html += '<tr class="hover:bg-gray-50">';
+        html += `<td class="p-2 whitespace-nowrap">${escapeHtml(item.tanggal || '-')}</td>`;
+        html += `<td class="p-2 whitespace-nowrap font-medium">${escapeHtml(item.nomor || '-')}</td>`;
+        html += `<td class="p-2"><span class="badge badge-${badgeType}">${escapeHtml(item.tipe || '-')}</span></td>`;
+        html += `<td class="p-2 text-right font-semibold">${formatDecimal(Number(item.qty || 0))}</td>`;
+        html += `<td class="p-2 whitespace-nowrap">${escapeHtml(item.satuan || '-')}</td>`;
         html += '</tr>';
     });
-    
+
     historyBody.innerHTML = html;
+}
+
+function escapeHtml(value) {
+    return String(value ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
 }
 
 function closeDetailModal() {
@@ -1170,6 +1020,13 @@ function exportData() {
         status: document.getElementById('stockStatus').value,
         category: document.getElementById('stockCategory').value
     });
+
+    // Ikutkan column filter supaya file XLSX sesuai data yang sedang difilter di table.
+    Object.entries(filters).forEach(([key, value]) => {
+        if (value) {
+            params.append(`filter_${key}`, value);
+        }
+    });
     
     window.location.href = `/stock/export?${params.toString()}`;
 }
@@ -1193,9 +1050,6 @@ document.querySelectorAll('.tab-btn').forEach(btn => {
 
 // Modal click outside
 window.addEventListener('click', function(e) {
-    if (e.target.id === 'stockOpnameModal') {
-        closeStockOpname();
-    }
     if (e.target.id === 'detailModal') {
         closeDetailModal();
     }

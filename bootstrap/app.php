@@ -17,8 +17,16 @@ return Application::configure(basePath: dirname(__DIR__))
         //
     })*/
     ->withMiddleware(function (Middleware $middleware) {
+        $middleware->web(append: [
+            \App\Http\Middleware\AuditActionMiddleware::class,
+        ]);
+
         $middleware->alias([
             'role' => \App\Http\Middleware\RoleMiddleware::class,
+            'audit.action' => \App\Http\Middleware\AuditActionMiddleware::class,
+        ]);
+        $middleware->appendToGroup('web', [
+            \App\Http\Middleware\AuditActionMiddleware::class,
         ]);
     })
     

@@ -4,26 +4,64 @@
 
 @push('styles')
 <style>
-    /* Tab styling */
+
+    /* Stock Sparepart page pattern */
+    .summary-card {
+        background: #ffffff;
+        border: 1px solid #e5e7eb;
+        border-radius: 0.5rem;
+        padding: 1rem;
+        transition: all 0.2s ease;
+    }
+
+    .summary-card .label {
+        font-size: 0.75rem;
+        color: #6b7280;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+    }
+
+    .summary-card .value {
+        font-size: 1.5rem;
+        line-height: 2rem;
+        font-weight: 600;
+        margin-top: 0.25rem;
+    }
+
+    .summary-card.stat-card {
+        border-left: 4px solid transparent;
+        box-shadow: none;
+        position: static;
+        overflow: visible;
+    }
+
+    .summary-card.stat-card:hover {
+        border-left-color: #3b82f6;
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+        transform: translateY(-2px);
+    }
+
+    .summary-card.stat-card::after {
+        display: none;
+    }
+
+    /* Tab styling - mengikuti pattern Stok Sparepart */
     .tab-btn {
         padding: 0.75rem 1.25rem;
-        font-size: 0.875rem;
-        font-weight: 500;
+        font-size: 0.95rem;
+        font-weight: 600;
         border-bottom: 2px solid transparent;
         color: #6b7280;
-        transition: all 0.2s;
-        margin-right: 0.5rem;
-        border-radius: 0.5rem 0.5rem 0 0;
+        transition: all .2s ease;
     }
     .tab-btn:hover {
         color: #374151;
-        background-color: #f9fafb;
         border-bottom-color: #d1d5db;
     }
     .tab-btn.active {
         color: #2563eb;
         border-bottom-color: #2563eb;
-        background-color: #eff6ff;
+        background: linear-gradient(to bottom, #eff6ff, transparent);
     }
 
     /* Badge styling */
@@ -669,6 +707,46 @@
             font-size: 0.65rem;
         }
     }
+
+    /* Final summary override: keep Work Order score cards visually aligned with Stock Sparepart */
+    .summary-card.stat-card {
+        background: #ffffff !important;
+        border: 1px solid #e5e7eb !important;
+        border-left: 4px solid transparent !important;
+        border-radius: 0.5rem !important;
+        padding: 1rem !important;
+        box-shadow: none !important;
+        position: static !important;
+        overflow: visible !important;
+        transition: all 0.2s ease !important;
+    }
+
+    .summary-card.stat-card:hover {
+        border-left-color: #3b82f6 !important;
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05) !important;
+        transform: translateY(-2px) !important;
+    }
+
+    .summary-card.stat-card::after {
+        display: none !important;
+    }
+
+    .summary-card .label {
+        font-size: 0.75rem !important;
+        color: #6b7280 !important;
+        text-transform: uppercase !important;
+        letter-spacing: 0.05em !important;
+        font-weight: 400 !important;
+    }
+
+    .summary-card .value {
+        font-size: 1.5rem !important;
+        line-height: 2rem !important;
+        font-weight: 600 !important;
+        margin-top: 0.25rem !important;
+        margin-bottom: 0 !important;
+    }
+
 </style>
 @endpush
 
@@ -679,11 +757,11 @@
     window.isApproval = {{ auth()->user()->role === 'approval' ? 'true' : 'false' }};
 </script>
 
-<div class="px-6 py-6">
+
     <!-- Header -->
     <div class="mb-6">
-        <h1 class="text-3xl font-bold text-gray-800">Work Order</h1>
-        <p class="text-sm text-gray-500 mt-1">Manajemen Work Order Engineering</p>
+        <h1 class="text-2xl font-semibold text-gray-800">Work Order</h1>
+        <p class="mt-1 text-sm text-gray-500">Manajemen Work Order Engineering</p>
     </div>
 
     @if(session('error'))
@@ -692,46 +770,50 @@
         </div>
     @endif
 
-    <!-- Summary Cards - SOFT STYLE ala Stok Sparepart -->
-    <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-6">
-        <div class="stat-card total-wo">
-            <div class="stat-value" id="totalWo">{{ $counts['total'] ?? 0 }}</div>
-            <div class="stat-label">Total WO</div>
-            <div class="stat-desc">Semua work order</div>
+    <!-- Summary Cards -->
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4 mb-6">
+        <div class="summary-card stat-card">
+            <div class="label">Total WO</div>
+            <div class="value text-blue-600" id="totalWo">{{ $counts['total'] ?? 0 }}</div>
+            <div class="text-xs text-gray-500 mt-1">Semua work order</div>
         </div>
-        <div class="stat-card draft">
-            <div class="stat-value" id="totalDraft">{{ $counts['draft'] ?? 0 }}</div>
-            <div class="stat-label">Draft</div>
-            <div class="stat-desc">Belum disubmit</div>
+
+        <div class="summary-card stat-card">
+            <div class="label">Draft</div>
+            <div class="value text-gray-800" id="totalDraft">{{ $counts['draft'] ?? 0 }}</div>
+            <div class="text-xs text-gray-500 mt-1">Belum disubmit</div>
         </div>
-        <div class="stat-card submitted">
-            <div class="stat-value" id="totalSubmitted">{{ $counts['submitted'] ?? 0 }}</div>
-            <div class="stat-label">Submitted</div>
-            <div class="stat-desc">Menunggu approval</div>
+
+        <div class="summary-card stat-card">
+            <div class="label">Submitted</div>
+            <div class="value text-purple-600" id="totalSubmitted">{{ $counts['submitted'] ?? 0 }}</div>
+            <div class="text-xs text-gray-500 mt-1">Menunggu approval</div>
         </div>
-        <div class="stat-card approved">
-            <div class="stat-value" id="totalApproved">{{ $counts['approved'] ?? 0 }}</div>
-            <div class="stat-label">Approved</div>
-            <div class="stat-desc">Disetujui</div>
+
+        <div class="summary-card stat-card">
+            <div class="label">Approved</div>
+            <div class="value text-green-600" id="totalApproved">{{ $counts['approved'] ?? 0 }}</div>
+            <div class="text-xs text-gray-500 mt-1">Disetujui</div>
         </div>
-        <div class="stat-card rejected">
-            <div class="stat-value" id="totalRejected">{{ $counts['rejected'] ?? 0 }}</div>
-            <div class="stat-label">Rejected</div>
-            <div class="stat-desc">Ditolak</div>
+
+        <div class="summary-card stat-card">
+            <div class="label">Rejected</div>
+            <div class="value text-red-600" id="totalRejected">{{ $counts['rejected'] ?? 0 }}</div>
+            <div class="text-xs text-gray-500 mt-1">Ditolak</div>
         </div>
-        <div class="stat-card completed">
-            <div class="stat-value" id="totalCompleted">{{ $counts['completed'] ?? 0 }}</div>
-            <div class="stat-label">Completed</div>
-            <div class="stat-desc">Selesai</div>
+
+        <div class="summary-card stat-card">
+            <div class="label">Completed</div>
+            <div class="value text-purple-600" id="totalCompleted">{{ $counts['completed'] ?? 0 }}</div>
+            <div class="text-xs text-gray-500 mt-1">Selesai</div>
         </div>
     </div>
 
     <!-- Main Content -->
-    <div class="bg-white rounded-xl shadow-sm border border-gray-200">
+    <div class="bg-white rounded-xl shadow-sm border p-6">
         <!-- Tab Navigation -->
-        <div class="border-b border-gray-200 px-6 pt-4">
-            <div class="flex justify-between items-center">
-                <div class="flex space-x-2">
+        <div class="mb-4 border-b border-gray-200 flex justify-between items-center">
+            <div class="flex -mb-px text-sm font-medium">
                     <button class="tab-btn active" data-tab="list-wo">
                         <svg class="w-4 h-4 inline mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"></path>
@@ -754,10 +836,9 @@
                     Tambah WO
                 </button>
                 @endif
-            </div>
         </div>
 
-        <div class="p-6">
+        <div>
             {{-- ================= TAB 1: DAFTAR WORK ORDER ================= --}}
             <div id="list-wo" class="tab-content">
                 <!-- Filter Bar -->
@@ -1196,7 +1277,6 @@
             </svg>
         </button>
     </div>
-</div>
 @endsection
 
 @push('scripts')

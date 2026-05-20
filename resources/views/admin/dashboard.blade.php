@@ -1,515 +1,349 @@
 @extends('layouts.admin')
 
+@section('title', 'Dashboard - Engineering Apps')
+
 @section('content')
+@php
+    $statusClass = function ($status) {
+        return match ($status) {
+            'pending', 'submitted', 'draft' => 'bg-yellow-50 text-yellow-700 border-yellow-100',
+            'approved', 'completed', 'closed' => 'bg-green-50 text-green-700 border-green-100',
+            'rejected' => 'bg-red-50 text-red-700 border-red-100',
+            'progress', 'in_progress' => 'bg-blue-50 text-blue-700 border-blue-100',
+            default => 'bg-gray-50 text-gray-700 border-gray-100',
+        };
+    };
 
-{{-- CUSTOM STYLES --}}
-<style>
-    .stat-card {
-        background: white;
-        border: 1px solid #E5E7EB;
-        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
-        transition: all 0.3s ease;
-        border-radius: 12px;
-        overflow: hidden;
-        position: relative;
-    }
-    
-    .dark .stat-card {
-        background: rgba(15, 23, 42, 0.8);
-        border: 1px solid rgba(255, 255, 255, 0.05);
-        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.3);
-    }
-    
-    .stat-card:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 8px 25px rgba(10, 102, 194, 0.15);
-    }
-    
-    .dark .stat-card:hover {
-        box-shadow: 0 8px 25px rgba(0, 0, 0, 0.4);
-    }
-    
-    .stat-card::before {
-        content: '';
-        position: absolute;
-        top: 0;
-        left: 0;
-        width: 4px;
-        height: 100%;
-        background: linear-gradient(to bottom, #0A66C2, #10B981);
-    }
-    
-    .content-card {
-        background: white;
-        border: 1px solid #E5E7EB;
-        border-radius: 16px;
-        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
-        overflow: hidden;
-    }
-    
-    .dark .content-card {
-        background: rgba(15, 23, 42, 0.8);
-        border: 1px solid rgba(255, 255, 255, 0.05);
-        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.3);
-    }
-    
-    .gradient-headline {
-        background: linear-gradient(135deg, #0A66C2 0%, #10B981 100%);
-        -webkit-background-clip: text;
-        -webkit-text-fill-color: transparent;
-        background-clip: text;
-    }
-    
-    .badge-primary {
-        background: linear-gradient(135deg, #0A66C2 0%, #10B981 100%);
-        color: white;
-        padding: 2px 10px;
-        border-radius: 9999px;
-        font-size: 0.75rem;
-        font-weight: 500;
-    }
-    
-    .badge-success {
-        background: linear-gradient(135deg, #10B981 0%, #059669 100%);
-        color: white;
-        padding: 2px 10px;
-        border-radius: 9999px;
-        font-size: 0.75rem;
-        font-weight: 500;
-    }
-    
-    .badge-info {
-        background: linear-gradient(135deg, #3B82F6 0%, #0A66C2 100%);
-        color: white;
-        padding: 2px 10px;
-        border-radius: 9999px;
-        font-size: 0.75rem;
-        font-weight: 500;
-    }
-    
-    .btn-primary {
-        background: linear-gradient(135deg, #0A66C2 0%, #10B981 100%);
-        color: white;
-        transition: all 0.3s ease;
-        border-radius: 8px;
-        font-weight: 500;
-    }
-    
-    .btn-primary:hover {
-        transform: translateY(-1px);
-        box-shadow: 0 8px 25px rgba(10, 102, 194, 0.3);
-    }
-    
-    .table-row-hover:hover {
-        background: linear-gradient(to right, rgba(10, 102, 194, 0.02), rgba(16, 185, 129, 0.02));
-    }
-    
-    .dark .table-row-hover:hover {
-        background: linear-gradient(to right, rgba(10, 102, 194, 0.1), rgba(16, 185, 129, 0.1));
-    }
-    
-    .icon-wrapper {
-        background: linear-gradient(135deg, rgba(10, 102, 194, 0.1), rgba(16, 185, 129, 0.1));
-        border-radius: 10px;
-        padding: 8px;
-    }
-    
-    .dark .icon-wrapper {
-        background: linear-gradient(135deg, rgba(10, 102, 194, 0.2), rgba(16, 185, 129, 0.2));
-    }
-    
-    .status-dot {
-        width: 8px;
-        height: 8px;
-        border-radius: 50%;
-        background: linear-gradient(135deg, #10B981 0%, #059669 100%);
-        box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.2);
-    }
-    
-    .dark .status-dot {
-        box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.4);
-    }
-</style>
+    $formatDate = function ($value) {
+        if (!$value) return '-';
+        try {
+            return \Carbon\Carbon::parse($value)->format('d M Y');
+        } catch (\Throwable $e) {
+            return '-';
+        }
+    };
 
-{{-- PAGE HEADER - UPDATED STYLE --}}
-<div class="mb-8">
-    <div class="flex items-center justify-between mb-4">
+    $formatNumber = fn ($value) => number_format((float) $value, 0, ',', '.');
+@endphp
+
+<div class="space-y-6">
+    {{-- Header --}}
+    <div class="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
         <div>
-            <h1 class="text-3xl font-bold text-gray-800 dark:text-white tracking-tight">
-                Dashboard <span class="gradient-headline">Overview</span>
-            </h1>
-            <p class="text-sm text-gray-600 dark:text-gray-300 mt-2">
-                System summary & administrative metrics
-            </p>
+            <h1 class="text-2xl font-semibold text-gray-900">Dashboard</h1>
+            <p class="mt-1 text-sm text-gray-500">Overview aktivitas Engineering Apps dan pekerjaan operasional.</p>
         </div>
-        <div class="flex items-center space-x-4">
-            <div class="text-xs px-3 py-1 rounded-full bg-gradient-to-r from-primary-50 to-accent-50 dark:from-primary-900/20 dark:to-accent-900/20 text-gray-600 dark:text-gray-300">
-                <i class="fas fa-clock mr-1"></i>
-                Last updated: <span class="font-medium">Just now</span>
-            </div>
-            <button class="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200">
-                <i class="fas fa-sync-alt"></i>
-            </button>
-        </div>
-    </div>
-    <div class="h-1 w-20 bg-gradient-to-r from-primary-500 to-accent-500 rounded-full"></div>
-</div>
 
-{{-- STAT CARDS - UPDATED STYLE --}}
-<div class="grid grid-cols-1 md:grid-cols-4 gap-5 mb-8">
-    {{-- Card 1 --}}
-    <div class="stat-card p-5">
-        <div class="flex items-center justify-between mb-4">
-            <div class="text-sm font-medium text-gray-600 dark:text-gray-300">Total Users</div>
-            <div class="icon-wrapper">
-                <i class="fas fa-users text-primary-600 dark:text-primary-400 text-lg"></i>
-            </div>
-        </div>
-        <div class="text-3xl font-bold text-gray-800 dark:text-white mb-2">�</div>
-        <div class="flex items-center text-xs text-gray-500 dark:text-gray-400">
-            <i class="fas fa-minus mr-1"></i>
-            <span>No change</span>
+        <div class="flex flex-wrap items-center gap-2">
+            <a href="{{ route('transaksi.index') }}"
+               class="inline-flex items-center gap-2 rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-50">
+                <span>Permintaan Barang</span>
+            </a>
+            <a href="{{ route('workorder.index') }}"
+               class="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-blue-700">
+                <span>Work Order</span>
+            </a>
         </div>
     </div>
 
-    {{-- Card 2 --}}
-    <div class="stat-card p-5">
-        <div class="flex items-center justify-between mb-4">
-            <div class="text-sm font-medium text-gray-600 dark:text-gray-300">Administrators</div>
-            <div class="icon-wrapper">
-                <i class="fas fa-user-shield text-primary-600 dark:text-primary-400 text-lg"></i>
-            </div>
+    {{-- Plain metric row, aligned with Stock Sparepart style --}}
+    <div class="grid grid-cols-2 gap-5 md:grid-cols-3 xl:grid-cols-6">
+        <div>
+            <div class="text-sm font-medium text-gray-900">Total PB</div>
+            <div class="mt-1 text-xl font-semibold text-gray-900">{{ $formatNumber($summary['pb_total']) }}</div>
+            <div class="text-xs text-gray-400">Permintaan barang</div>
         </div>
-        <div class="text-3xl font-bold text-gray-800 dark:text-white mb-2">�</div>
-        <div class="flex items-center text-xs text-gray-500 dark:text-gray-400">
-            <i class="fas fa-user-cog mr-1"></i>
-            <span>System administrators</span>
+        <div>
+            <div class="text-sm font-medium text-gray-900">PB Pending</div>
+            <div class="mt-1 text-xl font-semibold text-yellow-600">{{ $formatNumber($summary['pb_pending']) }}</div>
+            <div class="text-xs text-gray-400">Menunggu proses</div>
         </div>
-    </div>
-
-    {{-- Card 3 --}}
-    <div class="stat-card p-5">
-        <div class="flex items-center justify-between mb-4">
-            <div class="text-sm font-medium text-gray-600 dark:text-gray-300">Active Sessions</div>
-            <div class="icon-wrapper">
-                <i class="fas fa-sign-in-alt text-accent-600 dark:text-accent-400 text-lg"></i>
-            </div>
+        <div>
+            <div class="text-sm font-medium text-gray-900">Total WO</div>
+            <div class="mt-1 text-xl font-semibold text-gray-900">{{ $formatNumber($summary['wo_total']) }}</div>
+            <div class="text-xs text-gray-400">Semua work order</div>
         </div>
-        <div class="text-3xl font-bold text-gray-800 dark:text-white mb-2">�</div>
-        <div class="flex items-center text-xs text-gray-500 dark:text-gray-400">
-            <i class="fas fa-circle text-green-500 mr-1" style="font-size: 6px;"></i>
-            <span>Currently active</span>
+        <div>
+            <div class="text-sm font-medium text-gray-900">WO Open</div>
+            <div class="mt-1 text-xl font-semibold text-blue-600">{{ $formatNumber($summary['wo_open_progress']) }}</div>
+            <div class="text-xs text-gray-400">Open / progress</div>
         </div>
-    </div>
-
-    {{-- Card 4 --}}
-    <div class="stat-card p-5">
-        <div class="flex items-center justify-between mb-4">
-            <div class="text-sm font-medium text-gray-600 dark:text-gray-300">System Status</div>
-            <div class="icon-wrapper">
-                <i class="fas fa-check-circle text-green-500 text-lg"></i>
-            </div>
+        <div>
+            <div class="text-sm font-medium text-gray-900">Data Change</div>
+            <div class="mt-1 text-xl font-semibold text-green-600">{{ $formatNumber($summary['audit_today']) }}</div>
+            <div class="text-xs text-gray-400">Aktivitas hari ini</div>
         </div>
-        <div class="flex items-center mb-2">
-            <div class="status-dot mr-2"></div>
-            <div class="text-xl font-bold text-green-600 dark:text-green-400">Operational</div>
-        </div>
-        <div class="badge-success inline-block">
-            All systems normal
+        <div>
+            <div class="text-sm font-medium text-gray-900">Need Attention</div>
+            <div class="mt-1 text-xl font-semibold text-red-600">{{ $formatNumber($health['need_attention']) }}</div>
+            <div class="text-xs text-gray-400">Rejected / high risk</div>
         </div>
     </div>
-</div>
 
-{{-- MAIN GRID - UPDATED STYLE --}}
-<div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+    {{-- Health cards --}}
+    <div class="grid gap-4 xl:grid-cols-3">
+        <div class="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm xl:col-span-2">
+            <div class="flex items-center justify-between border-b border-gray-100 pb-4">
+                <div>
+                    <h2 class="text-lg font-semibold text-gray-900">Operational Health</h2>
+                    <p class="text-sm text-gray-500">Ringkasan status utama PB dan WO.</p>
+                </div>
+                <div class="text-xs text-gray-400">Updated {{ $lastUpdated }}</div>
+            </div>
 
-    {{-- LEFT: ACTIVITY LOG - UPDATED STYLE --}}
-    <div class="lg:col-span-2">
-        <div class="content-card">
-            {{-- Card Header --}}
-            <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50">
-                <div class="flex items-center justify-between">
-                    <div>
-                        <h2 class="text-lg font-semibold text-gray-800 dark:text-white">
-                            Recent Activity
-                        </h2>
-                        <p class="text-sm text-gray-600 dark:text-gray-300 mt-1">Audit log of system activities</p>
+            <div class="mt-5 grid gap-5 md:grid-cols-2">
+                <div class="rounded-xl border border-gray-100 p-4">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <div class="text-sm font-medium text-gray-900">PB Approval Rate</div>
+                            <div class="text-xs text-gray-400">Approved dibanding total PB</div>
+                        </div>
+                        <div class="text-lg font-semibold text-green-600">{{ $health['pb_completion_rate'] }}%</div>
                     </div>
-                    <a href="#" class="text-sm font-medium gradient-text hover:opacity-80 transition-opacity duration-300">
-                        View All <i class="fas fa-arrow-right ml-1"></i>
-                    </a>
+                    <div class="mt-4 h-2 rounded-full bg-gray-100">
+                        <div class="h-2 rounded-full bg-green-500" style="width: {{ min($health['pb_completion_rate'], 100) }}%"></div>
+                    </div>
+                </div>
+
+                <div class="rounded-xl border border-gray-100 p-4">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <div class="text-sm font-medium text-gray-900">WO Completion Rate</div>
+                            <div class="text-xs text-gray-400">Completed dibanding total WO</div>
+                        </div>
+                        <div class="text-lg font-semibold text-blue-600">{{ $health['wo_completion_rate'] }}%</div>
+                    </div>
+                    <div class="mt-4 h-2 rounded-full bg-gray-100">
+                        <div class="h-2 rounded-full bg-blue-500" style="width: {{ min($health['wo_completion_rate'], 100) }}%"></div>
+                    </div>
+                </div>
+
+                <div class="rounded-xl border border-gray-100 p-4">
+                    <div class="text-sm font-medium text-gray-900">PB Status</div>
+                    <div class="mt-4 grid grid-cols-3 gap-3 text-sm">
+                        <div>
+                            <div class="font-semibold text-yellow-600">{{ $formatNumber($summary['pb_pending']) }}</div>
+                            <div class="text-xs text-gray-400">Pending</div>
+                        </div>
+                        <div>
+                            <div class="font-semibold text-green-600">{{ $formatNumber($summary['pb_approved']) }}</div>
+                            <div class="text-xs text-gray-400">Approved</div>
+                        </div>
+                        <div>
+                            <div class="font-semibold text-red-600">{{ $formatNumber($summary['pb_rejected']) }}</div>
+                            <div class="text-xs text-gray-400">Rejected</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="rounded-xl border border-gray-100 p-4">
+                    <div class="text-sm font-medium text-gray-900">WO Status</div>
+                    <div class="mt-4 grid grid-cols-3 gap-3 text-sm">
+                        <div>
+                            <div class="font-semibold text-gray-900">{{ $formatNumber($summary['wo_draft']) }}</div>
+                            <div class="text-xs text-gray-400">Draft</div>
+                        </div>
+                        <div>
+                            <div class="font-semibold text-yellow-600">{{ $formatNumber($summary['wo_submitted']) }}</div>
+                            <div class="text-xs text-gray-400">Submitted</div>
+                        </div>
+                        <div>
+                            <div class="font-semibold text-green-600">{{ $formatNumber($summary['wo_completed']) }}</div>
+                            <div class="text-xs text-gray-400">Completed</div>
+                        </div>
+                    </div>
                 </div>
             </div>
+        </div>
 
-            {{-- Table --}}
+        <div class="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
+            <h2 class="text-lg font-semibold text-gray-900">Quick Access</h2>
+            <p class="text-sm text-gray-500">Shortcut modul yang sering dipakai.</p>
+
+            <div class="mt-5 space-y-2">
+                <a href="{{ route('master.index') }}" class="flex items-center justify-between rounded-xl border border-gray-100 px-4 py-3 text-sm transition hover:bg-gray-50">
+                    <span class="font-medium text-gray-800">Master Data</span>
+                    <span class="text-gray-400">→</span>
+                </a>
+                <a href="{{ route('stock.index') }}" class="flex items-center justify-between rounded-xl border border-gray-100 px-4 py-3 text-sm transition hover:bg-gray-50">
+                    <span class="font-medium text-gray-800">Stock Sparepart</span>
+                    <span class="text-gray-400">→</span>
+                </a>
+                <a href="{{ route('transaksi.index') }}" class="flex items-center justify-between rounded-xl border border-gray-100 px-4 py-3 text-sm transition hover:bg-gray-50">
+                    <span class="font-medium text-gray-800">Transaksi PB</span>
+                    <span class="text-gray-400">→</span>
+                </a>
+                <a href="{{ route('workorder.index') }}" class="flex items-center justify-between rounded-xl border border-gray-100 px-4 py-3 text-sm transition hover:bg-gray-50">
+                    <span class="font-medium text-gray-800">Work Order</span>
+                    <span class="text-gray-400">→</span>
+                </a>
+                <a href="{{ url('/admin/logs') }}" class="flex items-center justify-between rounded-xl border border-gray-100 px-4 py-3 text-sm transition hover:bg-gray-50">
+                    <span class="font-medium text-gray-800">Audit Logs</span>
+                    <span class="text-gray-400">→</span>
+                </a>
+            </div>
+        </div>
+    </div>
+
+    {{-- Trend --}}
+    <div class="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
+        <div class="flex items-center justify-between border-b border-gray-100 pb-4">
+            <div>
+                <h2 class="text-lg font-semibold text-gray-900">6 Month Activity Trend</h2>
+                <p class="text-sm text-gray-500">Perbandingan jumlah PB dan WO per bulan.</p>
+            </div>
+        </div>
+
+        <div class="mt-5 grid gap-4 md:grid-cols-6">
+            @foreach($monthlyTrend['items'] as $month)
+                @php
+                    $pbHeight = $monthlyTrend['max'] > 0 ? max(($month['pb'] / $monthlyTrend['max']) * 100, $month['pb'] > 0 ? 8 : 0) : 0;
+                    $woHeight = $monthlyTrend['max'] > 0 ? max(($month['wo'] / $monthlyTrend['max']) * 100, $month['wo'] > 0 ? 8 : 0) : 0;
+                @endphp
+                <div class="rounded-xl border border-gray-100 p-3">
+                    <div class="flex h-28 items-end justify-center gap-2">
+                        <div class="w-5 rounded-t bg-blue-500" style="height: {{ $pbHeight }}%"></div>
+                        <div class="w-5 rounded-t bg-green-500" style="height: {{ $woHeight }}%"></div>
+                    </div>
+                    <div class="mt-3 text-center text-xs font-medium text-gray-700">{{ $month['label'] }}</div>
+                    <div class="mt-1 flex justify-center gap-3 text-[11px] text-gray-400">
+                        <span>PB {{ $formatNumber($month['pb']) }}</span>
+                        <span>WO {{ $formatNumber($month['wo']) }}</span>
+                    </div>
+                </div>
+            @endforeach
+        </div>
+    </div>
+
+    {{-- Recent tables --}}
+    <div class="grid gap-4 xl:grid-cols-2">
+        <div class="rounded-2xl border border-gray-200 bg-white shadow-sm">
+            <div class="flex items-center justify-between border-b border-gray-100 px-5 py-4">
+                <div>
+                    <h2 class="text-lg font-semibold text-gray-900">Recent Permintaan Barang</h2>
+                    <p class="text-sm text-gray-500">PB terbaru dari menu Transaksi.</p>
+                </div>
+                <a href="{{ route('transaksi.index') }}" class="text-sm font-medium text-blue-600 hover:text-blue-700">View all</a>
+            </div>
+
             <div class="overflow-x-auto">
-                <table class="w-full">
-                    <thead class="bg-gray-50 dark:bg-gray-800/50">
-                        <tr class="text-left text-sm font-medium text-gray-600 dark:text-gray-400 border-b border-gray-200 dark:border-gray-700">
-                            <th class="py-3 px-6 font-medium">User</th>
-                            <th class="py-3 px-6 font-medium">Action</th>
-                            <th class="py-3 px-6 font-medium">IP Address</th>
-                            <th class="py-3 px-6 font-medium">Time</th>
+                <table class="min-w-full divide-y divide-gray-100 text-sm">
+                    <thead class="bg-gray-50">
+                        <tr class="text-left text-xs font-semibold uppercase tracking-wide text-gray-500">
+                            <th class="px-5 py-3">No. PB</th>
+                            <th class="px-5 py-3">Requester</th>
+                            <th class="px-5 py-3">Item</th>
+                            <th class="px-5 py-3">Status</th>
                         </tr>
                     </thead>
-                    <tbody class="text-sm text-gray-700 dark:text-gray-300">
-                        <tr class="table-row-hover border-b border-gray-100 dark:border-gray-700">
-                            <td class="py-3 px-6">
-                                <div class="flex items-center">
-                                    <div class="w-8 h-8 rounded-full bg-gradient-to-r from-primary-100 to-accent-100 dark:from-primary-900/30 dark:to-accent-900/30 flex items-center justify-center mr-3">
-                                        <span class="text-sm font-medium gradient-text">A</span>
-                                    </div>
-                                    <div>
-                                        <div class="font-medium text-gray-800 dark:text-white">Admin</div>
-                                        <div class="text-xs text-gray-500 dark:text-gray-400">Administrator</div>
-                                    </div>
-                                </div>
-                            </td>
-                            <td class="py-3 px-6">
-                                <span class="badge-primary">
-                                    <i class="fas fa-sign-in-alt mr-1"></i> Login
-                                </span>
-                            </td>
-                            <td class="py-3 px-6 font-mono text-gray-800 dark:text-gray-300">192.168.1.1</td>
-                            <td class="py-3 px-6">
-                                <div class="flex flex-col">
-                                    <span class="text-gray-800 dark:text-gray-300">Just now</span>
-                                    <span class="text-xs text-gray-500 dark:text-gray-400">10:30:45 AM</span>
-                                </div>
-                            </td>
-                        </tr>
-                        {{-- Additional sample rows --}}
-                        <tr class="table-row-hover border-b border-gray-100 dark:border-gray-700">
-                            <td class="py-3 px-6">
-                                <div class="flex items-center">
-                                    <div class="w-8 h-8 rounded-full bg-gradient-to-r from-primary-100 to-accent-100 dark:from-primary-900/30 dark:to-accent-900/30 flex items-center justify-center mr-3">
-                                        <span class="text-sm font-medium gradient-text">S</span>
-                                    </div>
-                                    <div>
-                                        <div class="font-medium text-gray-800 dark:text-white">System</div>
-                                        <div class="text-xs text-gray-500 dark:text-gray-400">Automated</div>
-                                    </div>
-                                </div>
-                            </td>
-                            <td class="py-3 px-6">
-                                <span class="badge-info">
-                                    <i class="fas fa-sync-alt mr-1"></i> Backup
-                                </span>
-                            </td>
-                            <td class="py-3 px-6 font-mono text-gray-800 dark:text-gray-300">127.0.0.1</td>
-                            <td class="py-3 px-6">
-                                <div class="flex flex-col">
-                                    <span class="text-gray-800 dark:text-gray-300">2 hours ago</span>
-                                    <span class="text-xs text-gray-500 dark:text-gray-400">08:30:00 AM</span>
-                                </div>
-                            </td>
-                        </tr>
-                        <tr class="table-row-hover">
-                            <td class="py-3 px-6">
-                                <div class="flex items-center">
-                                    <div class="w-8 h-8 rounded-full bg-gradient-to-r from-primary-100 to-accent-100 dark:from-primary-900/30 dark:to-accent-900/30 flex items-center justify-center mr-3">
-                                        <span class="text-sm font-medium gradient-text">M</span>
-                                    </div>
-                                    <div>
-                                        <div class="font-medium text-gray-800 dark:text-white">Maintenance</div>
-                                        <div class="text-xs text-gray-500 dark:text-gray-400">Scheduled</div>
-                                    </div>
-                                </div>
-                            </td>
-                            <td class="py-3 px-6">
-                                <span class="badge-success">
-                                    <i class="fas fa-tools mr-1"></i> Update
-                                </span>
-                            </td>
-                            <td class="py-3 px-6 font-mono text-gray-800 dark:text-gray-300">192.168.1.100</td>
-                            <td class="py-3 px-6">
-                                <div class="flex flex-col">
-                                    <span class="text-gray-800 dark:text-gray-300">Yesterday</span>
-                                    <span class="text-xs text-gray-500 dark:text-gray-400">14:30:00 PM</span>
-                                </div>
-                            </td>
-                        </tr>
+                    <tbody class="divide-y divide-gray-100">
+                        @forelse($recentPb as $pb)
+                            <tr class="hover:bg-gray-50">
+                                <td class="px-5 py-4">
+                                    <div class="font-semibold text-gray-900">{{ $pb->nomor_pb }}</div>
+                                    <div class="text-xs text-gray-400">{{ $formatDate($pb->tanggal_permintaan) }}</div>
+                                </td>
+                                <td class="px-5 py-4 text-gray-700">{{ $pb->requester }}</td>
+                                <td class="px-5 py-4">
+                                    <div class="font-medium text-gray-900">{{ $formatNumber($pb->total_item) }}</div>
+                                    <div class="text-xs text-gray-400">Qty {{ number_format((float) $pb->total_qty, 2, ',', '.') }}</div>
+                                </td>
+                                <td class="px-5 py-4">
+                                    <span class="inline-flex rounded-full border px-2 py-1 text-xs font-medium {{ $statusClass($pb->status) }}">
+                                        {{ ucwords(str_replace('_', ' ', $pb->status ?? '-')) }}
+                                    </span>
+                                </td>
+                            </tr>
+                        @empty
+                            <tr>
+                                <td colspan="4" class="px-5 py-10 text-center text-gray-500">Belum ada data PB.</td>
+                            </tr>
+                        @endforelse
                     </tbody>
                 </table>
             </div>
+        </div>
 
-            {{-- Card Footer --}}
-            <div class="px-6 py-3 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50">
-                <div class="flex items-center justify-between text-sm text-gray-500 dark:text-gray-400">
-                    <span>Showing 3 of 124 activities</span>
-                    <div class="flex items-center space-x-2">
-                        <button class="p-1 hover:text-gray-700 dark:hover:text-gray-300">
-                            <i class="fas fa-chevron-left"></i>
-                        </button>
-                        <button class="p-1 hover:text-gray-700 dark:hover:text-gray-300">
-                            <i class="fas fa-chevron-right"></i>
-                        </button>
-                    </div>
+        <div class="rounded-2xl border border-gray-200 bg-white shadow-sm">
+            <div class="flex items-center justify-between border-b border-gray-100 px-5 py-4">
+                <div>
+                    <h2 class="text-lg font-semibold text-gray-900">Recent Work Order</h2>
+                    <p class="text-sm text-gray-500">WO terbaru dan status pengerjaan.</p>
                 </div>
+                <a href="{{ route('workorder.index') }}" class="text-sm font-medium text-blue-600 hover:text-blue-700">View all</a>
+            </div>
+
+            <div class="overflow-x-auto">
+                <table class="min-w-full divide-y divide-gray-100 text-sm">
+                    <thead class="bg-gray-50">
+                        <tr class="text-left text-xs font-semibold uppercase tracking-wide text-gray-500">
+                            <th class="px-5 py-3">Nomor WO</th>
+                            <th class="px-5 py-3">Judul</th>
+                            <th class="px-5 py-3">Creator</th>
+                            <th class="px-5 py-3">Status</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-gray-100">
+                        @forelse($recentWo as $wo)
+                            <tr class="hover:bg-gray-50">
+                                <td class="px-5 py-4">
+                                    <div class="font-semibold text-gray-900">{{ $wo->nomor }}</div>
+                                    <div class="text-xs text-gray-400">{{ $formatDate($wo->created_at) }}</div>
+                                </td>
+                                <td class="max-w-xs px-5 py-4">
+                                    <div class="truncate text-gray-700">{{ $wo->judul }}</div>
+                                    <div class="text-xs text-gray-400">{{ $wo->progress_status ? 'Progress: '.ucwords($wo->progress_status) : 'Progress: -' }}</div>
+                                </td>
+                                <td class="px-5 py-4 text-gray-700">{{ $wo->creator }}</td>
+                                <td class="px-5 py-4">
+                                    <span class="inline-flex rounded-full border px-2 py-1 text-xs font-medium {{ $statusClass($wo->status) }}">
+                                        {{ ucwords(str_replace('_', ' ', $wo->status ?? '-')) }}
+                                    </span>
+                                </td>
+                            </tr>
+                        @empty
+                            <tr>
+                                <td colspan="4" class="px-5 py-10 text-center text-gray-500">Belum ada data WO.</td>
+                            </tr>
+                        @endforelse
+                    </tbody>
+                </table>
             </div>
         </div>
     </div>
 
-    {{-- RIGHT: SYSTEM INFO - UPDATED STYLE --}}
-    <div>
-        <div class="content-card">
-            {{-- Card Header --}}
-            <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50">
-                <h2 class="text-lg font-semibold text-gray-800 dark:text-white">
-                    System Information
-                </h2>
-                <p class="text-sm text-gray-600 dark:text-gray-300 mt-1">Technical details & environment</p>
+    {{-- Audit snapshot --}}
+    <div class="rounded-2xl border border-gray-200 bg-white shadow-sm">
+        <div class="flex items-center justify-between border-b border-gray-100 px-5 py-4">
+            <div>
+                <h2 class="text-lg font-semibold text-gray-900">Latest Audit Activity</h2>
+                <p class="text-sm text-gray-500">Aktivitas terakhir yang tercatat di Audit Logs.</p>
             </div>
+            <a href="{{ url('/admin/logs') }}" class="text-sm font-medium text-blue-600 hover:text-blue-700">Open logs</a>
+        </div>
 
-            {{-- Content --}}
-            <div class="p-6">
-                <div class="space-y-4">
-                    <div class="pb-4 border-b border-gray-100 dark:border-gray-700">
-                        <div class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">
-                            <i class="fas fa-cube mr-1"></i> Application
-                        </div>
-                        <div class="flex items-center">
-                            <i class="fas fa-code text-primary-500 mr-2"></i>
-                            <div class="text-sm font-medium text-gray-800 dark:text-white">Engineering Apps V.1.0</div>
-                        </div>
-                    </div>
-
-                    <div class="pb-4 border-b border-gray-100 dark:border-gray-700">
-                        <div class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">
-                            <i class="fas fa-server mr-1"></i> Environment
-                        </div>
-                        <div class="flex items-center justify-between">
-                            <div class="flex items-center">
-                                <div class="status-dot mr-2"></div>
-                                <span class="text-sm font-medium text-green-600 dark:text-green-400">Local Development</span>
-                            </div>
-                            <span class="text-xs px-2 py-1 bg-green-50 dark:bg-green-900/30 text-green-700 dark:text-green-300 rounded">Active</span>
-                        </div>
-                    </div>
-
-                    <div class="pb-4 border-b border-gray-100 dark:border-gray-700">
-                        <div class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">
-                            <i class="fas fa-tag mr-1"></i> Version
-                        </div>
-                        <div class="flex items-center justify-between">
-                            <div class="flex items-center">
-                                <i class="fas fa-hashtag text-gray-400 dark:text-gray-500 mr-2"></i>
-                                <div class="text-sm font-medium text-gray-800 dark:text-white">v1.0.0</div>
-                            </div>
-                            <span class="badge-primary">
-                                <i class="fas fa-check mr-1"></i> Latest
-                            </span>
-                        </div>
-                    </div>
-
-                    <div class="pb-4 border-b border-gray-100 dark:border-gray-700">
-                        <div class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">
-                            <i class="fas fa-code-branch mr-1"></i> Last Deploy
-                        </div>
-                        <div class="text-sm text-gray-800 dark:text-white mb-1">February 3, 2026</div>
-                        <div class="text-xs text-gray-500 dark:text-gray-400">
-                            <i class="far fa-clock mr-1"></i> 14:30:00 UTC
-                        </div>
-                    </div>
-
+        <div class="divide-y divide-gray-100">
+            @forelse($recentLogs as $log)
+                <div class="flex items-center justify-between gap-4 px-5 py-4">
                     <div>
-                        <div class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">
-                            <i class="fas fa-shield-alt mr-1"></i> Security
+                        <div class="text-sm font-medium text-gray-900">
+                            {{ $log->user_name ?: 'System' }} · {{ ucwords(str_replace('_', ' ', $log->action)) }}
                         </div>
-                        <div class="flex items-center justify-between">
-                            <div class="flex items-center">
-                                <i class="fas fa-lock text-green-500 mr-2"></i>
-                                <div class="text-sm font-medium text-gray-800 dark:text-white">Secure</div>
-                            </div>
-                            <span class="text-xs px-2 py-1 bg-green-50 dark:bg-green-900/30 text-green-700 dark:text-green-300 rounded">
-                                <i class="fas fa-check mr-1"></i> Verified
-                            </span>
+                        <div class="text-xs text-gray-400">
+                            {{ ucwords(str_replace('_', ' ', $log->module)) }} · {{ $log->description ?: '-' }}
                         </div>
                     </div>
+                    <div class="text-right">
+                        <div class="text-xs text-gray-400">{{ $formatDate($log->created_at) }}</div>
+                        <span class="mt-1 inline-flex rounded-full border px-2 py-1 text-xs font-medium {{ $log->risk_level === 'high' ? 'bg-red-50 text-red-700 border-red-100' : ($log->risk_level === 'medium' ? 'bg-yellow-50 text-yellow-700 border-yellow-100' : 'bg-green-50 text-green-700 border-green-100') }}">
+                            {{ ucwords($log->risk_level ?? 'low') }}
+                        </span>
+                    </div>
                 </div>
-
-                {{-- Action Button --}}
-                <div class="mt-6 pt-5 border-t border-gray-200 dark:border-gray-700">
-                    <button class="btn-primary w-full inline-flex items-center justify-center px-4 py-3 font-medium rounded-lg focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 dark:focus:ring-offset-gray-800">
-                        <i class="fas fa-cog mr-2"></i>
-                        System Settings
-                    </button>
-                </div>
-            </div>
-        </div>
-
-        {{-- QUICK ACTIONS CARD --}}
-        <div class="content-card mt-6">
-            <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50">
-                <h2 class="text-lg font-semibold text-gray-800 dark:text-white">
-                    Quick Actions
-                </h2>
-                <p class="text-sm text-gray-600 dark:text-gray-300 mt-1">Frequently used system tools</p>
-            </div>
-            <div class="p-6">
-                <div class="grid grid-cols-2 gap-3">
-                    <a href="#" class="p-3 rounded-lg border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors duration-200 text-center">
-                        <i class="fas fa-user-plus text-primary-500 text-lg mb-2"></i>
-                        <div class="text-sm font-medium text-gray-800 dark:text-white">Add User</div>
-                    </a>
-                    <a href="#" class="p-3 rounded-lg border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors duration-200 text-center">
-                        <i class="fas fa-chart-bar text-accent-500 text-lg mb-2"></i>
-                        <div class="text-sm font-medium text-gray-800 dark:text-white">Reports</div>
-                    </a>
-                    <a href="#" class="p-3 rounded-lg border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors duration-200 text-center">
-                        <i class="fas fa-database text-primary-500 text-lg mb-2"></i>
-                        <div class="text-sm font-medium text-gray-800 dark:text-white">Backup</div>
-                    </a>
-                    <a href="#" class="p-3 rounded-lg border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors duration-200 text-center">
-                        <i class="fas fa-history text-accent-500 text-lg mb-2"></i>
-                        <div class="text-sm font-medium text-gray-800 dark:text-white">Logs</div>
-                    </a>
-                </div>
-            </div>
+            @empty
+                <div class="px-5 py-10 text-center text-gray-500">Belum ada audit activity.</div>
+            @endforelse
         </div>
     </div>
-
 </div>
-
-{{-- FOOTER SPACING --}}
-<div class="mt-8"></div>
-
 @endsection
-
-@push('scripts')
-<script>
-    // Update time dynamically
-    function updateTime() {
-        const now = new Date();
-        const options = { 
-            hour: '2-digit', 
-            minute: '2-digit', 
-            second: '2-digit',
-            hour12: true 
-        };
-        const timeString = now.toLocaleTimeString('en-US', options);
-        
-        // Update all time elements
-        document.querySelectorAll('.last-updated-time').forEach(el => {
-            el.textContent = timeString;
-        });
-    }
-    
-    // Update every minute
-    setInterval(updateTime, 60000);
-    updateTime(); // Initial update
-    
-    // Card hover effects
-    document.addEventListener('DOMContentLoaded', function() {
-        const cards = document.querySelectorAll('.stat-card');
-        cards.forEach(card => {
-            card.addEventListener('mouseenter', function() {
-                this.style.transform = 'translateY(-4px)';
-            });
-            card.addEventListener('mouseleave', function() {
-                this.style.transform = 'translateY(0)';
-            });
-        });
-    });
-</script>
-@endpush

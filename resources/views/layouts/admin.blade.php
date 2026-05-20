@@ -284,151 +284,91 @@
         {{-- Navigation Menu --}}
         <nav class="flex-1 px-4 py-6 space-y-1 overflow-y-auto">
             {{-- ================= DASHBOARD ================= --}}
-            <a href="{{ auth()->user()->role === 'admin' ? '/admin' : '/dashboard' }}"
+            <a href="{{ route('dashboard') }}"
                class="nav-link flex items-center gap-3 px-4 py-3 rounded-lg
                {{ request()->is('admin') || request()->is('dashboard') ? 'active' : '' }}">
                 <i class="fas fa-home w-5 text-center text-gray-300"></i>
                 <span class="sidebar-text">Dashboard</span>
             </a>
-        
-            {{-- ================= USER MENU ================= --}}
-            @if(auth()->user()->role === 'user')
-                <a href="/master"
-                   class="nav-link flex items-center gap-3 px-4 py-3 rounded-lg
-                   {{ request()->is('master*') ? 'active' : '' }}">
-                    <i class="fas fa-clipboard-list w-5 text-center text-gray-300"></i>
-                    <span class="sidebar-text">Data Master</span>
-                </a>   
-                            
-                <a href="/stock"
-                   class="nav-link flex items-center gap-3 px-4 py-3 rounded-lg
-                   {{ request()->is('stock*') ? 'active' : '' }}">
-                    <i class="fas fa-receipt w-5 text-center text-gray-300"></i>
-                    <span class="sidebar-text">Stock Sparepart</span>
-                </a>            
 
-                <a href="/workorder"
-                   class="nav-link flex items-center gap-3 px-4 py-3 rounded-lg
-                   {{ request()->is('workorder*') ? 'active' : '' }}">
-                    <i class="fas fa-receipt w-5 text-center text-gray-300"></i>
-                    <span class="sidebar-text">Work Order (WO)</span>
-                </a>
-                
-                <a href="/transaksi"
-                   class="nav-link flex items-center gap-3 px-4 py-3 rounded-lg
-                   {{ request()->is('transaksi*') ? 'active' : '' }}">
-                    <i class="fas fa-receipt w-5 text-center text-gray-300"></i>
-                    <span class="sidebar-text">Transaksi</span>
-                </a>                    
-            @endif
-            
-            {{-- ================= APPROVAL MENU ================= --}}
-            @if(auth()->user()->role === 'approval')
-                <a href="/master"
-                   class="nav-link flex items-center gap-3 px-4 py-3 rounded-lg
-                   {{ request()->is('master*') ? 'active' : '' }}">
-                    <i class="fas fa-clipboard-list w-5 text-center text-gray-300"></i>
-                    <span class="sidebar-text">Data Master</span>
-                </a>   
-                                    
-                <a href="/stock"
-                   class="nav-link flex items-center gap-3 px-4 py-3 rounded-lg
-                   {{ request()->is('stock*') ? 'active' : '' }}">
-                    <i class="fas fa-receipt w-5 text-center text-gray-300"></i>
-                    <span class="sidebar-text">Stock Sparepart</span>
-                </a>            
+            {{-- ================= OPERASIONAL ================= --}}
+            <div class="px-4 pt-6 pb-2">
+                <div class="text-xs font-medium text-gray-400 uppercase tracking-wider sidebar-text">
+                    Operasional
+                </div>
+            </div>
 
-                <a href="/workorder"
+            <a href="/transaksi"
+               class="nav-link flex items-center gap-3 px-4 py-3 rounded-lg
+               {{ request()->is('transaksi*') || request()->is('approval*') ? 'active' : '' }}">
+                <i class="fas fa-receipt w-5 text-center text-gray-300"></i>
+                <span class="sidebar-text">Permintaan Barang</span>
+            </a>
+
+            <a href="/workorder"
+               class="nav-link flex items-center gap-3 px-4 py-3 rounded-lg
+               {{ request()->is('workorder*') ? 'active' : '' }}">
+                <i class="fas fa-receipt w-5 text-center text-gray-300"></i>
+                <span class="sidebar-text">Work Order (WO)</span>
+            </a>
+
+            {{-- ================= ADMINISTRASI DATA ================= --}}
+            <div class="px-4 pt-6 pb-2">
+                <div class="text-xs font-medium text-gray-400 uppercase tracking-wider sidebar-text">
+                    Administrasi Data
+                </div>
+            </div>
+
+            <a href="/master"
+               class="nav-link flex items-center gap-3 px-4 py-3 rounded-lg
+               {{ request()->is('master*') || request()->is('admin/mesin*') || request()->is('admin/bangunan*') ? 'active' : '' }}">
+                <i class="fas fa-clipboard-list w-5 text-center text-gray-300"></i>
+                <span class="sidebar-text">Data Master</span>
+            </a>
+
+            <a href="/stock"
+               class="nav-link flex items-center gap-3 px-4 py-3 rounded-lg
+               {{ request()->is('stock*') ? 'active' : '' }}">
+                <i class="fas fa-receipt w-5 text-center text-gray-300"></i>
+                <span class="sidebar-text">Stock Sparepart</span>
+            </a>
+
+            {{-- ================= MONITORING ================= --}}
+            @if(in_array(auth()->user()->role, ['admin', 'approval']))
+                <div class="px-4 pt-6 pb-2">
+                    <div class="text-xs font-medium text-gray-400 uppercase tracking-wider sidebar-text">
+                        Monitoring
+                    </div>
+                </div>
+
+                <a href="{{ url('/report') }}"
                    class="nav-link flex items-center gap-3 px-4 py-3 rounded-lg
-                   {{ request()->is('workorder*') ? 'active' : '' }}">
-                    <i class="fas fa-receipt w-5 text-center text-gray-300"></i>
-                    <span class="sidebar-text">Work Order (WO)</span>
+                   {{ request()->is('report*') || request()->is('reports*') || request()->is('reports-analytics*') || request()->is('admin/reports*') ? 'active' : '' }}">
+                    <i class="fas fa-chart-bar w-5 text-center text-gray-300"></i>
+                    <span class="sidebar-text">Reports & Analytics</span>
                 </a>
-                
-                <a href="/transaksi"
+
+                <a href="{{ url('/admin/logs') }}"
                    class="nav-link flex items-center gap-3 px-4 py-3 rounded-lg
-                   {{ request()->is('transaksi*') ? 'active' : '' }}">
-                    <i class="fas fa-receipt w-5 text-center text-gray-300"></i>
-                    <span class="sidebar-text">Transaksi</span>
-                </a>                     
+                   {{ request()->is('admin/logs*') || request()->is('audit-logs*') || request()->is('admin/audit-logs*') ? 'active' : '' }}">
+                    <i class="fas fa-history w-5 text-center text-gray-300"></i>
+                    <span class="sidebar-text">Audit Logs</span>
+                </a>
             @endif
-        
-            {{-- ================= ADMIN MENU ================= --}}
+
+            {{-- ================= ADMIN ================= --}}
             @if(auth()->user()->role === 'admin')
+                <div class="px-4 pt-6 pb-2">
+                    <div class="text-xs font-medium text-gray-400 uppercase tracking-wider sidebar-text">
+                        Admin
+                    </div>
+                </div>
+
                 <a href="/admin/users"
                    class="nav-link flex items-center gap-3 px-4 py-3 rounded-lg
                    {{ request()->is('admin/users*') ? 'active' : '' }}">
                     <i class="fas fa-users-cog w-5 text-center text-gray-300"></i>
                     <span class="sidebar-text">User Management</span>
-                </a>
-        
-                <a href="/admin/reports"
-                   class="nav-link flex items-center gap-3 px-4 py-3 rounded-lg
-                   {{ request()->is('admin/reports*') ? 'active' : '' }}">
-                    <i class="fas fa-chart-bar w-5 text-center text-gray-300"></i>
-                    <span class="sidebar-text">Reports & Analytics</span>
-                </a>
-        
-                <a href="/admin/settings"
-                   class="nav-link flex items-center gap-3 px-4 py-3 rounded-lg
-                   {{ request()->is('admin/settings*') ? 'active' : '' }}">
-                    <i class="fas fa-cogs w-5 text-center text-gray-300"></i>
-                    <span class="sidebar-text">System Settings</span>
-                </a>
-        
-                <div class="px-4 pt-6 pb-2">
-                    <div class="text-xs font-medium text-gray-400 uppercase tracking-wider sidebar-text">
-                        Tools
-                    </div>
-                </div>
-        
-                <a href="/admin/logs"
-                   class="nav-link flex items-center gap-3 px-4 py-3 rounded-lg
-                   {{ request()->is('admin/logs*') ? 'active' : '' }}">
-                    <i class="fas fa-history w-5 text-center text-gray-300"></i>
-                    <span class="sidebar-text">Audit Logs</span>
-                </a>
-                
-                
-                <div class="px-4 pt-6 pb-2">
-                    <div class="text-xs font-medium text-gray-400 uppercase tracking-wider sidebar-text">
-                        Administrasi
-                    </div>
-                </div>
-                
-                <a href="/master"
-                   class="nav-link flex items-center gap-3 px-4 py-3 rounded-lg
-                   {{ request()->is('master*') ? 'active' : '' }}">
-                    <i class="fas fa-clipboard-list w-5 text-center text-gray-300"></i>
-                    <span class="sidebar-text">Data Master</span>
-                </a>                      
-                
-                <a href="/transaksi"
-                   class="nav-link flex items-center gap-3 px-4 py-3 rounded-lg
-                   {{ request()->is('transaksi*') ? 'active' : '' }}">
-                    <i class="fas fa-receipt w-5 text-center text-gray-300"></i>
-                    <span class="sidebar-text">Transaksi</span>
-                </a>
-                
-                <a href="/stock"
-                   class="nav-link flex items-center gap-3 px-4 py-3 rounded-lg
-                   {{ request()->is('stock*') ? 'active' : '' }}">
-                    <i class="fas fa-receipt w-5 text-center text-gray-300"></i>
-                    <span class="sidebar-text">Stock Sparepart</span>
-                </a>
-                
-                <a href="/workorder"
-                   class="nav-link flex items-center gap-3 px-4 py-3 rounded-lg
-                   {{ request()->is('workorder*') ? 'active' : '' }}">
-                    <i class="fas fa-receipt w-5 text-center text-gray-300"></i>
-                    <span class="sidebar-text">Work Order (WO)</span>
-                </a>
-                
-                <a href="/report"
-                   class="nav-link flex items-center gap-3 px-4 py-3 rounded-lg
-                   {{ request()->is('report*') ? 'active' : '' }}">
-                    <i class="fas fa-chart-line w-5 text-center text-gray-300"></i>
-                    <span class="sidebar-text">Report</span>
                 </a>
             @endif
 
@@ -461,7 +401,8 @@
             </a>
         </nav>
 
-        {{-- Sidebar Footer --}}
+
+{{-- Sidebar Footer --}}
         <div class="p-4 border-t border-gray-800">
             <div class="flex items-center space-x-3 mb-3">
                 <div class="user-avatar w-8 h-8 rounded-full flex items-center justify-center">

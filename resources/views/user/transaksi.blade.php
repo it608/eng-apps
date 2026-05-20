@@ -627,7 +627,7 @@
                                     <div class="text-sm text-gray-900 capitalize" x-text="tr.untuk || '-'"></div>
                                 </td>
                                 <td class="py-4 px-6">
-                                    <div class="text-sm text-gray-900" x-text="tr.dari_gudang?.replace(/_/g, ' ').toUpperCase() || '-'"></div>
+                                    <div class="text-sm text-gray-900" x-text="formatGudang(tr.dari_gudang)"></div>
                                 </td>
                                 <td class="py-4 px-6">
                                     <div class="text-sm text-gray-900" x-text="tr.jumlah_barang + ' item'"></div>
@@ -1009,18 +1009,17 @@
                             <div x-show="formData.untuk !== 'mesin' && formData.untuk !== 'bangunan'" class="col-span-2"></div>
                         </div>
 
-                        {{-- DARI GUDANG - PISAH DI BAWAH --}}
-                        <div class="grid grid-cols-1 xl:grid-cols-4 gap-4 form-grid-compact mt-4">
+                        {{-- DARI GUDANG - DIPATENKAN --}}
+                        <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4 form-grid-compact mt-4 items-start">
                             <div>
                                 <label class="block text-xs font-medium text-gray-700 mb-1 compact-label">
                                     Dari Gudang
                                 </label>
-                                <select x-model="formData.dari_gudang" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 text-sm compact-input">
-                                    <option value="">-- Pilih --</option>
-                                    <option value="gudang_11">Gudang 11 (Spare Parts & Packaging)</option>
-                                    <option value="gudang_12">Gudang 12 (Raw Material)</option>
-                                    <option value="gudang_13">Gudang 13 (Finished Goods)</option>
-                                </select>
+                                <input type="hidden" x-model="formData.dari_gudang">
+                                <div class="w-full h-[38px] px-3 border border-gray-300 rounded-md bg-gray-50 text-[12px] leading-tight compact-input flex items-center overflow-hidden"
+                                     :title="fixedGudangLabel">
+                                    <span class="text-gray-900 font-medium truncate" x-text="fixedGudangLabel"></span>
+                                </div>
                             </div>
                             
                             {{-- TANGGAL DIPERLUKAN --}}
@@ -1031,7 +1030,7 @@
                                 <input type="date"
                                        x-model="formData.tanggal_diperlukan"
                                        :min="tanggalHariIni"
-                                       class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 text-sm compact-input">
+                                       class="w-full h-[38px] px-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 text-sm compact-input">
                                 <p class="mt-0.5 text-xs text-gray-500">
                                     Pilih tanggal kapan barang diperlukan
                                 </p>
@@ -1111,12 +1110,15 @@
                                                     <input type="text" 
                                                            x-model="item.nama_barang"
                                                            @input.debounce.300ms="searchBarang($event.target.value, index, $event)"
-                                                           @focus="searchBarang(item.nama_barang, index, $event)"
+                                                           @focus="handleBarangFocus(index, $event)"
                                                            @keydown.down.prevent="navigateSearchResults('down')"
                                                            @keydown.up.prevent="navigateSearchResults('up')"
                                                            @keydown.enter.prevent="selectHighlightedResult(index)"
-                                                           @keydown.escape="searchResults = []; activeSearchIndex = null"
+                                                           @keydown.escape="clearBarangSearchState()"
                                                            placeholder="Ketik minimal 2 karakter..."
+                                                           autocomplete="off"
+                                                           autocapitalize="off"
+                                                           spellcheck="false"
                                                            class="w-full px-3 py-1.5 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent text-sm compact-input">
                                                     
                                                     <button type="button" 
@@ -1195,47 +1197,65 @@
                         </div>
 
                         {{-- BARANG SEARCH DROPDOWN --}}
-                        <div x-show="searchResults.length > 0 && activeSearchIndex !== null" 
-                             x-cloak
-                             :style="'position: absolute; z-index: 9999; top: ' + searchDropdownPosition.top + 'px; left: ' + searchDropdownPosition.left + 'px; width: ' + searchDropdownPosition.width + 'px;'"
-                             class="search-dropdown">
-                            <div class="p-2 border-b bg-gray-50 sticky top-0 flex justify-between items-center">
-                                <div class="text-xs font-medium text-gray-700">
-                                    <span x-text="searchResults.length"></span> hasil ditemukan
+                        <template x-if="shouldRenderBarangDropdown()">
+                            <div :style="getSearchDropdownStyle()"
+                                 class="search-dropdown"
+                                 @mousedown.stop
+                                 @click.stop>
+                                <div class="p-2 border-b bg-gray-50 sticky top-0 flex justify-between items-center">
+                                    <div class="text-xs font-medium text-gray-700">
+                                        <template x-if="searchResults.length > 0">
+                                            <span><span x-text="searchResults.length"></span> hasil ditemukan</span>
+                                        </template>
+                                        <template x-if="searchResults.length === 0 && barangSearchHasRun && !isSearching && hasMinimumBarangSearchLength()">
+                                            <span>Tidak ada hasil</span>
+                                        </template>
+                                        <template x-if="isSearching && hasMinimumBarangSearchLength()">
+                                            <span>Mencari barang...</span>
+                                        </template>
+                                    </div>
+                                    <div x-show="searchResults.length > 0" class="text-xs text-gray-500">
+                                        ↑ ↓ pilih • Enter
+                                    </div>
                                 </div>
-                                <div class="text-xs text-gray-500">
-                                    ?? pilih � ? enter
+
+                                <div x-show="searchResults.length > 0" class="p-1">
+                                    <template x-for="(result, idx) in searchResults" :key="result.id || result.kode || idx">
+                                        <button type="button"
+                                                @mousedown.prevent
+                                                @click="selectBarang(result, activeSearchIndex)"
+                                                @mouseenter="highlightedResult = idx"
+                                                :class="{'bg-blue-50': highlightedResult === idx}"
+                                                class="w-full px-3 py-2 text-left hover:bg-blue-50 border-b border-gray-100 last:border-b-0 transition duration-150 focus:outline-none focus:bg-blue-50 rounded">
+                                            <div class="font-medium text-gray-900 text-sm" x-text="result.nama"></div>
+                                            <div class="flex justify-between items-center mt-0.5">
+                                                <div class="text-xs text-gray-500" x-text="'Kategori: ' + result.kategori"></div>
+                                                <div class="text-xs text-primary-600 font-medium" x-text="'Satuan: ' + result.satuan"></div>
+                                            </div>
+                                            <div x-show="result.kode" class="text-xs text-gray-400 mt-0.5" x-text="'Kode: ' + result.kode"></div>
+                                        </button>
+                                    </template>
+                                </div>
+
+                                <div x-show="isSearching && searchResults.length === 0 && hasMinimumBarangSearchLength()"
+                                     class="p-4 text-center text-gray-500 text-sm">
+                                    Mohon tunggu, sedang mencari barang...
+                                </div>
+
+                                <div x-show="searchResults.length === 0 && barangSearchHasRun && !isSearching && hasMinimumBarangSearchLength()" 
+                                     class="p-4 text-center text-gray-500 text-sm">
+                                    Tidak ditemukan barang dengan kata kunci "<span x-text="barangItems[activeSearchIndex]?.nama_barang" class="font-medium"></span>"
+                                    <div class="mt-2">
+                                        <button type="button" 
+                                                @mousedown.prevent
+                                                @click="addNewBarang(barangItems[activeSearchIndex]?.nama_barang, activeSearchIndex)"
+                                                class="text-xs text-primary-600 hover:text-primary-800 font-medium">
+                                            + Tambah barang baru
+                                        </button>
+                                    </div>
                                 </div>
                             </div>
-                            <div class="p-1">
-                                <template x-for="(result, idx) in searchResults" :key="result.id">
-                                    <button type="button"
-                                            @click="selectBarang(result, activeSearchIndex)"
-                                            @mouseenter="highlightedResult = idx"
-                                            :class="{'bg-blue-50': highlightedResult === idx}"
-                                            class="w-full px-3 py-2 text-left hover:bg-blue-50 border-b border-gray-100 last:border-b-0 transition duration-150 focus:outline-none focus:bg-blue-50 rounded">
-                                        <div class="font-medium text-gray-900 text-sm" x-text="result.nama"></div>
-                                        <div class="flex justify-between items-center mt-0.5">
-                                            <div class="text-xs text-gray-500" x-text="'Kategori: ' + result.kategori"></div>
-                                            <div class="text-xs text-primary-600 font-medium" x-text="'Satuan: ' + result.satuan"></div>
-                                        </div>
-                                        <div x-show="result.kode" class="text-xs text-gray-400 mt-0.5" x-text="'Kode: ' + result.kode"></div>
-                                    </button>
-                                </template>
-                            </div>
-                            
-                            <div x-show="searchResults.length === 0 && !isSearching && barangItems[activeSearchIndex]?.nama_barang?.length >= 2" 
-                                 class="p-4 text-center text-gray-500 text-sm">
-                                Tidak ditemukan barang dengan kata kunci "<span x-text="barangItems[activeSearchIndex]?.nama_barang" class="font-medium"></span>"
-                                <div class="mt-2">
-                                    <button type="button" 
-                                            @click="addNewBarang(barangItems[activeSearchIndex]?.nama_barang, activeSearchIndex)"
-                                            class="text-xs text-primary-600 hover:text-primary-800 font-medium">
-                                        + Tambah barang baru
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
+                        </template>
 
                         {{-- FOOTER NOTE --}}
                         <div class="text-xs text-gray-500 italic flex items-center gap-2">
@@ -1401,7 +1421,7 @@
                             </div>
                             <div>
                                 <p class="text-xs font-medium text-gray-500 uppercase tracking-wider">Dari Gudang</p>
-                                <p class="text-sm font-semibold text-gray-900 mt-0.5" x-text="selectedDetail?.header?.dari_gudang ? selectedDetail.header.dari_gudang.replace(/_/g, ' ').toUpperCase() : '-'"></p>
+                                <p class="text-sm font-semibold text-gray-900 mt-0.5" x-text="selectedDetail?.header ? formatGudang(selectedDetail.header.dari_gudang) : fixedGudangLabel"></p>
                                 <p class="text-xs text-gray-500 mt-0.5">Lokasi pengambilan</p>
                             </div>
                         </div>
@@ -1642,6 +1662,10 @@ function transaksiApp() {
         showCreateModal: false,
         showDetailModal: false,
         selectedDetail: null,
+
+        // ============ FIXED GUDANG ============
+        fixedGudangValue: 'gudang_11',
+        fixedGudangLabel: 'Gudang 11 (Spareparts & Packaging)',
         
         // ============ DATA TRANSAKSI ============
         transaksiData: @json($transaksiData),
@@ -1670,7 +1694,7 @@ function transaksiApp() {
             nomor_pb: '',
             untuk: '',
             untuk_id: '',        // ID untuk mesin atau bangunan
-            dari_gudang: '',
+            dari_gudang: 'gudang_11',
             jenis_pekerjaan: '',
             tanggal_diperlukan: '',
             keterangan: ''
@@ -1695,7 +1719,11 @@ function transaksiApp() {
         isSearching: false,
         activeSearchIndex: null,
         highlightedResult: 0,
-        searchDropdownPosition: { top: 0, left: 0, width: 0 },
+        minBarangSearchLength: 2,
+        barangSearchHasRun: false,
+        lastBarangSearchQuery: '',
+        lastBarangSearchIndex: null,
+        searchDropdownPosition: { top: 0, left: 0, width: 0, maxHeight: 256 },
         
         // ============ SUBMIT STATE ============
         isSubmitting: false,
@@ -1808,6 +1836,7 @@ function transaksiApp() {
 
         // ============ BARANG METHODS ============
         addBarangItem() {
+            this.clearBarangSearchState();
             this.barangItems.push({ 
                 id: null, 
                 nama_barang: '', 
@@ -1818,6 +1847,7 @@ function transaksiApp() {
         },
 
         removeBarangItem(index) {
+            this.clearBarangSearchState();
             if (this.barangItems.length > 1) {
                 this.barangItems.splice(index, 1);
             }
@@ -2145,52 +2175,116 @@ function transaksiApp() {
         },
 
         // ============ SEARCH BARANG METHODS ============
+        handleBarangFocus(index, event) {
+            this.activeSearchIndex = index;
+            this.highlightedResult = 0;
+            this.updateSearchDropdownPosition(event);
+
+            const query = (this.barangItems[index]?.nama_barang || '').trim();
+
+            if (query.length < this.minBarangSearchLength) {
+                this.clearBarangSearchState(false);
+                return;
+            }
+
+            this.searchBarang(query, index, event);
+        },
+
+        clearBarangSearchState(clearActiveIndex = true) {
+            this.searchResults = [];
+            this.isSearching = false;
+            this.barangSearchHasRun = false;
+            this.lastBarangSearchQuery = '';
+            this.lastBarangSearchIndex = null;
+            this.highlightedResult = 0;
+
+            if (clearActiveIndex) {
+                this.activeSearchIndex = null;
+            }
+        },
+
+        getActiveBarangSearchQuery() {
+            if (this.activeSearchIndex === null || this.activeSearchIndex === undefined) {
+                return '';
+            }
+
+            return (this.barangItems[this.activeSearchIndex]?.nama_barang || '').trim();
+        },
+
+        hasMinimumBarangSearchLength() {
+            return this.getActiveBarangSearchQuery().length >= this.minBarangSearchLength;
+        },
+
+        isBarangSearchCurrent(index, query) {
+            return this.activeSearchIndex === index && this.getActiveBarangSearchQuery() === query;
+        },
+
+        shouldRenderBarangDropdown() {
+            if (this.activeSearchIndex === null || this.activeSearchIndex === undefined) {
+                return false;
+            }
+
+            if (!this.hasMinimumBarangSearchLength()) {
+                return false;
+            }
+
+            return this.isSearching || this.searchResults.length > 0 || (this.barangSearchHasRun && !this.isSearching);
+        },
+
+        shouldShowBarangDropdown() {
+            return this.shouldRenderBarangDropdown();
+        },
+
         async searchBarang(query, index, event) {
             this.activeSearchIndex = index;
             this.highlightedResult = 0;
-            
-            if (event && event.target) {
-                const inputRect = event.target.getBoundingClientRect();
-                const modalContent = document.querySelector('.modal-content');
-                const modalRect = modalContent ? modalContent.getBoundingClientRect() : { top: 0, left: 0 };
-                
-                this.searchDropdownPosition = {
-                    top: inputRect.bottom - modalRect.top + 4,
-                    left: inputRect.left - modalRect.left,
-                    width: inputRect.width
-                };
-            }
-            
-            if (!query || query.length < 2) {
-                this.searchResults = [];
-                this.isSearching = false;
+            this.updateSearchDropdownPosition(event);
+
+            const trimmedQuery = (query || '').trim();
+
+            if (trimmedQuery.length < this.minBarangSearchLength) {
+                this.clearBarangSearchState(false);
                 return;
             }
-            
+
             this.isSearching = true;
+            this.barangSearchHasRun = false;
+            this.lastBarangSearchQuery = trimmedQuery;
+            this.lastBarangSearchIndex = index;
+            this.searchResults = [];
             
             try {
-                const response = await fetch(`/api/barang/search?q=${encodeURIComponent(query)}`);
+                const response = await fetch(`/api/barang/search?q=${encodeURIComponent(trimmedQuery)}`);
                 
                 if (!response.ok) {
                     throw new Error('Network response was not ok');
                 }
                 
                 const data = await response.json();
+
+                if (!this.isBarangSearchCurrent(index, trimmedQuery)) {
+                    return;
+                }
                 
                 if (data.error) {
                     console.error('Server error:', data.message);
                     this.searchResults = [];
                 } else {
                     this.searchResults = data.slice(0, 10);
+                    this.updateSearchDropdownPosition(event);
                 }
                 
             } catch (error) {
                 console.error('Search error:', error);
+
+                if (!this.isBarangSearchCurrent(index, trimmedQuery)) {
+                    return;
+                }
+
                 this.searchResults = [];
                 
                 if (window.masterBarang && window.masterBarang.length > 0) {
-                    const searchTerm = query.toLowerCase().trim();
+                    const searchTerm = trimmedQuery.toLowerCase();
                     this.searchResults = window.masterBarang
                         .filter(item => 
                             (item.item_name && item.item_name.toLowerCase().includes(searchTerm)) || 
@@ -2204,10 +2298,61 @@ function transaksiApp() {
                             kategori: item.mtart || 'Sparepart'
                         }))
                         .slice(0, 10);
+                    this.updateSearchDropdownPosition(event);
                 }
             } finally {
                 this.isSearching = false;
+
+                if (this.isBarangSearchCurrent(index, trimmedQuery)) {
+                    this.barangSearchHasRun = true;
+                }
             }
+        },
+
+        calculateSearchDropdownHeight(resultCount = null) {
+            const count = resultCount ?? (this.searchResults?.length || 10);
+            const headerHeight = 42;
+            const itemHeight = 76;
+            const padding = 8;
+
+            return Math.min(256, headerHeight + (Math.max(count, 1) * itemHeight) + padding);
+        },
+
+        updateSearchDropdownPosition(event) {
+            if (!event || !event.target) return;
+
+            const inputRect = event.target.getBoundingClientRect();
+            const modalContent = event.target.closest('.modal-content') || document.querySelector('.modal-content');
+            const modalRect = modalContent ? modalContent.getBoundingClientRect() : { top: 0, left: 0 };
+            const scrollTop = modalContent ? modalContent.scrollTop : window.scrollY;
+            const scrollLeft = modalContent ? modalContent.scrollLeft : window.scrollX;
+            const dropdownHeight = this.calculateSearchDropdownHeight();
+
+            // Default: dropdown barang dibuka ke ATAS agar tidak keluar/ketutup bagian bawah modal.
+            let top = inputRect.top - modalRect.top + scrollTop - dropdownHeight - 6;
+            const minTop = scrollTop + 8;
+
+            // Safety fallback: kalau ruang atas benar-benar tidak cukup, baru tampilkan ke bawah.
+            if (top < minTop) {
+                top = inputRect.bottom - modalRect.top + scrollTop + 6;
+            }
+
+            this.searchDropdownPosition = {
+                top,
+                left: inputRect.left - modalRect.left + scrollLeft,
+                width: inputRect.width,
+                maxHeight: dropdownHeight
+            };
+        },
+
+        getSearchDropdownStyle() {
+            const position = this.searchDropdownPosition || {};
+            const top = Number(position.top) || 0;
+            const left = Number(position.left) || 0;
+            const width = Number(position.width) || 320;
+            const maxHeight = Number(position.maxHeight) || 256;
+
+            return `position: absolute; z-index: 9999; top: ${top}px; left: ${left}px; width: ${width}px; max-height: ${maxHeight}px; overflow-y: auto;`;
         },
 
         mapSatuanFromDB(meins) {
@@ -2257,18 +2402,14 @@ function transaksiApp() {
             this.barangItems[index].id = item.id;
             this.barangItems[index].nama_barang = item.nama;
             this.barangItems[index].satuan = item.satuan;
-            this.searchResults = [];
-            this.activeSearchIndex = null;
-            this.highlightedResult = 0;
+            this.clearBarangSearchState();
         },
 
         clearSearch(index) {
             this.barangItems[index].id = null;
             this.barangItems[index].nama_barang = '';
             this.barangItems[index].satuan = '';
-            this.searchResults = [];
-            this.activeSearchIndex = null;
-            this.highlightedResult = 0;
+            this.clearBarangSearchState();
         },
 
         addNewBarang(namaBarang, index) {
@@ -2276,8 +2417,7 @@ function transaksiApp() {
         },
 
         closeAllDropdowns() {
-            this.searchResults = [];
-            this.activeSearchIndex = null;
+            this.clearBarangSearchState();
             this.isSearchFocused = false;
         },
 
@@ -2312,8 +2452,27 @@ function transaksiApp() {
             return parseFloat(value).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
         },
 
+        formatGudang(value) {
+            if (!value || value === this.fixedGudangValue) {
+                return this.fixedGudangLabel;
+            }
+
+            const normalized = String(value).trim().toLowerCase();
+            if (normalized === 'gudang_11' || normalized === 'gudang 11') {
+                return this.fixedGudangLabel;
+            }
+
+            return String(value).replace(/_/g, ' ').toUpperCase();
+        },
+
+        ensureFixedGudang() {
+            this.formData.dari_gudang = this.fixedGudangValue;
+        },
+
         // ============ FORM METHODS ============
         validateForm() {
+            this.ensureFixedGudang();
+
             if (!this.formData.untuk) {
                 alert('Pilih tujuan permintaan');
                 return false;
@@ -2440,7 +2599,7 @@ function transaksiApp() {
                 nomor_pb: '',
                 untuk: '',
                 untuk_id: '',
-                dari_gudang: '',
+                dari_gudang: 'gudang_11',
                 jenis_pekerjaan: '',
                 tanggal_diperlukan: this.getDefaultRequiredDate(),
                 keterangan: ''
@@ -2454,6 +2613,8 @@ function transaksiApp() {
             }];
             this.untukList = [];
             this.selectedUntuk = null;
+            this.clearBarangSearchState();
+            this.ensureFixedGudang();
             
             this.loadNomorPB();
         },
@@ -2476,14 +2637,141 @@ function transaksiApp() {
             }
         },
 
-printDetail(detail) {
+        async printTransaksi(tr) {
+            const transaksiId = tr?.id;
+
+            if (!transaksiId) {
+                alert('Data transaksi tidak valid untuk dicetak.');
+                return;
+            }
+
+            // Open window immediately from the click event to avoid browser popup blocker.
+            const printWindow = window.open('', '_blank');
+
+            if (!printWindow) {
+                alert('Popup print diblokir browser. Izinkan popup untuk aplikasi ini dulu ya.');
+                return;
+            }
+
+            printWindow.document.open();
+            printWindow.document.write(`
+                <html>
+                    <head>
+                        <title>Menyiapkan Print...</title>
+                        <style>
+                            body {
+                                font-family: Arial, sans-serif;
+                                padding: 32px;
+                                color: #1f2937;
+                            }
+                            .loading {
+                                max-width: 420px;
+                                margin: 80px auto;
+                                padding: 24px;
+                                border: 1px solid #e5e7eb;
+                                border-radius: 12px;
+                                text-align: center;
+                                box-shadow: 0 10px 24px rgba(15, 23, 42, 0.08);
+                            }
+                            .title {
+                                font-size: 18px;
+                                font-weight: 700;
+                                margin-bottom: 8px;
+                            }
+                            .subtitle {
+                                font-size: 13px;
+                                color: #6b7280;
+                            }
+                        </style>
+                    </head>
+                    <body>
+                        <div class="loading">
+                            <div class="title">Menyiapkan dokumen print...</div>
+                            <div class="subtitle">Mohon tunggu sebentar.</div>
+                        </div>
+                    </body>
+                </html>
+            `);
+            printWindow.document.close();
+
+            try {
+                const response = await fetch(`/transaksi/${transaksiId}`, {
+                    method: 'GET',
+                    headers: {
+                        'Accept': 'application/json',
+                        'X-Requested-With': 'XMLHttpRequest'
+                    }
+                });
+
+                const data = await response.json();
+
+                if (!response.ok || !data.success) {
+                    throw new Error(data.message || 'Gagal mengambil data detail transaksi.');
+                }
+
+                this.printDetail(data.data, printWindow);
+            } catch (error) {
+                console.error('Print transaksi error:', error);
+
+                printWindow.document.open();
+                printWindow.document.write(`
+                    <html>
+                        <head>
+                            <title>Gagal Print</title>
+                            <style>
+                                body {
+                                    font-family: Arial, sans-serif;
+                                    padding: 32px;
+                                    color: #991b1b;
+                                }
+                                .error-box {
+                                    max-width: 520px;
+                                    margin: 80px auto;
+                                    padding: 24px;
+                                    border: 1px solid #fecaca;
+                                    border-radius: 12px;
+                                    background: #fef2f2;
+                                }
+                                .title {
+                                    font-size: 18px;
+                                    font-weight: 700;
+                                    margin-bottom: 8px;
+                                }
+                                .message {
+                                    font-size: 13px;
+                                    color: #7f1d1d;
+                                }
+                            </style>
+                        </head>
+                        <body>
+                            <div class="error-box">
+                                <div class="title">Gagal menyiapkan print</div>
+                                <div class="message">${error.message}</div>
+                            </div>
+                        </body>
+                    </html>
+                `);
+                printWindow.document.close();
+
+                alert('Gagal print transaksi: ' + error.message);
+            }
+        },
+
+printDetail(detail, targetWindow = null) {
     if (!detail) return;
     
     const status = detail.header.status;
     const isApproved = status === 'approved' || status === 'completed';
     const today = new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' });
     
-    const printWindow = window.open('', '_blank');
+    const printWindow = targetWindow || window.open('', '_blank');
+
+    if (!printWindow) {
+        alert('Popup print diblokir browser. Izinkan popup untuk aplikasi ini dulu ya.');
+        return;
+    }
+
+    printWindow.document.open();
     printWindow.document.write(`
         <html>
             <head>
@@ -2852,7 +3140,7 @@ printDetail(detail) {
                         </div>
                         <div class="info-item">
                             <span class="info-label">Dari Gudang</span>
-                            <span class="info-value">${detail.header.dari_gudang ? detail.header.dari_gudang.replace(/_/g, ' ').toUpperCase() : '-'}</span>
+                            <span class="info-value">${this.formatGudang(detail.header.dari_gudang)}</span>
                         </div>
                         <div class="info-item">
                             <span class="info-label">Jenis Pekerjaan</span>
@@ -3158,11 +3446,14 @@ ${detail.untuk_info ? `
                     await this.loadNomorPB();
                     
                     // Reset dropdown
+                    this.clearBarangSearchState();
                     this.untukList = [];
                     this.selectedUntuk = null;
                     this.formData.untuk = '';
                     this.formData.untuk_id = '';
+                    this.ensureFixedGudang();
                 } else {
+                    this.clearBarangSearchState();
                     console.log('?? Create modal closed, refreshing...');
                     setTimeout(() => this.loadData(), 100);
                 }

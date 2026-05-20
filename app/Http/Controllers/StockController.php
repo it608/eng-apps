@@ -3,105 +3,97 @@
 namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Validator;
 
 class StockController extends Controller
 {
     /**
-     * Display a listing of the stock sparepart.
+     * Halaman utama stok sparepart.
      */
     public function index()
     {
         try {
-            // Cache lokasi selama 1 jam karena jarang berubah
-            $locations = Cache::remember('stock_locations', 3600, function() {
-                return DB::connection('pgsql2')->table('tb_skb008_2dmseg')
+            $locations = Cache::remember('stock_locations', 300, function () {
+                return DB::connection('pgsql2')
+                    ->table('tb_skb008_2dmseg')
                     ->select('lsloc as kode_gudang')
                     ->distinct()
+                    ->whereNotNull('lsloc')
                     ->orderBy('lsloc')
                     ->get();
             });
-            
-            // Nonaktifkan category filter
+
+            // Filter kategori sementara dinonaktifkan mengikuti source repo.
             $categories = [];
-            
+
             return view('user.stock', compact('locations', 'categories'));
-            
         } catch (\Exception $e) {
             Log::error('Stock index error: ' . $e->getMessage());
+
             return view('user.stock')->with('error', 'Gagal memuat data filter: ' . $e->getMessage());
         }
     }
 
     /**
-     * Get stock data for DataTables / AJAX.
-     * Menggunakan query kompleks dengan pagination di SQL
+     * Data stok untuk AJAX table.
      */
     public function getStockData(Request $request)
     {
         try {
             $startTime = microtime(true);
-            
-            // Validasi input
+
             $validator = Validator::make($request->all(), [
                 'page' => 'nullable|integer|min:1',
                 'per_page' => 'nullable|integer|min:1|max:100',
                 'search' => 'nullable|string|max:100',
-                'location' => 'nullable|string|max:10',
+                'location' => 'nullable|string|max:20',
                 'status' => 'nullable|in:aman,menipis,habis',
                 'filter_code' => 'nullable|string|max:50',
-                'filter_name' => 'nullable|string|max:50',
-                'filter_unit' => 'nullable|string|max:10',
-                'filter_status' => 'nullable|string|max:10',
+                'filter_name' => 'nullable|string|max:100',
+                'filter_unit' => 'nullable|string|max:20',
+                'filter_status' => 'nullable|string|max:20',
             ]);
 
             if ($validator->fails()) {
                 return response()->json([
                     'success' => false,
                     'message' => 'Parameter tidak valid',
-                    'errors' => $validator->errors()
+                    'errors' => $validator->errors(),
                 ], 422);
             }
 
-            // Pagination
             $page = (int) $request->get('page', 1);
             $perPage = (int) $request->get('per_page', 20);
             $offset = ($page - 1) * $perPage;
 
-            // Build query dengan WHERE dinamis - VERSI OPTIMASI DENGAN CTE
             $sql = $this->buildOptimizedStockQuery($request);
-            
-            // Hitung total data - gunakan query yang lebih ringan
-            $countSql = "SELECT COUNT(*) as total FROM (" . $sql . ") as count_query";
+
+            $countSql = "SELECT COUNT(*) as total FROM ({$sql}) as count_query";
             $totalResult = DB::connection('pgsql2')->selectOne($countSql);
             $total = $totalResult ? (int) $totalResult->total : 0;
 
-            // Tambahkan ORDER BY, LIMIT dan OFFSET
-            $sql .= " ORDER BY code ASC LIMIT " . $perPage . " OFFSET " . $offset;
-
-            // JALANKAN QUERY
+            $sql .= ' ORDER BY code ASC LIMIT ' . $perPage . ' OFFSET ' . $offset;
             $data = DB::connection('pgsql2')->select($sql);
 
-            // FORMAT DATA
             $formattedData = [];
+
             foreach ($data as $item) {
                 $stock = (float) ($item->end_qty ?? 0);
                 $minStock = 5;
                 $maxStock = 20;
-                
-                // Tentukan status
+
                 if ($stock <= 0) {
                     $status = 'habis';
-                } elseif ($stock < $minStock) {
+                } elseif ($stock <= $minStock) {
                     $status = 'menipis';
                 } else {
                     $status = 'aman';
                 }
-                
+
                 $formattedData[] = [
                     'code' => $this->cleanUtf8($item->code ?? '-'),
                     'name' => $this->cleanUtf8($item->item_name ?? '-'),
@@ -118,11 +110,13 @@ class StockController extends Controller
                 ];
             }
 
-            // Hitung summary - gunakan query terpisah yang lebih ringan
             $summary = $this->getOptimizedSummary($request);
-
             $executionTime = round((microtime(true) - $startTime) * 1000);
-            Log::info('Stock data loaded', ['time_ms' => $executionTime, 'page' => $page]);
+
+            Log::info('Stock data loaded', [
+                'time_ms' => $executionTime,
+                'page' => $page,
+            ]);
 
             return response()->json([
                 'success' => true,
@@ -132,49 +126,61 @@ class StockController extends Controller
                     'current_page' => $page,
                     'per_page' => $perPage,
                     'total' => $total,
-                    'last_page' => ceil($total / $perPage),
-                    'from' => $offset + 1,
-                    'to' => min($offset + $perPage, $total)
-                ]
+                    'last_page' => (int) ceil($total / max($perPage, 1)),
+                    'from' => $total > 0 ? $offset + 1 : 0,
+                    'to' => min($offset + $perPage, $total),
+                ],
             ]);
-
         } catch (\Exception $e) {
             Log::error('Stock data error: ' . $e->getMessage());
             Log::error('Stack trace: ' . $e->getTraceAsString());
-            
+
             return response()->json([
                 'success' => false,
                 'message' => 'Gagal mengambil data stok: ' . $e->getMessage(),
-                'data' => []
+                'data' => [],
             ], 500);
         }
     }
 
     /**
-     * Build stock query dengan CTE (Common Table Expressions) untuk optimasi
-     * dan perhitungan avg_price yang benar
+     * Query stok sparepart.
+     *
+     * Catatan:
+     * - Tetap mengikuti struktur source repo: periode 2026, stok awal dari mbgni, mutasi dari dmseg.
+     * - Search/filter tetap memakai kode, nama, itemno, lokasi, dan satuan.
      */
-    private function buildOptimizedStockQuery(Request $request)
+    private function buildOptimizedStockQuery(Request $request): string
     {
-        $search = $request->get('search', '');
-        $location = $request->get('location', '');
-        $filterCode = $request->get('filter_code', '');
-        $filterName = $request->get('filter_name', '');
-        $filterUnit = $request->get('filter_unit', '');
-        
-        // Escape string untuk mencegah SQL injection
-        $search = addslashes($search);
-        $location = addslashes($location);
-        $filterCode = addslashes($filterCode);
-        $filterName = addslashes($filterName);
-        $filterUnit = addslashes($filterUnit);
-        
-        // Gunakan CTE untuk menghindari pengulangan subquery yang sama
+        $search = $this->escapeSqlLike($request->get('search', ''));
+        $location = $this->escapeSqlLike($request->get('location', ''));
+        $filterCode = $this->escapeSqlLike($request->get('filter_code', ''));
+        $filterName = $this->escapeSqlLike($request->get('filter_name', ''));
+        $filterUnit = $this->escapeSqlLike($request->get('filter_unit', ''));
+        $status = strtolower(trim((string) $request->get('status', '')));
+        $filterStatus = strtolower(trim((string) $request->get('filter_status', '')));
+        $effectiveStatus = $filterStatus !== '' ? $filterStatus : $status;
+
+        if (!in_array($effectiveStatus, ['aman', 'menipis', 'habis'], true)) {
+            $effectiveStatus = '';
+        }
+
+        $endQtyExpression = "(
+            COALESCE(sa.menge, 0)
+            + COALESCE(pur.pur_qty, 0)
+            + COALESCE(ret.ret_qty, 0)
+            + COALESCE(kpl.kpl_qty, 0)
+            - COALESCE(usea.use_qty, 0)
+            - COALESCE(nrb.nrb_qty, 0)
+            - COALESCE(kmn.kmn_qty, 0)
+            - COALESCE(tkl.tkl_qty, 0)
+            + COALESCE(tms.tms_qty, 0)
+            - COALESCE(los.los_qty, 0)
+        )";
+
         $sql = "
-            WITH 
-            -- Data transaksi periode
-            transaksi_periode AS (
-                SELECT 
+            WITH transaksi_periode AS (
+                SELECT
                     matnr,
                     lsloc,
                     lgnum,
@@ -187,136 +193,93 @@ class StockController extends Controller
                     ypotp,
                     peinh
                 FROM PUBLIC.tb_skb008_2dmseg
-                WHERE werks = 1 
-                    AND cpudt BETWEEN DATE'2026-01-01' AND CURRENT_DATE
+                WHERE werks = 1
+                  AND cpudt BETWEEN DATE '2026-01-01' AND CURRENT_DATE
             ),
-            -- Stok awal
             stok_awal AS (
-                SELECT 
+                SELECT
                     matnr,
-                    lgpla as lsloc,
-                    SUBSTRING(lgpla FROM 1 FOR 3) as lgnum,
+                    lgpla AS lsloc,
+                    SUBSTRING(lgpla FROM 1 FOR 3) AS lgnum,
                     menge,
                     dmbtr
                 FROM PUBLIC.tb_skb111_1mbgni
-                WHERE werks = 1 
-                    AND mjahr = 2026
-                    AND lfmon = 1
-                    AND ypotp = 'YPO2'
+                WHERE werks = 1
+                  AND mjahr = 2026
+                  AND lfmon = 1
+                  AND ypotp = 'YPO2'
             ),
-            -- Aggregasi per jenis transaksi
+            lokasi_item AS (
+                SELECT matnr, lgnum, lsloc FROM transaksi_periode
+                UNION
+                SELECT matnr, lgnum, lsloc FROM stok_awal
+            ),
             pur_agg AS (
-                SELECT 
-                    matnr, 
-                    lsloc, 
-                    SUM(menge) as pur_qty, 
-                    SUM(wrbtr) as pur_amt, 
-                    MAX(cpudt) as last_pur_date,
-                    AVG(peinh) as avg_price_pur
-                FROM transaksi_periode 
-                WHERE bwart = '101' 
+                SELECT matnr, lsloc, SUM(menge) AS pur_qty, SUM(wrbtr) AS pur_amt, MAX(cpudt) AS last_pur_date
+                FROM transaksi_periode
+                WHERE bwart = '101'
                 GROUP BY matnr, lsloc
             ),
             ret_agg AS (
-                SELECT 
-                    matnr, 
-                    lsloc, 
-                    SUM(menge) as ret_qty, 
-                    SUM(wrbtr) as ret_amt
-                FROM transaksi_periode 
-                WHERE bwart = '921' 
+                SELECT matnr, lsloc, SUM(menge) AS ret_qty, SUM(wrbtr) AS ret_amt
+                FROM transaksi_periode
+                WHERE bwart = '921'
                 GROUP BY matnr, lsloc
             ),
             kpl_agg AS (
-                SELECT 
-                    matnr, 
-                    lsloc, 
-                    SUM(menge) as kpl_qty, 
-                    SUM(wrbtr) as kpl_amt
-                FROM transaksi_periode 
-                WHERE bwart = '931' 
+                SELECT matnr, lsloc, SUM(menge) AS kpl_qty, SUM(wrbtr) AS kpl_amt
+                FROM transaksi_periode
+                WHERE bwart = '931'
                 GROUP BY matnr, lsloc
             ),
             use_agg AS (
-                SELECT 
-                    matnr, 
-                    lsloc, 
-                    SUM(menge) as use_qty, 
-                    SUM(wrbtr) as use_amt, 
-                    MAX(cpudt) as last_use_date
-                FROM transaksi_periode 
-                WHERE bwart = '201' AND saknr <> 7755 
+                SELECT matnr, lsloc, SUM(menge) AS use_qty, SUM(wrbtr) AS use_amt, MAX(cpudt) AS last_use_date
+                FROM transaksi_periode
+                WHERE bwart = '201' AND saknr <> 7755
                 GROUP BY matnr, lsloc
             ),
             nrb_agg AS (
-                SELECT 
-                    matnr, 
-                    lsloc, 
-                    SUM(menge) as nrb_qty, 
-                    SUM(wrbtr) as nrb_amt
-                FROM transaksi_periode 
-                WHERE bwart = '122' 
+                SELECT matnr, lsloc, SUM(menge) AS nrb_qty, SUM(wrbtr) AS nrb_amt
+                FROM transaksi_periode
+                WHERE bwart = '122'
                 GROUP BY matnr, lsloc
             ),
             kmn_agg AS (
-                SELECT 
-                    matnr, 
-                    lsloc, 
-                    SUM(menge) as kmn_qty, 
-                    SUM(wrbtr) as kmn_amt
-                FROM transaksi_periode 
-                WHERE bwart = '941' 
+                SELECT matnr, lsloc, SUM(menge) AS kmn_qty, SUM(wrbtr) AS kmn_amt
+                FROM transaksi_periode
+                WHERE bwart = '941'
                 GROUP BY matnr, lsloc
             ),
             tkl_agg AS (
-                SELECT 
-                    matnr, 
-                    lsloc, 
-                    SUM(menge) as tkl_qty, 
-                    SUM(wrbtr) as tkl_amt
-                FROM transaksi_periode 
-                WHERE bwart = '981' 
+                SELECT matnr, lsloc, SUM(menge) AS tkl_qty, SUM(wrbtr) AS tkl_amt
+                FROM transaksi_periode
+                WHERE bwart = '981'
                 GROUP BY matnr, lsloc
             ),
             tms_agg AS (
-                SELECT 
-                    matnr, 
-                    lsloc, 
-                    SUM(menge) as tms_qty, 
-                    SUM(wrbtr) as tms_amt
-                FROM transaksi_periode 
-                WHERE bwart = '971' 
+                SELECT matnr, lsloc, SUM(menge) AS tms_qty, SUM(wrbtr) AS tms_amt
+                FROM transaksi_periode
+                WHERE bwart = '971'
                 GROUP BY matnr, lsloc
             ),
             los_agg AS (
-                SELECT 
-                    matnr, 
-                    lsloc, 
-                    SUM(menge) as los_qty, 
-                    SUM(wrbtr) as los_amt
-                FROM transaksi_periode 
-                WHERE bwart = '201' AND lvorm = 'U' AND saknr = 7755 
+                SELECT matnr, lsloc, SUM(menge) AS los_qty, SUM(wrbtr) AS los_amt
+                FROM transaksi_periode
+                WHERE bwart = '201' AND lvorm = 'U' AND saknr = 7755
                 GROUP BY matnr, lsloc
             ),
-            -- Semua kombinasi item dan lokasi
             all_items AS (
-                SELECT DISTINCT 
-                    t2.id_items,
-                    t2.itemno,
-                    t2.code,
-                    t2.item_name,
-                    t2.meins,
-                    COALESCE(tp.lgnum, sa.lgnum) as lgnum,
-                    COALESCE(tp.lsloc, sa.lsloc) as lsloc
-                FROM (
-                    SELECT matnr, lgnum, lsloc FROM transaksi_periode
-                    UNION
-                    SELECT matnr, lgnum, lsloc FROM stok_awal
-                ) lok
-                JOIN PUBLIC.tb_skb080_1mmara t2 ON lok.matnr = t2.id_items
-                LEFT JOIN transaksi_periode tp ON tp.matnr = t2.id_items AND tp.lsloc = lok.lsloc
-                LEFT JOIN stok_awal sa ON sa.matnr = t2.id_items AND sa.lsloc = lok.lsloc
-                WHERE t2.mtart = 'YSPR'
+                SELECT DISTINCT
+                    m.id_items,
+                    m.itemno,
+                    TRIM(m.code) AS code,
+                    m.item_name,
+                    m.meins,
+                    li.lgnum,
+                    li.lsloc
+                FROM lokasi_item li
+                JOIN PUBLIC.tb_skb080_1mmara m ON li.matnr = m.id_items
+                WHERE m.mtart = 'YSPR'
             )
             SELECT
                 ai.itemno,
@@ -330,69 +293,47 @@ class StockController extends Controller
                 COALESCE(pur.pur_qty, 0) AS pur_qty,
                 COALESCE(pur.pur_amt, 0) AS pur_amt,
                 COALESCE(ret.ret_qty, 0) AS ret_qty,
+                COALESCE(ret.ret_amt, 0) AS ret_amt,
                 COALESCE(kpl.kpl_qty, 0) AS kpl_qty,
-                COALESCE(use.use_qty, 0) AS use_qty,
+                COALESCE(kpl.kpl_amt, 0) AS kpl_amt,
+                COALESCE(usea.use_qty, 0) AS use_qty,
+                COALESCE(usea.use_amt, 0) AS use_amt,
                 COALESCE(nrb.nrb_qty, 0) AS nrb_qty,
+                COALESCE(nrb.nrb_amt, 0) AS nrb_amt,
                 COALESCE(kmn.kmn_qty, 0) AS kmn_qty,
+                COALESCE(kmn.kmn_amt, 0) AS kmn_amt,
                 COALESCE(tkl.tkl_qty, 0) AS tkl_qty,
+                COALESCE(tkl.tkl_amt, 0) AS tkl_amt,
                 COALESCE(tms.tms_qty, 0) AS tms_qty,
+                COALESCE(tms.tms_amt, 0) AS tms_amt,
                 COALESCE(los.los_qty, 0) AS los_qty,
-                use.last_use_date,
+                COALESCE(los.los_amt, 0) AS los_amt,
+                usea.last_use_date,
                 pur.last_pur_date,
-                -- Perhitungan end_qty
-                (COALESCE(sa.menge, 0) + COALESCE(pur.pur_qty, 0) + COALESCE(ret.ret_qty, 0) + COALESCE(kpl.kpl_qty, 0) 
-                 - COALESCE(use.use_qty, 0) - COALESCE(nrb.nrb_qty, 0) - COALESCE(kmn.kmn_qty, 0) - COALESCE(tkl.tkl_qty, 0) 
-                 + COALESCE(tms.tms_qty, 0) - COALESCE(los.los_qty, 0)) AS end_qty,
-                -- Perhitungan end_amt
-                (COALESCE(sa.dmbtr, 0) + COALESCE(pur.pur_amt, 0) + COALESCE(ret.ret_amt, 0) + COALESCE(kpl.kpl_amt, 0) 
-                 - COALESCE(use.use_amt, 0) - COALESCE(nrb.nrb_amt, 0) - COALESCE(kmn.kmn_amt, 0) - COALESCE(tkl.tkl_amt, 0) 
-                 + COALESCE(tms.tms_amt, 0) - COALESCE(los.los_amt, 0)) AS end_amt,
-                -- Perhitungan avg_price
+                {$endQtyExpression} AS end_qty,
+                (
+                    COALESCE(sa.dmbtr, 0)
+                    + COALESCE(pur.pur_amt, 0)
+                    + COALESCE(ret.ret_amt, 0)
+                    + COALESCE(kpl.kpl_amt, 0)
+                    - COALESCE(usea.use_amt, 0)
+                    - COALESCE(nrb.nrb_amt, 0)
+                    - COALESCE(kmn.kmn_amt, 0)
+                    - COALESCE(tkl.tkl_amt, 0)
+                    + COALESCE(tms.tms_amt, 0)
+                    - COALESCE(los.los_amt, 0)
+                ) AS end_amt,
                 CASE
-                    WHEN COALESCE(pur.pur_qty, 0) > 0 THEN ROUND(COALESCE(pur.pur_amt, 0) / COALESCE(pur.pur_qty, 1), 2)
-                    WHEN (COALESCE(sa.menge, 0) + COALESCE(pur.pur_qty, 0) + COALESCE(ret.ret_qty, 0) + COALESCE(kpl.kpl_qty, 0) 
-                         - COALESCE(use.use_qty, 0) - COALESCE(nrb.nrb_qty, 0) - COALESCE(kmn.kmn_qty, 0) - COALESCE(tkl.tkl_qty, 0) 
-                         + COALESCE(tms.tms_qty, 0) - COALESCE(los.los_qty, 0)) > 0 
-                         THEN ROUND((COALESCE(sa.dmbtr, 0) + COALESCE(pur.pur_amt, 0) + COALESCE(ret.ret_amt, 0) + COALESCE(kpl.kpl_amt, 0) 
-                                   - COALESCE(use.use_amt, 0) - COALESCE(nrb.nrb_amt, 0) - COALESCE(kmn.kmn_amt, 0) - COALESCE(tkl.tkl_amt, 0) 
-                                   + COALESCE(tms.tms_amt, 0) - COALESCE(los.los_amt, 0)) / 
-                                  (COALESCE(sa.menge, 0) + COALESCE(pur.pur_qty, 0) + COALESCE(ret.ret_qty, 0) + COALESCE(kpl.kpl_qty, 0) 
-                                   - COALESCE(use.use_qty, 0) - COALESCE(nrb.nrb_qty, 0) - COALESCE(kmn.kmn_qty, 0) - COALESCE(tkl.tkl_qty, 0) 
-                                   + COALESCE(tms.tms_qty, 0) - COALESCE(los.los_qty, 0)), 2)
-                    WHEN COALESCE(sa.menge, 0) > 0 THEN ROUND(COALESCE(sa.dmbtr, 0) / COALESCE(sa.menge, 1), 2)
+                    WHEN COALESCE(pur.pur_qty, 0) > 0 THEN ROUND(COALESCE(pur.pur_amt, 0) / NULLIF(COALESCE(pur.pur_qty, 0), 0), 2)
+                    WHEN COALESCE(sa.menge, 0) > 0 THEN ROUND(COALESCE(sa.dmbtr, 0) / NULLIF(COALESCE(sa.menge, 0), 0), 2)
                     ELSE 0
-                END AS avg_price,
-                -- Perhitungan total_usage_value
-                CASE
-                    WHEN COALESCE(use.use_qty, 0) > 0 
-                    AND (COALESCE(pur.pur_qty, 0) > 0 OR 
-                         (COALESCE(sa.menge, 0) + COALESCE(pur.pur_qty, 0) + COALESCE(ret.ret_qty, 0) + COALESCE(kpl.kpl_qty, 0) 
-                          - COALESCE(use.use_qty, 0) - COALESCE(nrb.nrb_qty, 0) - COALESCE(kmn.kmn_qty, 0) - COALESCE(tkl.tkl_qty, 0) 
-                          + COALESCE(tms.tms_qty, 0) - COALESCE(los.los_qty, 0)) > 0 OR 
-                         COALESCE(sa.menge, 0) > 0) THEN
-                        ROUND(
-                            (CASE
-                                WHEN COALESCE(pur.pur_qty, 0) > 0 THEN COALESCE(pur.pur_amt, 0) / COALESCE(pur.pur_qty, 1)
-                                WHEN (COALESCE(sa.menge, 0) + COALESCE(pur.pur_qty, 0) + COALESCE(ret.ret_qty, 0) + COALESCE(kpl.kpl_qty, 0) 
-                                     - COALESCE(use.use_qty, 0) - COALESCE(nrb.nrb_qty, 0) - COALESCE(kmn.kmn_qty, 0) - COALESCE(tkl.tkl_qty, 0) 
-                                     + COALESCE(tms.tms_qty, 0) - COALESCE(los.los_qty, 0)) > 0 
-                                     THEN (COALESCE(sa.dmbtr, 0) + COALESCE(pur.pur_amt, 0) + COALESCE(ret.ret_amt, 0) + COALESCE(kpl.kpl_amt, 0) 
-                                           - COALESCE(use.use_amt, 0) - COALESCE(nrb.nrb_amt, 0) - COALESCE(kmn.kmn_amt, 0) - COALESCE(tkl.tkl_amt, 0) 
-                                           + COALESCE(tms.tms_amt, 0) - COALESCE(los.los_amt, 0)) / 
-                                          (COALESCE(sa.menge, 0) + COALESCE(pur.pur_qty, 0) + COALESCE(ret.ret_qty, 0) + COALESCE(kpl.kpl_qty, 0) 
-                                           - COALESCE(use.use_qty, 0) - COALESCE(nrb.nrb_qty, 0) - COALESCE(kmn.kmn_qty, 0) - COALESCE(tkl.tkl_qty, 0) 
-                                           + COALESCE(tms.tms_qty, 0) - COALESCE(los.los_qty, 0))
-                                WHEN COALESCE(sa.menge, 0) > 0 THEN COALESCE(sa.dmbtr, 0) / COALESCE(sa.menge, 1)
-                                ELSE 0
-                            END) * COALESCE(use.use_qty, 0), 2)
-                    ELSE 0 
-                END AS total_usage_value
+                END AS avg_price
             FROM all_items ai
             LEFT JOIN stok_awal sa ON sa.matnr = ai.id_items AND sa.lsloc = ai.lsloc
             LEFT JOIN pur_agg pur ON pur.matnr = ai.id_items AND pur.lsloc = ai.lsloc
             LEFT JOIN ret_agg ret ON ret.matnr = ai.id_items AND ret.lsloc = ai.lsloc
             LEFT JOIN kpl_agg kpl ON kpl.matnr = ai.id_items AND kpl.lsloc = ai.lsloc
-            LEFT JOIN use_agg use ON use.matnr = ai.id_items AND use.lsloc = ai.lsloc
+            LEFT JOIN use_agg usea ON usea.matnr = ai.id_items AND usea.lsloc = ai.lsloc
             LEFT JOIN nrb_agg nrb ON nrb.matnr = ai.id_items AND nrb.lsloc = ai.lsloc
             LEFT JOIN kmn_agg kmn ON kmn.matnr = ai.id_items AND kmn.lsloc = ai.lsloc
             LEFT JOIN tkl_agg tkl ON tkl.matnr = ai.id_items AND tkl.lsloc = ai.lsloc
@@ -401,54 +342,65 @@ class StockController extends Controller
             WHERE 1=1
         ";
 
-        // Tambahkan filter search
-        if (!empty($search)) {
-            $sql .= " AND (ai.code ILIKE '%" . $search . "%' 
-                         OR ai.item_name ILIKE '%" . $search . "%' 
-                         OR ai.itemno ILIKE '%" . $search . "%')";
+        if ($search !== '') {
+            $sql .= " AND (ai.code ILIKE '%{$search}%' OR ai.item_name ILIKE '%{$search}%' OR ai.itemno ILIKE '%{$search}%')";
         }
 
-        // Tambahkan filter location
-        if (!empty($location)) {
-            $sql .= " AND ai.lsloc = '" . $location . "'";
+        if ($location !== '') {
+            $sql .= " AND ai.lsloc = '{$location}'";
         }
 
-        // Tambahkan column filters
-        if (!empty($filterCode)) {
-            $sql .= " AND ai.code ILIKE '%" . $filterCode . "%'";
+        if ($filterCode !== '') {
+            $sql .= " AND ai.code ILIKE '%{$filterCode}%'";
         }
-        if (!empty($filterName)) {
-            $sql .= " AND ai.item_name ILIKE '%" . $filterName . "%'";
+
+        if ($filterName !== '') {
+            $sql .= " AND ai.item_name ILIKE '%{$filterName}%'";
         }
-        if (!empty($filterUnit)) {
-            $sql .= " AND ai.meins = '" . $filterUnit . "'";
+
+        if ($filterUnit !== '') {
+            $sql .= " AND ai.meins = '{$filterUnit}'";
+        }
+
+        if ($effectiveStatus === 'habis') {
+            $sql .= " AND {$endQtyExpression} <= 0";
+        } elseif ($effectiveStatus === 'menipis') {
+            $sql .= " AND {$endQtyExpression} > 0 AND {$endQtyExpression} <= 5";
+        } elseif ($effectiveStatus === 'aman') {
+            $sql .= " AND {$endQtyExpression} > 5";
         }
 
         return $sql;
     }
 
     /**
-     * Get optimized summary
+     * Summary card stok.
      */
-    private function getOptimizedSummary(Request $request)
+    private function getOptimizedSummary(Request $request): array
     {
         try {
-            // Cache key berdasarkan parameter
-            $cacheKey = 'stock_summary_' . md5($request->get('search', '') . $request->get('location', ''));
-            
-            // Cache selama 5 menit
-            return Cache::remember($cacheKey, 300, function() use ($request) {
-                // Gunakan query yang sama dengan data utama untuk summary
+            $cacheKey = 'stock_summary_v3_' . md5(json_encode($request->only([
+                'search',
+                'location',
+                'status',
+                'filter_code',
+                'filter_name',
+                'filter_unit',
+                'filter_status',
+            ])));
+
+            return Cache::remember($cacheKey, 300, function () use ($request) {
                 $sql = $this->buildOptimizedStockQuery($request);
-                
+
                 $summarySql = "
-                    SELECT 
-                        COUNT(*) as total_items,
-                        SUM(end_qty) as total_stock,
-                        SUM(end_amt) as total_value,
-                        SUM(CASE WHEN end_qty > 0 AND end_qty < 5 THEN 1 ELSE 0 END) as low_stock,
-                        SUM(CASE WHEN end_qty <= 0 THEN 1 ELSE 0 END) as out_of_stock
-                    FROM (" . $sql . ") summary_query
+                    SELECT
+                        COUNT(*) AS total_items,
+                        COALESCE(SUM(end_qty), 0) AS total_stock,
+                        COALESCE(SUM(end_amt), 0) AS total_value,
+                        COALESCE(SUM(CASE WHEN end_qty > 5 THEN 1 ELSE 0 END), 0) AS safe_stock,
+                        COALESCE(SUM(CASE WHEN end_qty > 0 AND end_qty <= 5 THEN 1 ELSE 0 END), 0) AS low_stock,
+                        COALESCE(SUM(CASE WHEN end_qty <= 0 THEN 1 ELSE 0 END), 0) AS out_of_stock
+                    FROM ({$sql}) summary_query
                 ";
 
                 $result = DB::connection('pgsql2')->selectOne($summarySql);
@@ -457,134 +409,73 @@ class StockController extends Controller
                     'total_items' => (int) ($result->total_items ?? 0),
                     'total_stock' => (float) ($result->total_stock ?? 0),
                     'total_value' => (float) ($result->total_value ?? 0),
+                    'safe_stock' => (int) ($result->safe_stock ?? 0),
                     'low_stock' => (int) ($result->low_stock ?? 0),
-                    'out_of_stock' => (int) ($result->out_of_stock ?? 0)
+                    'out_of_stock' => (int) ($result->out_of_stock ?? 0),
                 ];
             });
-
         } catch (\Exception $e) {
             Log::error('Stock summary optimized error: ' . $e->getMessage());
-            
+
             return [
                 'total_items' => 0,
                 'total_stock' => 0,
                 'total_value' => 0,
+                'safe_stock' => 0,
                 'low_stock' => 0,
-                'out_of_stock' => 0
+                'out_of_stock' => 0,
             ];
         }
     }
 
     /**
-     * Export semua data stock - VERSI STREAMING
+     * Export semua data stok ke XLSX.
+     *
+     * Dibuat tanpa dependency tambahan supaya server tidak perlu composer install package baru.
      */
     public function export(Request $request)
     {
         try {
             set_time_limit(300);
-            
-            // Build query tanpa pagination
-            $sql = $this->buildOptimizedStockQuery($request);
-            $sql .= " ORDER BY code ASC";
-            
-            Log::info('Starting stock export');
-            
-            $filename = 'stock_sparepart_' . date('Ymd_His') . '.csv';
-            
-            $headers = [
-                'Content-Type' => 'text/csv; charset=utf-8',
-                'Content-Disposition' => "attachment; filename=\"$filename\"",
-                'Pragma' => 'no-cache',
-                'Cache-Control' => 'must-revalidate, post-check=0, pre-check=0',
-                'Expires' => '0'
-            ];
 
-            $callback = function() use ($sql) {
-                $file = fopen('php://output', 'w');
-                
-                // Tambahkan BOM untuk UTF-8
-                fprintf($file, chr(0xEF).chr(0xBB).chr(0xBF));
-                
-                // Header CSV
-                fputcsv($file, [
-                    'Kode', 'Nama Sparepart', 'Satuan', 'Lokasi',
-                    'Stok Awal', 'Pembelian', 'Pemakaian', 'Stok Akhir',
-                    'Harga Rata-rata', 'Nilai Stok', 'Status', 'Terakhir Update'
-                ]);
-                
-                // Gunakan cursor untuk streaming data
-                $perPage = 1000;
-                $offset = 0;
-                $rowCount = 0;
-                
-                while (true) {
-                    $pageSql = $sql . " LIMIT " . $perPage . " OFFSET " . $offset;
-                    $data = DB::connection('pgsql2')->select($pageSql);
-                    
-                    if (empty($data)) {
-                        break;
-                    }
-                    
-                    foreach ($data as $item) {
-                        $stock = (float) ($item->end_qty ?? 0);
-                        
-                        // Tentukan status
-                        if ($stock <= 0) {
-                            $status = 'HABIS';
-                        } elseif ($stock < 5) {
-                            $status = 'MENIPIS';
-                        } else {
-                            $status = 'AMAN';
-                        }
-                        
-                        fputcsv($file, [
-                            $this->cleanUtf8($item->code ?? '-'),
-                            $this->cleanUtf8($item->item_name ?? '-'),
-                            $this->cleanUtf8($item->uom ?? 'PCS'),
-                            $this->cleanUtf8($item->lsloc ?? '-'),
-                            (float) ($item->bgn_qty ?? 0),
-                            (float) ($item->pur_qty ?? 0),
-                            (float) ($item->use_qty ?? 0),
-                            $stock,
-                            (float) ($item->avg_price ?? 0),
-                            (float) ($item->end_amt ?? 0),
-                            $status,
-                            $item->last_use_date ?? $item->last_pur_date ?? '-',
-                        ]);
-                        
-                        $rowCount++;
-                    }
-                    
-                    $offset += $perPage;
-                    
-                    // Flush output setiap 1000 baris
-                    if ($rowCount % 1000 == 0) {
-                        ob_flush();
-                        flush();
-                    }
-                }
-                
-                fclose($file);
-                Log::info('Export completed', ['rows' => $rowCount]);
-            };
+            if (!class_exists(\ZipArchive::class)) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Gagal export XLSX: ekstensi PHP ZipArchive belum aktif di server.',
+                ], 500);
+            }
 
-            return response()->stream($callback, 200, $headers);
+            $sql = $this->buildOptimizedStockQuery($request) . ' ORDER BY code ASC';
+            $filename = 'stock_sparepart_' . date('Ymd_His') . '.xlsx';
 
+            $exportDir = storage_path('app/exports');
+            if (!is_dir($exportDir)) {
+                mkdir($exportDir, 0775, true);
+            }
+
+            $filePath = $exportDir . DIRECTORY_SEPARATOR . $filename;
+            $this->createStockXlsx($filePath, $sql);
+
+            return response()->download($filePath, $filename, [
+                'Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+                'Cache-Control' => 'max-age=0, no-cache, no-store, must-revalidate',
+                'Pragma' => 'public',
+            ])->deleteFileAfterSend(true);
         } catch (\Exception $e) {
-            Log::error('Stock export error: ' . $e->getMessage());
+            Log::error('Stock export XLSX error: ' . $e->getMessage());
             Log::error('Stack trace: ' . $e->getTraceAsString());
-            
+
             return response()->json([
                 'success' => false,
-                'message' => 'Gagal export data: ' . $e->getMessage()
+                'message' => 'Gagal export data XLSX: ' . $e->getMessage(),
             ], 500);
         }
     }
 
-    // ==================== METHOD LAINNYA TETAP SAMA ====================
-
     /**
-     * Get stock movement / mutasi stok
+     * Mutasi stok berdasarkan range tanggal.
+     */    /**
+     * Mutasi stok berdasarkan range tanggal.
      */
     public function getMovement(Request $request)
     {
@@ -592,26 +483,26 @@ class StockController extends Controller
             $validator = Validator::make($request->all(), [
                 'start_date' => 'required|date',
                 'end_date' => 'required|date|after_or_equal:start_date',
-                'location' => 'nullable|string|max:10',
-                'material_id' => 'nullable|string'
+                'location' => 'nullable|string|max:20',
+                'material_id' => 'nullable|string|max:80',
             ]);
 
             if ($validator->fails()) {
                 return response()->json([
                     'success' => false,
                     'message' => 'Parameter tidak valid',
-                    'errors' => $validator->errors()
+                    'errors' => $validator->errors(),
                 ], 422);
             }
 
             $sql = "
-                SELECT 
-                    b.budat as tanggal,
-                    b.mblnr as nomor_transaksi,
-                    d.matnr as material_id,
-                    e.code as kode_material,
-                    e.item_name as nama_material,
-                    CASE 
+                SELECT
+                    b.budat AS tanggal,
+                    b.mblnr AS nomor_transaksi,
+                    d.matnr AS material_id,
+                    TRIM(e.code) AS kode_material,
+                    e.item_name AS nama_material,
+                    CASE
                         WHEN d.bwart = '101' THEN 'PEMBELIAN'
                         WHEN d.bwart = '201' AND d.saknr <> 7755 THEN 'PEMAKAIAN'
                         WHEN d.bwart = '201' AND d.saknr = 7755 THEN 'LOSS'
@@ -622,47 +513,49 @@ class StockController extends Controller
                         WHEN d.bwart = '981' THEN 'TKL'
                         WHEN d.bwart = '971' THEN 'TMS'
                         ELSE d.bwart
-                    END as tipe,
-                    d.menge as quantity,
-                    d.meins as satuan,
-                    d.lsloc as lokasi,
-                    b.bktxt as keterangan,
-                    b.usnam as user
+                    END AS tipe,
+                    d.menge AS quantity,
+                    d.meins AS satuan,
+                    d.lsloc AS lokasi,
+                    '-'::text AS keterangan,
+                    b.usnam AS " . '"user"' . "
                 FROM tb_skb008_1mmseg b
                 JOIN tb_skb008_2dmseg d ON d.idmse = b.idmse
                 JOIN tb_skb080_1mmara e ON e.id_items = d.matnr
                 WHERE b.budat BETWEEN ? AND ?
-                AND e.mtart = 'YSPR'
+                  AND e.mtart = 'YSPR'
             ";
 
             $params = [$request->start_date, $request->end_date];
 
             if ($request->filled('location')) {
-                $sql .= " AND d.lsloc = ?";
-                $params[] = $request->location;
-            }
-            
-            if ($request->filled('material_id')) {
-                $sql .= " AND d.matnr = ?";
-                $params[] = $request->material_id;
+                $sql .= ' AND d.lsloc = ?';
+                $params[] = trim((string) $request->location);
             }
 
-            $sql .= " ORDER BY b.budat DESC, b.idmse DESC LIMIT 500";
+            if ($request->filled('material_id')) {
+                $materialId = trim((string) $request->material_id);
+
+                if (ctype_digit($materialId)) {
+                    $sql .= ' AND d.matnr = ?';
+                    $params[] = (int) $materialId;
+                } else {
+                    $sql .= ' AND TRIM(e.code) = ?';
+                    $params[] = $materialId;
+                }
+            }
+
+            $sql .= ' ORDER BY b.budat DESC, b.idmse DESC LIMIT 500';
 
             $movements = DB::connection('pgsql2')->select($sql, $params);
-
             $formatted = [];
+
             foreach ($movements as $item) {
                 $tipe = $item->tipe;
-                $tipeBadge = 'info';
-                
-                if (strpos($tipe, 'PEMBELIAN') !== false) $tipeBadge = 'success';
-                if (strpos($tipe, 'PEMAKAIAN') !== false) $tipeBadge = 'warning';
-                if (strpos($tipe, 'LOSS') !== false) $tipeBadge = 'danger';
-                if (strpos($tipe, 'RETUR') !== false) $tipeBadge = 'secondary';
-                
+                $tipeBadge = $this->getTipeBadge($tipe);
+
                 $formatted[] = [
-                    'tanggal' => date('Y-m-d', strtotime($item->tanggal)),
+                    'tanggal' => $item->tanggal ? date('Y-m-d', strtotime($item->tanggal)) : '-',
                     'nomor_transaksi' => $item->nomor_transaksi,
                     'kode_material' => $this->cleanUtf8($item->kode_material),
                     'nama_material' => $this->cleanUtf8($item->nama_material),
@@ -672,87 +565,103 @@ class StockController extends Controller
                     'satuan' => $this->cleanUtf8($item->satuan),
                     'lokasi' => $this->cleanUtf8($item->lokasi),
                     'keterangan' => $this->cleanUtf8($item->keterangan ?? '-'),
-                    'user' => $this->cleanUtf8($item->user ?? '-')
+                    'user' => $this->cleanUtf8($item->user ?? '-'),
                 ];
             }
 
             return response()->json([
                 'success' => true,
                 'data' => $formatted,
-                'total' => count($movements)
+                'total' => count($formatted),
             ]);
-
         } catch (\Exception $e) {
             Log::error('Stock movement error: ' . $e->getMessage());
-            
+
             return response()->json([
                 'success' => false,
                 'message' => 'Gagal mengambil data mutasi: ' . $e->getMessage(),
-                'data' => []
+                'data' => [],
             ], 500);
         }
     }
 
     /**
-     * Get detail sparepart with history
+     * Detail sparepart + histori transaksi 30 hari terakhir.
+     *
+     * Fix penting:
+     * - Kode sparepart dari PostgreSQL bisa punya trailing space.
+     * - id_items bertipe integer, jadi jangan dibandingkan dengan kode string seperti YSPR-00001.
+     * - Lokasi/keterangan tidak dipakai di modal detail agar query aman dari kolom PostgreSQL yang tidak tersedia.
      */
     public function getDetail($id)
     {
         try {
-            $sparepart = DB::connection('pgsql2')->table('tb_skb080_1mmara')
-                ->where('id_items', $id)
-                ->orWhere('code', $id)
-                ->first();
+            $lookup = trim(urldecode((string) $id));
+
+            if ($lookup === '') {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Kode sparepart tidak valid',
+                ], 422);
+            }
+
+            $query = DB::connection('pgsql2')
+                ->table('tb_skb080_1mmara')
+                ->where(function ($q) use ($lookup) {
+                    $q->whereRaw('TRIM(code) = ?', [$lookup]);
+
+                    if (ctype_digit($lookup)) {
+                        $q->orWhere('id_items', (int) $lookup);
+                    }
+                });
+
+            $sparepart = $query->first();
 
             if (!$sparepart) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Sparepart tidak ditemukan'
+                    'message' => 'Sparepart tidak ditemukan: ' . $lookup,
                 ], 404);
             }
 
             $history = DB::connection('pgsql2')->select("
-                SELECT 
-                    b.budat as tanggal,
-                    b.mblnr as nomor,
-                    CASE 
+                SELECT
+                    b.budat AS tanggal,
+                    b.mblnr AS nomor,
+                    CASE
                         WHEN d.bwart = '101' THEN 'PEMBELIAN'
                         WHEN d.bwart = '201' AND d.saknr <> 7755 THEN 'PEMAKAIAN'
                         WHEN d.bwart = '201' AND d.saknr = 7755 THEN 'LOSS'
                         WHEN d.bwart = '921' THEN 'RETUR'
                         WHEN d.bwart = '931' THEN 'ADJUST PLUS'
                         WHEN d.bwart = '941' THEN 'ADJUST MINUS'
+                        WHEN d.bwart = '122' THEN 'NRB'
+                        WHEN d.bwart = '981' THEN 'TKL'
+                        WHEN d.bwart = '971' THEN 'TMS'
                         ELSE d.bwart
-                    END as tipe,
-                    d.menge as qty,
-                    d.meins as satuan,
-                    d.lsloc as lokasi,
-                    b.bktxt as keterangan,
-                    b.usnam as user
+                    END AS tipe,
+                    d.menge AS qty,
+                    d.meins AS satuan
                 FROM tb_skb008_1mmseg b
                 JOIN tb_skb008_2dmseg d ON d.idmse = b.idmse
-                WHERE d.matnr = ? AND b.budat >= CURRENT_DATE - INTERVAL '30 days'
-                ORDER BY b.budat DESC
+                WHERE d.matnr = ?
+                  AND b.budat >= CURRENT_DATE - INTERVAL '30 days'
+                ORDER BY b.budat DESC, b.idmse DESC
                 LIMIT 50
-            ", [$sparepart->id_items]);
+            ", [(int) $sparepart->id_items]);
 
             $formattedHistory = [];
+
             foreach ($history as $item) {
-                $tipeBadge = 'info';
-                if (strpos($item->tipe, 'PEMBELIAN') !== false) $tipeBadge = 'success';
-                if (strpos($item->tipe, 'PEMAKAIAN') !== false) $tipeBadge = 'warning';
-                if (strpos($item->tipe, 'LOSS') !== false) $tipeBadge = 'danger';
-                
+                $tipe = $item->tipe;
+
                 $formattedHistory[] = [
-                    'tanggal' => date('Y-m-d', strtotime($item->tanggal)),
-                    'nomor' => $item->nomor,
-                    'tipe' => $item->tipe,
-                    'tipe_badge' => $tipeBadge,
+                    'tanggal' => $item->tanggal ? date('Y-m-d', strtotime($item->tanggal)) : '-',
+                    'nomor' => $this->cleanUtf8($item->nomor ?? '-'),
+                    'tipe' => $tipe,
+                    'tipe_badge' => $this->getTipeBadge($tipe),
                     'qty' => (float) $item->qty,
-                    'satuan' => $this->cleanUtf8($item->satuan),
-                    'lokasi' => $this->cleanUtf8($item->lokasi),
-                    'keterangan' => $this->cleanUtf8($item->keterangan ?? '-'),
-                    'user' => $this->cleanUtf8($item->user ?? '-')
+                    'satuan' => $this->cleanUtf8($item->satuan ?? '-'),
                 ];
             }
 
@@ -760,75 +669,74 @@ class StockController extends Controller
                 'success' => true,
                 'data' => [
                     'master' => [
-                        'id' => $sparepart->id_items,
+                        'id' => (int) $sparepart->id_items,
                         'code' => $this->cleanUtf8($sparepart->code),
                         'name' => $this->cleanUtf8($sparepart->item_name),
                         'unit' => $this->cleanUtf8($sparepart->meins),
                         'category' => $this->cleanUtf8($sparepart->mtart ?? '-'),
                     ],
-                    'history' => $formattedHistory
-                ]
+                    'history' => $formattedHistory,
+                ],
             ]);
-
         } catch (\Exception $e) {
             Log::error('Stock detail error: ' . $e->getMessage());
-            
+
             return response()->json([
                 'success' => false,
-                'message' => 'Gagal mengambil detail sparepart: ' . $e->getMessage()
+                'message' => 'Gagal mengambil detail sparepart: ' . $e->getMessage(),
             ], 500);
         }
     }
 
     /**
-     * Save stock opname
+     * Simpan stock opname.
      */
     public function saveOpname(Request $request)
     {
         try {
             $validator = Validator::make($request->all(), [
-                'location' => 'required|string|max:10',
+                'location' => 'required|string|max:20',
                 'items' => 'required|array',
                 'items.*.material_id' => 'required',
                 'items.*.system_stock' => 'required|numeric|min:0',
                 'items.*.physical_stock' => 'required|numeric|min:0',
                 'items.*.difference' => 'required|numeric',
-                'notes' => 'nullable|string'
+                'notes' => 'nullable|string',
             ]);
 
             if ($validator->fails()) {
                 return response()->json([
                     'success' => false,
                     'message' => 'Data opname tidak valid',
-                    'errors' => $validator->errors()
+                    'errors' => $validator->errors(),
                 ], 422);
             }
 
             $opnameId = DB::table('stock_opname')->insertGetId([
-                'location' => $request->location,
+                'location' => trim((string) $request->location),
                 'opname_date' => now(),
                 'notes' => $request->notes,
                 'created_by' => Auth::id(),
                 'created_at' => now(),
-                'updated_at' => now()
+                'updated_at' => now(),
             ]);
 
             $adjustmentCount = 0;
-            
+
             foreach ($request->items as $item) {
-                if ($item['difference'] != 0) {
+                if ((float) $item['difference'] != 0.0) {
                     DB::table('stock_opname_detail')->insert([
                         'opname_id' => $opnameId,
                         'material_id' => $item['material_id'],
                         'system_stock' => $item['system_stock'],
                         'physical_stock' => $item['physical_stock'],
                         'difference' => $item['difference'],
-                        'location' => $request->location,
+                        'location' => trim((string) $request->location),
                         'notes' => $request->notes,
                         'created_at' => now(),
-                        'updated_at' => now()
+                        'updated_at' => now(),
                     ]);
-                    
+
                     $adjustmentCount++;
                 }
             }
@@ -839,109 +747,108 @@ class StockController extends Controller
                 'data' => [
                     'opname_id' => $opnameId,
                     'total_items' => count($request->items),
-                    'total_adjustments' => $adjustmentCount
-                ]
+                    'total_adjustments' => $adjustmentCount,
+                ],
             ]);
-
         } catch (\Exception $e) {
             Log::error('Stock opname error: ' . $e->getMessage());
-            
+
             return response()->json([
                 'success' => false,
-                'message' => 'Gagal menyimpan stock opname: ' . $e->getMessage()
+                'message' => 'Gagal menyimpan stock opname: ' . $e->getMessage(),
             ], 500);
         }
     }
 
     /**
-     * Get stock by location
+     * Data stok per lokasi.
      */
     public function getByLocation($location = null)
     {
         try {
             $sql = "
-                SELECT 
-                    d.lsloc as lokasi,
-                    e.code as kode_material,
-                    e.item_name as nama_material,
-                    SUM(CASE WHEN d.shkzg = 'S' THEN d.menge ELSE 0 END) - 
-                    SUM(CASE WHEN d.shkzg = 'H' THEN d.menge ELSE 0 END) as stok,
-                    d.meins as satuan,
-                    MAX(b.budat) as last_movement
+                SELECT
+                    d.lsloc AS lokasi,
+                    TRIM(e.code) AS kode_material,
+                    e.item_name AS nama_material,
+                    SUM(CASE WHEN d.shkzg = 'S' THEN d.menge ELSE 0 END)
+                        - SUM(CASE WHEN d.shkzg = 'H' THEN d.menge ELSE 0 END) AS stok,
+                    d.meins AS satuan,
+                    MAX(b.budat) AS last_movement
                 FROM tb_skb008_2dmseg d
                 JOIN tb_skb080_1mmara e ON e.id_items = d.matnr
                 LEFT JOIN tb_skb008_1mmseg b ON b.idmse = d.idmse
                 WHERE e.mtart = 'YSPR'
-                GROUP BY d.lsloc, e.code, e.item_name, d.meins
             ";
 
             $params = [];
 
-            if ($location && $location != 'all') {
-                $sql .= " HAVING d.lsloc = ?";
-                $params[] = $location;
+            if ($location && $location !== 'all') {
+                $sql .= ' AND d.lsloc = ?';
+                $params[] = trim((string) $location);
             }
 
-            $sql .= " ORDER BY d.lsloc, e.code";
+            $sql .= "
+                GROUP BY d.lsloc, e.code, e.item_name, d.meins
+                ORDER BY d.lsloc, e.code
+            ";
 
             $data = DB::connection('pgsql2')->select($sql, $params);
-
             $grouped = [];
+
             foreach ($data as $item) {
-                $lokasi = $item->lokasi;
+                $lokasi = $this->cleanUtf8($item->lokasi);
+
                 if (!isset($grouped[$lokasi])) {
                     $grouped[$lokasi] = [];
                 }
+
                 $grouped[$lokasi][] = [
                     'kode_material' => $this->cleanUtf8($item->kode_material),
                     'nama_material' => $this->cleanUtf8($item->nama_material),
                     'stok' => (float) $item->stok,
                     'satuan' => $this->cleanUtf8($item->satuan),
-                    'last_movement' => $item->last_movement
+                    'last_movement' => $item->last_movement,
                 ];
             }
 
             return response()->json([
                 'success' => true,
                 'data' => $grouped,
-                'total_locations' => count($grouped)
+                'total_locations' => count($grouped),
             ]);
-
         } catch (\Exception $e) {
             Log::error('Stock by location error: ' . $e->getMessage());
-            
+
             return response()->json([
                 'success' => false,
-                'message' => 'Gagal mengambil data per lokasi: ' . $e->getMessage()
+                'message' => 'Gagal mengambil data per lokasi: ' . $e->getMessage(),
             ], 500);
         }
     }
 
     /**
-     * API endpoint untuk summary cards
+     * API summary card.
      */
     public function summary(Request $request)
     {
         try {
-            $summary = $this->getOptimizedSummary($request);
-            
             return response()->json([
                 'success' => true,
-                'data' => $summary
+                'data' => $this->getOptimizedSummary($request),
             ]);
-
         } catch (\Exception $e) {
             Log::error('Stock summary API error: ' . $e->getMessage());
-            
+
             return response()->json([
                 'success' => false,
-                'message' => 'Gagal mengambil summary: ' . $e->getMessage()
+                'message' => 'Gagal mengambil summary: ' . $e->getMessage(),
             ], 500);
         }
     }
 
     /**
-     * API endpoint untuk history sparepart
+     * API history sparepart.
      */
     public function history($id)
     {
@@ -949,18 +856,390 @@ class StockController extends Controller
     }
 
     /**
-     * Clean UTF-8 characters
+     * Alias untuk route lama /stock/detail/{id} jika masih dipakai di web.php.
      */
-    private function cleanUtf8($string)
+    public function detail($id)
     {
-        if (is_null($string)) return '';
-        
-        $string = (string) $string;
-        
-        if (mb_check_encoding($string, 'UTF-8')) {
-            return $string;
+        return $this->getDetail($id);
+    }
+
+    /**
+     * Alias untuk route lama jika masih ada route opname/movement lama.
+     */
+    public function movement(Request $request)
+    {
+        return $this->getMovement($request);
+    }
+
+    public function opname(Request $request)
+    {
+        return $this->saveOpname($request);
+    }
+
+    public function byLocation($location = null)
+    {
+        return $this->getByLocation($location);
+    }
+
+
+    /**
+     * Generate file XLSX sederhana dengan format kolom rapi.
+     */
+    private function createStockXlsx(string $filePath, string $sql): void
+    {
+        $tempDir = storage_path('app/exports/xlsx_' . uniqid('', true));
+        $this->ensureDirectory($tempDir . '/_rels');
+        $this->ensureDirectory($tempDir . '/docProps');
+        $this->ensureDirectory($tempDir . '/xl/_rels');
+        $this->ensureDirectory($tempDir . '/xl/worksheets');
+
+        $columns = [
+            ['title' => 'No', 'width' => 8, 'type' => 'integer'],
+            ['title' => 'Kode', 'width' => 18, 'type' => 'string'],
+            ['title' => 'Nama Sparepart', 'width' => 48, 'type' => 'string'],
+            ['title' => 'Satuan', 'width' => 12, 'type' => 'string'],
+            ['title' => 'Lokasi', 'width' => 18, 'type' => 'string'],
+            ['title' => 'Stok Awal', 'width' => 14, 'type' => 'decimal'],
+            ['title' => 'Pembelian', 'width' => 14, 'type' => 'decimal'],
+            ['title' => 'Pemakaian', 'width' => 14, 'type' => 'decimal'],
+            ['title' => 'Stok Akhir', 'width' => 14, 'type' => 'decimal'],
+            ['title' => 'Harga Rata-rata', 'width' => 18, 'type' => 'money'],
+            ['title' => 'Nilai Stok', 'width' => 18, 'type' => 'money'],
+            ['title' => 'Status', 'width' => 14, 'type' => 'string'],
+            ['title' => 'Terakhir Update', 'width' => 18, 'type' => 'string'],
+        ];
+
+        $sheetPath = $tempDir . '/xl/worksheets/sheet1.xml';
+        $sheet = fopen($sheetPath, 'w');
+
+        if (!$sheet) {
+            throw new \RuntimeException('Tidak bisa membuat worksheet export XLSX.');
         }
-        
-        return mb_convert_encoding($string, 'UTF-8', 'auto');
+
+        fwrite($sheet, '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' . PHP_EOL);
+        fwrite($sheet, '<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">' . PHP_EOL);
+        fwrite($sheet, '<sheetViews><sheetView workbookViewId="0" freezePane="topLeft"><pane ySplit="1" topLeftCell="A2" activePane="bottomLeft" state="frozen"/></sheetView></sheetViews>' . PHP_EOL);
+        fwrite($sheet, '<cols>' . PHP_EOL);
+
+        foreach ($columns as $index => $column) {
+            $colNumber = $index + 1;
+            $width = (float) $column['width'];
+            fwrite($sheet, '<col min="' . $colNumber . '" max="' . $colNumber . '" width="' . $width . '" customWidth="1"/>' . PHP_EOL);
+        }
+
+        fwrite($sheet, '</cols>' . PHP_EOL);
+        fwrite($sheet, '<sheetData>' . PHP_EOL);
+
+        $rowNumber = 1;
+        fwrite($sheet, '<row r="' . $rowNumber . '" ht="22" customHeight="1">');
+        foreach ($columns as $index => $column) {
+            $this->writeInlineStringCell($sheet, $this->cellRef($index + 1, $rowNumber), $column['title'], 1);
+        }
+        fwrite($sheet, '</row>' . PHP_EOL);
+
+        $perPage = 1000;
+        $offset = 0;
+        $no = 1;
+
+        while (true) {
+            $pageSql = $sql . ' LIMIT ' . $perPage . ' OFFSET ' . $offset;
+            $data = DB::connection('pgsql2')->select($pageSql);
+
+            if (empty($data)) {
+                break;
+            }
+
+            foreach ($data as $item) {
+                $rowNumber++;
+                $stock = (float) ($item->end_qty ?? 0);
+                $status = $this->resolveStockStatusLabel($stock);
+                $lastUpdate = $item->last_use_date ?? $item->last_pur_date ?? '-';
+
+                $values = [
+                    $no,
+                    $this->cleanUtf8($item->code ?? '-'),
+                    $this->cleanUtf8($item->item_name ?? '-'),
+                    $this->cleanUtf8($item->uom ?? 'PCS'),
+                    $this->cleanUtf8($item->lsloc ?? '-'),
+                    (float) ($item->bgn_qty ?? 0),
+                    (float) ($item->pur_qty ?? 0),
+                    (float) ($item->use_qty ?? 0),
+                    $stock,
+                    (float) ($item->avg_price ?? 0),
+                    (float) ($item->end_amt ?? 0),
+                    $status,
+                    $lastUpdate && $lastUpdate !== '-' ? date('Y-m-d', strtotime((string) $lastUpdate)) : '-',
+                ];
+
+                fwrite($sheet, '<row r="' . $rowNumber . '">');
+                foreach ($values as $index => $value) {
+                    $column = $columns[$index];
+                    $cellRef = $this->cellRef($index + 1, $rowNumber);
+
+                    if (in_array($column['type'], ['integer', 'number', 'decimal', 'money'], true)) {
+                        $style = match ($column['type']) {
+                            'integer' => 4,
+                            'money' => 3,
+                            default => 2,
+                        };
+
+                        $this->writeNumberCell($sheet, $cellRef, (float) $value, $style);
+                    } else {
+                        $this->writeInlineStringCell($sheet, $cellRef, (string) $value, 0);
+                    }
+                }
+                fwrite($sheet, '</row>' . PHP_EOL);
+
+                $no++;
+            }
+
+            $offset += $perPage;
+        }
+
+        fwrite($sheet, '</sheetData>' . PHP_EOL);
+        fwrite($sheet, '<autoFilter ref="A1:' . $this->cellRef(count($columns), max($rowNumber, 1)) . '"/>' . PHP_EOL);
+        fwrite($sheet, '<pageMargins left="0.7" right="0.7" top="0.75" bottom="0.75" header="0.3" footer="0.3"/>' . PHP_EOL);
+        fwrite($sheet, '</worksheet>');
+        fclose($sheet);
+
+        $this->writeXlsxStaticFiles($tempDir);
+        $this->zipXlsxDirectory($tempDir, $filePath);
+        $this->deleteDirectory($tempDir);
+    }
+
+    private function resolveStockStatusLabel(float $stock): string
+    {
+        if ($stock <= 0) {
+            return 'HABIS';
+        }
+
+        if ($stock <= 5) {
+            return 'MENIPIS';
+        }
+
+        return 'AMAN';
+    }
+
+    private function writeXlsxStaticFiles(string $tempDir): void
+    {
+        file_put_contents($tempDir . '/[Content_Types].xml', '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
+    <Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>
+    <Default Extension="xml" ContentType="application/xml"/>
+    <Override PartName="/docProps/app.xml" ContentType="application/vnd.openxmlformats-officedocument.extended-properties+xml"/>
+    <Override PartName="/docProps/core.xml" ContentType="application/vnd.openxmlformats-package.core-properties+xml"/>
+    <Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>
+    <Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>
+    <Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/>
+</Types>');
+
+        file_put_contents($tempDir . '/_rels/.rels', '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+    <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/>
+    <Relationship Id="rId2" Type="http://schemas.openxmlformats.org/package/2006/relationships/metadata/core-properties" Target="docProps/core.xml"/>
+    <Relationship Id="rId3" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/extended-properties" Target="docProps/app.xml"/>
+</Relationships>');
+
+        file_put_contents($tempDir . '/docProps/app.xml', '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Properties xmlns="http://schemas.openxmlformats.org/officeDocument/2006/extended-properties" xmlns:vt="http://schemas.openxmlformats.org/officeDocument/2006/docPropsVTypes">
+    <Application>Engineering Apps</Application>
+</Properties>');
+
+        file_put_contents($tempDir . '/docProps/core.xml', '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<cp:coreProperties xmlns:cp="http://schemas.openxmlformats.org/package/2006/metadata/core-properties" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:dcterms="http://purl.org/dc/terms/" xmlns:dcmitype="http://purl.org/dc/dcmitype/" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+    <dc:creator>Engineering Apps</dc:creator>
+    <cp:lastModifiedBy>Engineering Apps</cp:lastModifiedBy>
+    <dcterms:created xsi:type="dcterms:W3CDTF">' . gmdate('Y-m-d\TH:i:s\Z') . '</dcterms:created>
+    <dcterms:modified xsi:type="dcterms:W3CDTF">' . gmdate('Y-m-d\TH:i:s\Z') . '</dcterms:modified>
+</cp:coreProperties>');
+
+        file_put_contents($tempDir . '/xl/workbook.xml', '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">
+    <sheets>
+        <sheet name="Stock Sparepart" sheetId="1" r:id="rId1"/>
+    </sheets>
+</workbook>');
+
+        file_put_contents($tempDir . '/xl/_rels/workbook.xml.rels', '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+    <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/>
+    <Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/>
+</Relationships>');
+
+        file_put_contents($tempDir . '/xl/styles.xml', '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">
+    <numFmts count="2">
+        <numFmt numFmtId="164" formatCode="#,##0.00"/>
+        <numFmt numFmtId="165" formatCode="&quot;Rp&quot; #,##0"/>
+    </numFmts>
+    <fonts count="2">
+        <font><sz val="11"/><name val="Calibri"/></font>
+        <font><b/><sz val="11"/><name val="Calibri"/><color rgb="FFFFFFFF"/></font>
+    </fonts>
+    <fills count="3">
+        <fill><patternFill patternType="none"/></fill>
+        <fill><patternFill patternType="gray125"/></fill>
+        <fill><patternFill patternType="solid"><fgColor rgb="FF1F4E79"/><bgColor indexed="64"/></patternFill></fill>
+    </fills>
+    <borders count="2">
+        <border><left/><right/><top/><bottom/><diagonal/></border>
+        <border><left style="thin"><color rgb="FFD9E2F3"/></left><right style="thin"><color rgb="FFD9E2F3"/></right><top style="thin"><color rgb="FFD9E2F3"/></top><bottom style="thin"><color rgb="FFD9E2F3"/></bottom><diagonal/></border>
+    </borders>
+    <cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>
+    <cellXfs count="5">
+        <xf numFmtId="0" fontId="0" fillId="0" borderId="1" xfId="0"/>
+        <xf numFmtId="0" fontId="1" fillId="2" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1"><alignment horizontal="center" vertical="center"/></xf>
+        <xf numFmtId="164" fontId="0" fillId="0" borderId="1" xfId="0" applyNumberFormat="1" applyBorder="1"><alignment horizontal="right"/></xf>
+        <xf numFmtId="165" fontId="0" fillId="0" borderId="1" xfId="0" applyNumberFormat="1" applyBorder="1"><alignment horizontal="right"/></xf>
+        <xf numFmtId="1" fontId="0" fillId="0" borderId="1" xfId="0" applyNumberFormat="1" applyBorder="1"><alignment horizontal="right"/></xf>
+    </cellXfs>
+    <cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles>
+    <dxfs count="0"/>
+    <tableStyles count="0" defaultTableStyle="TableStyleMedium2" defaultPivotStyle="PivotStyleLight16"/>
+</styleSheet>');
+    }
+
+    private function writeInlineStringCell($sheet, string $cellRef, string $value, int $style = 0): void
+    {
+        fwrite($sheet, '<c r="' . $cellRef . '" t="inlineStr" s="' . $style . '"><is><t>' . $this->xmlEscape($value) . '</t></is></c>');
+    }
+
+    private function writeNumberCell($sheet, string $cellRef, float $value, int $style = 2): void
+    {
+        $number = is_finite($value) ? $value : 0;
+        fwrite($sheet, '<c r="' . $cellRef . '" s="' . $style . '"><v>' . $number . '</v></c>');
+    }
+
+    private function cellRef(int $columnIndex, int $rowNumber): string
+    {
+        return $this->columnLetter($columnIndex) . $rowNumber;
+    }
+
+    private function columnLetter(int $columnIndex): string
+    {
+        $letter = '';
+
+        while ($columnIndex > 0) {
+            $mod = ($columnIndex - 1) % 26;
+            $letter = chr(65 + $mod) . $letter;
+            $columnIndex = intdiv($columnIndex - $mod, 26) - 1;
+        }
+
+        return $letter;
+    }
+
+    private function xmlEscape($value): string
+    {
+        $value = $this->cleanUtf8($value);
+
+        return htmlspecialchars($value, ENT_QUOTES | ENT_XML1, 'UTF-8');
+    }
+
+    private function ensureDirectory(string $directory): void
+    {
+        if (!is_dir($directory)) {
+            mkdir($directory, 0775, true);
+        }
+    }
+
+    private function zipXlsxDirectory(string $sourceDir, string $filePath): void
+    {
+        $zip = new \ZipArchive();
+
+        if ($zip->open($filePath, \ZipArchive::CREATE | \ZipArchive::OVERWRITE) !== true) {
+            throw new \RuntimeException('Tidak bisa membuat file XLSX.');
+        }
+
+        $files = [
+            '[Content_Types].xml',
+            '_rels/.rels',
+            'docProps/app.xml',
+            'docProps/core.xml',
+            'xl/workbook.xml',
+            'xl/_rels/workbook.xml.rels',
+            'xl/styles.xml',
+            'xl/worksheets/sheet1.xml',
+        ];
+
+        foreach ($files as $relativePath) {
+            $zip->addFile($sourceDir . '/' . $relativePath, $relativePath);
+        }
+
+        $zip->close();
+    }
+
+    private function deleteDirectory(string $directory): void
+    {
+        if (!is_dir($directory)) {
+            return;
+        }
+
+        $items = scandir($directory);
+
+        if ($items === false) {
+            return;
+        }
+
+        foreach ($items as $item) {
+            if ($item === '.' || $item === '..') {
+                continue;
+            }
+
+            $path = $directory . DIRECTORY_SEPARATOR . $item;
+
+            if (is_dir($path)) {
+                $this->deleteDirectory($path);
+            } else {
+                @unlink($path);
+            }
+        }
+
+        @rmdir($directory);
+    }
+
+    private function getTipeBadge(?string $tipe): string
+    {
+        $tipe = strtoupper((string) $tipe);
+
+        if (str_contains($tipe, 'PEMBELIAN')) {
+            return 'success';
+        }
+
+        if (str_contains($tipe, 'PEMAKAIAN')) {
+            return 'warning';
+        }
+
+        if (str_contains($tipe, 'LOSS')) {
+            return 'danger';
+        }
+
+        if (str_contains($tipe, 'RETUR')) {
+            return 'secondary';
+        }
+
+        return 'info';
+    }
+
+    private function cleanUtf8($string): string
+    {
+        if ($string === null) {
+            return '';
+        }
+
+        $string = (string) $string;
+
+        if (!mb_check_encoding($string, 'UTF-8')) {
+            $string = mb_convert_encoding($string, 'UTF-8', 'auto');
+        }
+
+        return trim($string);
+    }
+
+    private function escapeSqlLike($value): string
+    {
+        $value = trim((string) $value);
+        $value = str_replace(["\\", "'"], ["\\\\", "''"], $value);
+
+        return $value;
     }
 }
