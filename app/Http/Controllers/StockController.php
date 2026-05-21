@@ -56,6 +56,8 @@ class StockController extends Controller
                 'filter_name' => 'nullable|string|max:100',
                 'filter_unit' => 'nullable|string|max:20',
                 'filter_status' => 'nullable|string|max:20',
+                'category' => 'nullable|in:under_10m,above_10m',
+                'price_filter' => 'nullable|in:under_10m,above_10m',
             ]);
 
             if ($validator->fails()) {
@@ -159,6 +161,11 @@ class StockController extends Controller
         $filterUnit = $this->escapeSqlLike($request->get('filter_unit', ''));
         $status = strtolower(trim((string) $request->get('status', '')));
         $filterStatus = strtolower(trim((string) $request->get('filter_status', '')));
+        $categoryFilter = strtolower(trim((string) $request->get('category', '')));
+        $priceFilter = strtolower(trim((string) $request->get('price_filter', $categoryFilter)));
+        if (!in_array($priceFilter, ['under_10m', 'above_10m'], true)) {
+            $priceFilter = '';
+        }
         $effectiveStatus = $filterStatus !== '' ? $filterStatus : $status;
 
         if (!in_array($effectiveStatus, ['aman', 'menipis', 'habis'], true)) {
@@ -177,7 +184,15 @@ class StockController extends Controller
             + COALESCE(tms.tms_qty, 0)
             - COALESCE(los.los_qty, 0)
         )";
-
+        $avgPriceExpression = "(
+            CASE
+                WHEN COALESCE(pur.pur_qty, 0) > 0
+                    THEN ROUND(COALESCE(pur.pur_amt, 0) / NULLIF(COALESCE(pur.pur_qty, 0), 0), 2)
+                WHEN COALESCE(sa.menge, 0) > 0
+                    THEN ROUND(COALESCE(sa.dmbtr, 0) / NULLIF(COALESCE(sa.menge, 0), 0), 2)
+                ELSE 0
+            END
+        )";
         $sql = "
             WITH transaksi_periode AS (
                 SELECT
@@ -370,7 +385,12 @@ class StockController extends Controller
             $sql .= " AND {$endQtyExpression} > 5";
         }
 
-        return $sql;
+                if ($priceFilter === 'under_10m') {
+            $sql .= " AND {$avgPriceExpression} < 10000000";
+        } elseif ($priceFilter === 'above_10m') {
+            $sql .= " AND {$avgPriceExpression} >= 10000000";
+        }
+return $sql;
     }
 
     /**

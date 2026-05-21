@@ -263,12 +263,11 @@
                 <input id="stockSearch" class="border rounded-lg px-3 py-2 w-full" placeholder="Cari kode / nama sparepart...">
             </div>
             
-            <select id="stockCategory" class="border rounded-lg px-3 py-2 w-40">
-                <option value="">Semua Kategori</option>
-                @foreach($categories ?? [] as $cat)
-                    <option value="{{ $cat->kategori }}">{{ $cat->kategori }}</option>
-                @endforeach
-            </select>
+            <select id="stockCategory" class="border rounded-lg px-3 py-2 w-40" name="category">
+<option value="">Semua Harga</option>
+<option value="under_10m">Harga &lt; Rp 10 Juta</option>
+<option value="above_10m">Harga ≥ Rp 10 Juta</option>
+</select>
             
             <select id="stockStatus" class="border rounded-lg px-3 py-2 w-40">
                 <option value="">Semua Status</option>
@@ -397,7 +396,7 @@
                 <div id="detailUnit" class="font-medium">-</div>
             </div>
             <div>
-                <label class="text-xs text-gray-500">Kategori</label>
+                <label class="text-xs text-gray-500">Harga</label>
                 <div id="detailCategory" class="font-medium">-</div>
             </div>
         </div>

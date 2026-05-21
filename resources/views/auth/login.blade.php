@@ -271,10 +271,6 @@
                         <div class="text-sm">Engineering Apps</div>
                     </div>
                     <!-- Logo image akan dimuat di sini -->
-                    <img id="appLogo" src="/resources/img/skb.png" alt="Engineering Apps Logo" 
-                         class="w-32 h-32 object-contain hidden" 
-                         onload="document.getElementById('logoFallback').style.display = 'none'; this.classList.remove('hidden');"
-                         onerror="document.getElementById('logoFallback').classList.remove('hidden');">
                 </div>
                 <h1 class="text-4xl font-bold mb-2">Engineering Apps</h1>
                 <p class="text-xl opacity-90">Versi 1.0</p>
@@ -354,10 +350,6 @@
                                     <div class="text-2xl font-bold mb-1">EA</div>
                                     <div class="text-xs">Engineering</div>
                                 </div>
-                                <img id="mobileAppLogo" src="../resources/img/skb.png" alt="Engineering Apps Logo" 
-                                     class="w-16 h-16 object-contain hidden"
-                                     onload="document.getElementById('mobileLogoFallback').style.display = 'none'; this.classList.remove('hidden');"
-                                     onerror="document.getElementById('mobileLogoFallback').classList.remove('hidden');">
                             </div>
                             <div class="text-center">
                                 <h1 class="text-2xl font-bold text-gray-800 dark:text-white">Engineering Apps</h1>
@@ -721,16 +713,13 @@
         });
         
         // Test logo path
-        console.log('Logo path:', '/resources/img/skb.png');
         
         // Force reload logo images if they fail to load
         setTimeout(() => {
             const logos = document.querySelectorAll('img[id$="Logo"]');
             logos.forEach(logo => {
                 if (logo.complete && logo.naturalHeight === 0) {
-                    console.log('Logo failed to load:', logo.src);
                     // Try to reload with cache busting
-                    logo.src = logo.src + '?t=' + new Date().getTime();
                 }
             });
         }, 1000);

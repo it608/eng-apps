@@ -58,17 +58,13 @@ class DashboardController extends Controller
     private function countTable(string $table): int
     {
         try {
-            if (!Schema::hasTable($table)) {
-                return 0;
-            }
-
-            return (int) DB::table($table)->count();
+            return Schema::hasTable($table) ? (int) DB::table($table)->count() : 0;
         } catch (\Throwable $e) {
             return 0;
         }
     }
 
-    private function countWhere(string $table, string $column, $value): int
+    private function countWhere(string $table, string $column, mixed $value): int
     {
         try {
             if (!Schema::hasTable($table) || !Schema::hasColumn($table, $column)) {
@@ -106,11 +102,11 @@ class DashboardController extends Controller
                     return $column;
                 }
             }
-
-            return null;
         } catch (\Throwable $e) {
             return null;
         }
+
+        return null;
     }
 
     private function countWoProgressOpen(): int
@@ -125,7 +121,7 @@ class DashboardController extends Controller
             if (Schema::hasColumn('trWorkOrder', 'progress_status')) {
                 $query->where(function ($q) {
                     $q->whereNull('progress_status')
-                        ->orWhereIn('progress_status', ['open', 'progress']);
+                        ->orWhereIn('progress_status', ['open', 'progress', 'in_progress']);
                 });
             }
 
@@ -137,11 +133,7 @@ class DashboardController extends Controller
 
     private function percentage(int|float $value, int|float $total): float
     {
-        if ($total <= 0) {
-            return 0;
-        }
-
-        return round(($value / $total) * 100, 1);
+        return $total > 0 ? round(($value / $total) * 100, 1) : 0;
     }
 
     private function recentPb()
@@ -151,8 +143,15 @@ class DashboardController extends Controller
                 return collect();
             }
 
+            $select = ['id'];
+            foreach (['nomor_pb', 'tanggal_permintaan', 'tanggal_diperlukan', 'untuk', 'jenis_pekerjaan', 'status', 'user_id', 'created_at'] as $column) {
+                if (Schema::hasColumn('trBPB', $column)) {
+                    $select[] = $column;
+                }
+            }
+
             $items = DB::table('trBPB')
-                ->select('id', 'nomor_pb', 'tanggal_permintaan', 'tanggal_diperlukan', 'untuk', 'jenis_pekerjaan', 'status', 'user_id', 'created_at')
+                ->select($select)
                 ->orderByDesc(Schema::hasColumn('trBPB', 'created_at') ? 'created_at' : 'id')
                 ->limit(6)
                 ->get();
@@ -173,7 +172,11 @@ class DashboardController extends Controller
 
             if (Schema::hasTable('trBPBDetail')) {
                 $detailRows = DB::table('trBPBDetail')
-                    ->select('trbpb_id', DB::raw('COUNT(*) as total_item'), DB::raw('COALESCE(SUM(jumlah), 0) as total_qty'))
+                    ->select(
+                        'trbpb_id',
+                        DB::raw('COUNT(*) as total_item'),
+                        DB::raw('COALESCE(SUM(jumlah), 0) as total_qty')
+                    )
                     ->whereIn('trbpb_id', $items->pluck('id'))
                     ->groupBy('trbpb_id')
                     ->get();
@@ -183,9 +186,13 @@ class DashboardController extends Controller
             }
 
             return $items->map(function ($item) use ($userMap, $detailCount, $detailQty) {
-                $item->requester = $userMap[$item->user_id] ?? '-';
+                $item->nomor_pb = $item->nomor_pb ?? '-';
+                $item->tanggal_permintaan = $item->tanggal_permintaan ?? $item->created_at ?? null;
+                $item->status = $item->status ?? '-';
+                $item->requester = isset($item->user_id) ? ($userMap[$item->user_id] ?? '-') : '-';
                 $item->total_item = (int) ($detailCount[$item->id] ?? 0);
                 $item->total_qty = (float) ($detailQty[$item->id] ?? 0);
+
                 return $item;
             });
         } catch (\Throwable $e) {
@@ -200,8 +207,15 @@ class DashboardController extends Controller
                 return collect();
             }
 
+            $select = ['id'];
+            foreach (['nomor', 'judul', 'status', 'progress_status', 'created_by', 'created_at', 'updated_at'] as $column) {
+                if (Schema::hasColumn('trWorkOrder', $column)) {
+                    $select[] = $column;
+                }
+            }
+
             $items = DB::table('trWorkOrder')
-                ->select('id', 'nomor', 'judul', 'status', 'progress_status', 'created_by', 'created_at', 'updated_at')
+                ->select($select)
                 ->orderByDesc(Schema::hasColumn('trWorkOrder', 'created_at') ? 'created_at' : 'id')
                 ->limit(6)
                 ->get();
@@ -218,7 +232,13 @@ class DashboardController extends Controller
             }
 
             return $items->map(function ($item) use ($userMap) {
-                $item->creator = $userMap[$item->created_by] ?? '-';
+                $item->nomor = $item->nomor ?? '-';
+                $item->judul = $item->judul ?? '-';
+                $item->status = $item->status ?? '-';
+                $item->progress_status = $item->progress_status ?? null;
+                $item->created_at = $item->created_at ?? null;
+                $item->creator = isset($item->created_by) ? ($userMap[$item->created_by] ?? '-') : '-';
+
                 return $item;
             });
         } catch (\Throwable $e) {
@@ -233,11 +253,28 @@ class DashboardController extends Controller
                 return collect();
             }
 
+            $select = ['id'];
+            foreach (['user_name', 'module', 'action', 'description', 'risk_level', 'created_at'] as $column) {
+                if (Schema::hasColumn('audit_logs', $column)) {
+                    $select[] = $column;
+                }
+            }
+
             return DB::table('audit_logs')
-                ->select('id', 'user_name', 'module', 'action', 'description', 'risk_level', 'created_at')
-                ->orderByDesc('created_at')
+                ->select($select)
+                ->orderByDesc(Schema::hasColumn('audit_logs', 'created_at') ? 'created_at' : 'id')
                 ->limit(5)
-                ->get();
+                ->get()
+                ->map(function ($item) {
+                    $item->user_name = $item->user_name ?? 'System';
+                    $item->module = $item->module ?? '-';
+                    $item->action = $item->action ?? '-';
+                    $item->description = $item->description ?? '-';
+                    $item->risk_level = $item->risk_level ?? 'low';
+                    $item->created_at = $item->created_at ?? null;
+
+                    return $item;
+                });
         } catch (\Throwable $e) {
             return collect();
         }
