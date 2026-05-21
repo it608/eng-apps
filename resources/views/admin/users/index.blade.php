@@ -5,7 +5,7 @@
 @php
     $totalUsers = $users->count();
     $adminCount = $users->where('role', 'admin')->count();
-    $approvalCount = $users->where('role', 'approval')->count();
+    $approvalCount = $users->whereIn('role', ['approval', 'approval2'])->count();
     $regularUserCount = $users->where('role', 'user')->count();
     $latestUser = $users->sortByDesc('created_at')->first();
 @endphp
@@ -35,7 +35,7 @@
         <div>
             <div class="text-sm font-medium text-gray-900 dark:text-white">Approval</div>
             <div class="mt-1 text-base font-medium text-orange-500 dark:text-orange-400">{{ number_format($approvalCount, 0, ',', '.') }}</div>
-            <div class="mt-1 text-xs text-gray-500 dark:text-gray-400">Akses approval</div>
+            <div class="mt-1 text-xs text-gray-500 dark:text-gray-400">Level 1 dan level 2</div>
         </div>
 
         <div>
@@ -94,7 +94,8 @@
                             class="rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-sm text-gray-700 shadow-sm transition focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-100 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200 dark:focus:border-blue-400 dark:focus:ring-blue-900/40">
                         <option value="all">Semua Role</option>
                         <option value="admin">Admin</option>
-                        <option value="approval">Approval</option>
+                        <option value="approval">Approval Level 1</option>
+                        <option value="approval2">Approval Level 2</option>
                         <option value="user">User</option>
                     </select>
 
@@ -175,7 +176,13 @@
                                 $roleConfig = match($user->role) {
                                     'admin' => 'bg-red-50 text-red-700 border-red-200 dark:bg-red-900/20 dark:text-red-300 dark:border-red-800',
                                     'approval' => 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-900/20 dark:text-amber-300 dark:border-amber-800',
+                                    'approval2' => 'bg-purple-50 text-purple-700 border-purple-200 dark:bg-purple-900/20 dark:text-purple-300 dark:border-purple-800',
                                     default => 'bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-900/20 dark:text-blue-300 dark:border-blue-800',
+                                };
+                                $roleLabel = match($user->role) {
+                                    'approval' => 'Approval L1',
+                                    'approval2' => 'Approval L2',
+                                    default => ucfirst($user->role),
                                 };
                             @endphp
                             <tr class="user-row transition hover:bg-blue-50/40 dark:hover:bg-blue-900/10"
@@ -202,7 +209,7 @@
                                 </td>
                                 <td class="px-4 py-4 text-center">
                                     <span class="inline-flex items-center justify-center rounded-md border px-2.5 py-1 text-xs font-bold uppercase tracking-wide {{ $roleConfig }}">
-                                        {{ ucfirst($user->role) }}
+                                        {{ $roleLabel }}
                                     </span>
                                 </td>
                                 <td class="px-4 py-4 text-center text-gray-700 dark:text-gray-300">

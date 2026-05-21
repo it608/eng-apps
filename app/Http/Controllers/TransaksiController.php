@@ -9,6 +9,8 @@ use Illuminate\Validation\ValidationException;
 
 class TransaksiController extends Controller
 {
+    private const HIGH_VALUE_THRESHOLD = 10000000;
+
     /**
      * Display a listing of transactions.
      */
@@ -16,17 +18,7 @@ class TransaksiController extends Controller
     {
         try {
             // Ambil data transaksi - URUTKAN DARI TERBARU
-            $transaksi = DB::table('trBPB')
-                ->leftJoin('trBPBDetail', 'trBPB.id', '=', 'trBPBDetail.trbpb_id')
-                ->select(
-                    'trBPB.*',
-                    DB::raw('COUNT(trBPBDetail.id) as jumlah_barang'),
-                    DB::raw('COALESCE(SUM(trBPBDetail.jumlah), 0) as total_jumlah')
-                )
-                ->groupBy('trBPB.id')
-                ->orderBy('trBPB.created_at', 'desc')
-                ->orderBy('trBPB.id', 'desc')
-                ->get();
+            $transaksi = $this->getTransaksiData();
 
             // CEK APAKAH REQUEST AJAX
             if ($request->ajax() || $request->wantsJson()) {
@@ -76,6 +68,7 @@ class TransaksiController extends Controller
                 'jenis_pekerjaan' => 'required|string|in:repair,maintenance,project,overhaul',
                 'tanggal_diperlukan' => 'required|date|after_or_equal:today',
                 'barang' => 'required|array|min:1',
+                'barang.*.barang_id' => 'nullable|numeric',
                 'barang.*.nama_barang' => 'required|string|max:255',
                 'barang.*.jumlah' => 'required|numeric|min:0.01',
                 'barang.*.satuan' => 'required|string',
@@ -89,6 +82,41 @@ class TransaksiController extends Controller
             $request->validate($rules);
 
             DB::beginTransaction();
+
+            $preparedDetails = [];
+            $hasHighValueItem = false;
+
+            foreach ($request->barang as $item) {
+                if (empty($item['nama_barang']) || empty($item['jumlah'])) {
+                    continue;
+                }
+
+                $unitPrice = $this->getBarangAveragePrice($item['barang_id'] ?? null, $item['nama_barang']);
+                $jumlah = (float) $item['jumlah'];
+                $totalPrice = $unitPrice * $jumlah;
+                $isHighValue = $unitPrice >= self::HIGH_VALUE_THRESHOLD;
+
+                if ($isHighValue) {
+                    $hasHighValueItem = true;
+                }
+
+                $preparedDetails[] = [
+                    'barang_id' => $item['barang_id'] ?? null,
+                    'nama_barang' => $item['nama_barang'],
+                    'jumlah' => $jumlah,
+                    'satuan' => $item['satuan'],
+                    'unit_price' => $unitPrice,
+                    'total_price' => $totalPrice,
+                    'is_high_value' => $isHighValue,
+                    'keterangan' => $item['keterangan'] ?? null,
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ];
+            }
+
+            if (empty($preparedDetails)) {
+                throw new \Exception('Data barang tidak valid');
+            }
             
             // Insert header
             $insertData = [
@@ -101,6 +129,9 @@ class TransaksiController extends Controller
                 'tanggal_diperlukan' => $request->tanggal_diperlukan,
                 'jenis_pekerjaan' => $request->jenis_pekerjaan,
                 'status' => 'pending',
+                'approval_level_required' => $hasHighValueItem ? 2 : 1,
+                'approval_current_level' => 1,
+                'has_high_value_item' => $hasHighValueItem,
                 'keterangan' => $request->keterangan,
                 'created_at' => now(),
                 'updated_at' => now(),
@@ -128,39 +159,16 @@ class TransaksiController extends Controller
 
             // Insert detail barang
             $details = [];
-            foreach ($request->barang as $item) {
-                if (!empty($item['nama_barang']) && !empty($item['jumlah'])) {
-                    $details[] = [
-                        'trbpb_id' => $trbpbId,
-                        'nama_barang' => $item['nama_barang'],
-                        'jumlah' => $item['jumlah'],
-                        'satuan' => $item['satuan'],
-                        'keterangan' => $item['keterangan'] ?? null,
-                        'created_at' => now(),
-                        'updated_at' => now(),
-                    ];
-                }
-            }
-
-            if (empty($details)) {
-                throw new \Exception('Data barang tidak valid');
+            foreach ($preparedDetails as $item) {
+                $item['trbpb_id'] = $trbpbId;
+                $details[] = $item;
             }
 
             DB::table('trBPBDetail')->insert($details);
             DB::commit();
 
             // AMBIL DATA TERBARU - URUTKAN DARI TERBARU
-            $transaksiBaru = DB::table('trBPB')
-                ->leftJoin('trBPBDetail', 'trBPB.id', '=', 'trBPBDetail.trbpb_id')
-                ->select(
-                    'trBPB.*',
-                    DB::raw('COUNT(trBPBDetail.id) as jumlah_barang'),
-                    DB::raw('COALESCE(SUM(trBPBDetail.jumlah), 0) as total_jumlah')
-                )
-                ->groupBy('trBPB.id')
-                ->orderBy('trBPB.created_at', 'desc')
-                ->orderBy('trBPB.id', 'desc')
-                ->get();
+            $transaksiBaru = $this->getTransaksiData();
 
             return response()->json([
                 'success' => true,
@@ -205,7 +213,7 @@ class TransaksiController extends Controller
             }
 
             $detail = DB::table('trBPBDetail')
-                ->where('trbpb_id', $id)
+                ->where('trBPB_id', $id)
                 ->get();
 
             // Log untuk debugging
@@ -301,6 +309,80 @@ class TransaksiController extends Controller
         }
 
         return 'PB-ENG-' . $dateFormatted . '-' . $seq;
+    }
+
+    private function getTransaksiData()
+    {
+        return DB::table('trBPB')
+            ->leftJoin('trBPBDetail', 'trBPB.id', '=', 'trBPBDetail.trBPB_id')
+            ->select(
+                'trBPB.*',
+                DB::raw('COUNT(trBPBDetail.id) as jumlah_barang'),
+                DB::raw('COALESCE(SUM(trBPBDetail.jumlah), 0) as total_jumlah')
+            )
+            ->groupBy('trBPB.id')
+            ->orderBy('trBPB.created_at', 'desc')
+            ->orderBy('trBPB.id', 'desc')
+            ->get();
+    }
+
+    private function getBarangAveragePrice($barangId, string $namaBarang): float
+    {
+        try {
+            $sql = "
+                WITH target_items AS (
+                    SELECT id_items
+                    FROM PUBLIC.tb_skb080_1mmara
+                    WHERE mtart = 'YSPR'
+                      AND (
+                          id_items = CAST(? AS bigint)
+                          OR LOWER(TRIM(item_name)) = LOWER(TRIM(?))
+                      )
+                    LIMIT 1
+                ),
+                pur AS (
+                    SELECT matnr, SUM(menge) AS qty, SUM(wrbtr) AS amt
+                    FROM PUBLIC.tb_skb008_2dmseg
+                    WHERE werks = 1
+                      AND bwart = '101'
+                      AND cpudt BETWEEN DATE '2026-01-01' AND CURRENT_DATE
+                      AND matnr IN (SELECT id_items FROM target_items)
+                    GROUP BY matnr
+                ),
+                sa AS (
+                    SELECT matnr, SUM(menge) AS qty, SUM(dmbtr) AS amt
+                    FROM PUBLIC.tb_skb111_1mbgni
+                    WHERE werks = 1
+                      AND mjahr = 2026
+                      AND lfmon = 1
+                      AND ypotp = 'YPO2'
+                      AND matnr IN (SELECT id_items FROM target_items)
+                    GROUP BY matnr
+                )
+                SELECT
+                    CASE
+                        WHEN COALESCE(pur.qty, 0) > 0 THEN ROUND(COALESCE(pur.amt, 0) / NULLIF(COALESCE(pur.qty, 0), 0), 2)
+                        WHEN COALESCE(sa.qty, 0) > 0 THEN ROUND(COALESCE(sa.amt, 0) / NULLIF(COALESCE(sa.qty, 0), 0), 2)
+                        ELSE 0
+                    END AS avg_price
+                FROM target_items ti
+                LEFT JOIN pur ON pur.matnr = ti.id_items
+                LEFT JOIN sa ON sa.matnr = ti.id_items
+                LIMIT 1
+            ";
+
+            $safeBarangId = is_numeric($barangId) ? $barangId : 0;
+            $price = DB::connection('pgsql2')->selectOne($sql, [$safeBarangId, $namaBarang]);
+
+            return (float) ($price->avg_price ?? 0);
+        } catch (\Exception $e) {
+            \Log::warning('Gagal mengambil harga barang untuk approval: ' . $e->getMessage(), [
+                'barang_id' => $barangId,
+                'nama_barang' => $namaBarang,
+            ]);
+
+            return 0;
+        }
     }
 
     /**

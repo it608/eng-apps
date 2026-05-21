@@ -26,6 +26,7 @@ class BarangController extends Controller
                 ->table('tb_skb080_1mmara')
                 ->select(
                     'id_items as id',
+                    'code as kode',
                     'item_name as nama',
                     'meins as satuan',
                     DB::raw("CASE 

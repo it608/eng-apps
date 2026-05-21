@@ -46,9 +46,76 @@
 
 /* PERBAIKAN SPACING MODAL */
 .modal-content {
-    max-height: 90vh;
+    max-height: calc(100vh - 8rem);
     overflow-y: auto;
     position: relative;
+    max-width: min(100%, 1180px);
+}
+
+.content-modal-root {
+    position: fixed;
+    top: 4rem;
+    right: 0;
+    bottom: 0;
+    left: 16rem;
+}
+
+@media (max-width: 768px) {
+    .content-modal-root {
+        left: 4rem;
+    }
+}
+
+@media (max-width: 640px) {
+    .content-modal-root {
+        left: 0;
+    }
+}
+
+.content-modal-panel {
+    min-height: 100%;
+    padding: 1.25rem 1.5rem 1.5rem;
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
+    text-align: left;
+}
+
+.viewport-modal-root {
+    position: fixed;
+    inset: 0;
+}
+
+.viewport-modal-panel {
+    min-height: 100%;
+    padding: 5.25rem 1.5rem 1.5rem 17.5rem;
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
+    text-align: left;
+}
+
+@media (max-width: 768px) {
+    .viewport-modal-panel {
+        padding-left: 5.5rem;
+    }
+}
+
+@media (max-width: 640px) {
+    .viewport-modal-panel {
+        padding: 4.75rem 1rem 1rem;
+    }
+}
+
+@media (max-height: 760px) {
+    .modal-content {
+        max-height: calc(100vh - 6rem);
+    }
+
+    .content-modal-panel {
+        padding-top: 0.75rem;
+        padding-bottom: 1.5rem;
+    }
 }
 
 .modal-form-section {
@@ -634,26 +701,39 @@
                                     <div class="text-xs text-gray-500" x-text="'Total: ' + formatNumber(tr.total_jumlah)"></div>
                                 </td>
                                 <td class="py-4 px-6">
-                                    <span class="px-3 py-1 text-xs font-medium rounded-full inline-flex items-center gap-1"
-                                          :class="{
-                                              'bg-yellow-100 text-yellow-800': tr.status === 'pending',
-                                              'bg-blue-100 text-blue-800': tr.status === 'approved',
-                                              'bg-red-100 text-red-800': tr.status === 'rejected',
-                                              'bg-purple-100 text-purple-800': tr.status === 'in_progress',
-                                              'bg-green-100 text-green-800': tr.status === 'completed',
-                                              'bg-gray-100 text-gray-800': !tr.status
-                                          }">
-                                        <span class="w-1.5 h-1.5 rounded-full" 
+                                    <template x-if="requiresTwoLevelApproval(tr) && tr.status === 'pending'">
+                                        <div class="inline-flex flex-col items-start gap-1 whitespace-nowrap">
+                                            <template x-for="level in [1, 2]" :key="level">
+                                                <span class="px-2.5 py-1 text-xs font-medium rounded-full inline-flex items-center justify-center gap-1 min-w-[92px]"
+                                                      :class="getApprovalStepClass(tr, level)">
+                                                    <span class="w-1.5 h-1.5 rounded-full" :class="getApprovalStepDotClass(tr, level)"></span>
+                                                    <span x-text="getApprovalStepLabel(tr, level)"></span>
+                                                </span>
+                                            </template>
+                                        </div>
+                                    </template>
+                                    <template x-if="!(requiresTwoLevelApproval(tr) && tr.status === 'pending')">
+                                        <span class="px-3 py-1 text-xs font-medium rounded-full inline-flex items-center justify-center gap-1 whitespace-nowrap min-w-[104px]"
                                               :class="{
-                                                  'bg-yellow-500': tr.status === 'pending',
-                                                  'bg-blue-500': tr.status === 'approved',
-                                                  'bg-red-500': tr.status === 'rejected',
-                                                  'bg-purple-500': tr.status === 'in_progress',
-                                                  'bg-green-500': tr.status === 'completed',
-                                                  'bg-gray-500': !tr.status
-                                              }"></span>
-                                        <span x-text="tr.status ? tr.status.charAt(0).toUpperCase() + tr.status.slice(1).replace('_', ' ') : '-'"></span>
-                                    </span>
+                                                  'bg-yellow-100 text-yellow-800': tr.status === 'pending',
+                                                  'bg-blue-100 text-blue-800': tr.status === 'approved',
+                                                  'bg-red-100 text-red-800': tr.status === 'rejected',
+                                                  'bg-purple-100 text-purple-800': tr.status === 'in_progress',
+                                                  'bg-green-100 text-green-800': tr.status === 'completed',
+                                                  'bg-gray-100 text-gray-800': !tr.status
+                                              }">
+                                            <span class="w-1.5 h-1.5 rounded-full" 
+                                                  :class="{
+                                                      'bg-yellow-500': tr.status === 'pending',
+                                                      'bg-blue-500': tr.status === 'approved',
+                                                      'bg-red-500': tr.status === 'rejected',
+                                                      'bg-purple-500': tr.status === 'in_progress',
+                                                      'bg-green-500': tr.status === 'completed',
+                                                      'bg-gray-500': !tr.status
+                                                  }"></span>
+                                            <span x-text="getApprovalStatusLabel(tr)"></span>
+                                        </span>
+                                    </template>
                                 </td>
                                 <td class="py-4 px-6">
                                     <div class="flex items-center gap-2">
@@ -676,8 +756,8 @@
                                             </svg>
                                         </button>
                                         
-                                        {{-- TOMBOL APPROVAL - HANYA UNTUK ROLE APPROVAL DAN STATUS PENDING --}}
-                                        <template x-if="userRole === 'approval' && tr.status === 'pending'">
+                                        {{-- TOMBOL APPROVAL - SESUAI LEVEL APPROVAL --}}
+                                        <template x-if="canApproveTransaction(tr)">
                                             <div class="flex items-center gap-1 border-l pl-2 ml-1">
                                                 {{-- Approve Button --}}
                                                 <button @click="approveRequest(tr)" 
@@ -799,42 +879,53 @@
             {{-- HEADER SECTION --}}
             <div class="p-6 border-b">
                 <h2 class="text-lg font-semibold text-gray-800">
-                    Riwayat Transaksi
+                    Riwayat PB
                 </h2>
                 <p class="text-sm text-gray-500 mt-1">
-                    Daftar transaksi yang telah selesai
+                    Arsip permintaan barang yang sudah selesai diproses
                 </p>
             </div>
 
             <div class="p-6">
-                <div class="overflow-x-auto">
+                <div class="mb-4 flex items-center justify-between text-sm text-gray-500">
+                    <span><span class="font-medium text-gray-700" x-text="historyTransaksi.length"></span> riwayat ditemukan</span>
+                </div>
+
+                <div class="overflow-x-auto rounded-lg border border-gray-200">
                     <table class="min-w-full text-sm">
                         <thead>
                             <tr class="border-b text-left bg-gray-50">
-                                <th class="py-3 px-4 text-xs font-medium text-gray-500 uppercase w-16">No.</th>
                                 <th class="py-3 px-4 text-xs font-medium text-gray-500 uppercase">No. PB</th>
                                 <th class="py-3 px-4 text-xs font-medium text-gray-500 uppercase">Tanggal</th>
-                                <th class="py-3 px-4 text-xs font-medium text-gray-500 uppercase">Untuk</th>
-                                <th class="py-3 px-4 text-xs font-medium text-gray-500 uppercase">Barang</th>
+                                <th class="py-3 px-4 text-xs font-medium text-gray-500 uppercase">Tujuan</th>
                                 <th class="py-3 px-4 text-xs font-medium text-gray-500 uppercase">Status</th>
-                                <th class="py-3 px-4 text-xs font-medium text-gray-500 uppercase">Aksi</th>
+                                <th class="py-3 px-4 text-xs font-medium text-gray-500 uppercase text-center w-24">Aksi</th>
                             </tr>
                         </thead>
                         <tbody>
-                            <template x-for="(tr, index) in completedTransaksi" :key="tr.id">
+                            <template x-for="tr in historyTransaksi" :key="tr.id">
                                 <tr class="border-b hover:bg-gray-50">
-                                    <td class="py-3 px-4 text-sm font-medium text-gray-900" x-text="index + 1"></td>
-                                    <td class="py-3 px-4 text-sm" x-text="tr.nomor_pb"></td>
-                                    <td class="py-3 px-4 text-sm" x-text="formatDateForDisplay(tr.tanggal_permintaan)"></td>
-                                    <td class="py-3 px-4 text-sm capitalize" x-text="tr.untuk"></td>
-                                    <td class="py-3 px-4 text-sm" x-text="tr.jumlah_barang + ' item'"></td>
                                     <td class="py-3 px-4">
-                                        <span class="px-2 py-1 text-xs rounded-full bg-green-100 text-green-700">
-                                            Selesai
-                                        </span>
+                                        <div class="font-semibold text-gray-900" x-text="tr.nomor_pb"></div>
+                                        <div class="text-xs text-gray-500 capitalize" x-text="tr.jenis_pekerjaan || '-'"></div>
                                     </td>
                                     <td class="py-3 px-4">
-                                        <button @click="showDetail(tr.id)" class="text-primary-600 hover:text-primary-800">
+                                        <div class="text-gray-900" x-text="formatDateForDisplay(tr.tanggal_permintaan)"></div>
+                                        <div class="text-xs text-gray-500">Diperlukan: <span x-text="formatDateForDisplay(tr.tanggal_diperlukan)"></span></div>
+                                    </td>
+                                    <td class="py-3 px-4">
+                                        <div class="capitalize text-gray-900" x-text="tr.untuk || '-'"></div>
+                                        <div class="text-xs text-gray-500" x-text="tr.jumlah_barang + ' item'"></div>
+                                    </td>
+                                    <td class="py-3 px-4">
+                                        <span class="px-3 py-1 text-xs font-medium rounded-full inline-flex items-center justify-center gap-1 whitespace-nowrap min-w-[92px]"
+                                              :class="getHistoryStatusClass(tr.status)">
+                                            <span class="w-1.5 h-1.5 rounded-full" :class="getHistoryStatusDotClass(tr.status)"></span>
+                                            <span x-text="getApprovalStatusLabel(tr)"></span>
+                                        </span>
+                                    </td>
+                                    <td class="py-3 px-4 text-center">
+                                        <button @click="showDetail(tr.id)" class="inline-flex h-9 w-9 items-center justify-center rounded-lg text-primary-600 hover:bg-primary-50 hover:text-primary-800" title="Lihat detail">
                                             <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
                                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
@@ -843,9 +934,9 @@
                                     </td>
                                 </tr>
                             </template>
-                            <tr x-show="completedTransaksi.length === 0">
-                                <td colspan="7" class="py-8 px-4 text-center text-gray-500">
-                                    Belum ada riwayat transaksi selesai
+                            <tr x-show="historyTransaksi.length === 0">
+                                <td colspan="5" class="py-12 px-4 text-center text-gray-500">
+                                    Belum ada riwayat PB
                                 </td>
                             </tr>
                         </tbody>
@@ -858,12 +949,12 @@
     {{-- MODAL BUAT PERMINTAAN --}}
     <div x-show="showCreateModal" 
          x-cloak
-         class="fixed inset-0 z-50 overflow-y-auto"
+         class="viewport-modal-root z-[9999] overflow-y-auto"
          aria-labelledby="modal-title"
          role="dialog"
          aria-modal="true"
          @keydown.escape.window="showCreateModal = false">
-        <div class="flex items-center justify-center min-h-screen px-4 pt-4 pb-20 text-center sm:block sm:p-0">
+        <div class="viewport-modal-panel">
             {{-- BACKGROUND OVERLAY --}}
             <div x-show="showCreateModal" 
                  x-transition:enter="ease-out duration-300"
@@ -872,11 +963,9 @@
                  x-transition:leave="ease-in duration-200"
                  x-transition:leave-start="opacity-100"
                  x-transition:leave-end="opacity-0"
-                 class="fixed inset-0 transition-opacity bg-gray-500 bg-opacity-75"
+                 class="absolute inset-0 transition-opacity bg-gray-500 bg-opacity-75"
                  aria-hidden="true">
             </div>
-
-            <span class="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">&#8203;</span>
 
             {{-- MODAL CONTENT --}}
             <div x-show="showCreateModal"
@@ -886,7 +975,7 @@
                  x-transition:leave="ease-in duration-200"
                  x-transition:leave-start="opacity-100 translate-y-0 sm:scale-100"
                  x-transition:leave-end="opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95"
-                 class="modal-content modal-padding-compact inline-block w-full max-w-7xl p-6 my-8 overflow-hidden text-left align-middle transition-all transform bg-white rounded-lg shadow-xl">
+                 class="modal-content modal-padding-compact relative w-full p-6 overflow-hidden transition-all transform bg-white rounded-lg shadow-xl">
                 
                 {{-- MODAL HEADER --}}
                 <div class="flex items-center justify-between mb-6">
@@ -1295,12 +1384,12 @@
     {{-- MODAL DETAIL PERMINTAAN BARANG --}}
     <div x-show="showDetailModal" 
          x-cloak
-         class="fixed inset-0 z-50 overflow-y-auto"
+         class="content-modal-root z-50 overflow-y-auto"
          aria-labelledby="detail-modal-title"
          role="dialog"
          aria-modal="true"
          @keydown.escape.window="showDetailModal = false">
-        <div class="flex items-center justify-center min-h-screen px-4 pt-4 pb-20 text-center sm:block sm:p-0">
+        <div class="content-modal-panel">
             
             {{-- BACKGROUND OVERLAY --}}
             <div x-show="showDetailModal" 
@@ -1313,8 +1402,6 @@
                  class="fixed inset-0 transition-opacity bg-gray-900 bg-opacity-50 backdrop-blur-sm"
                  aria-hidden="true">
             </div>
-
-            <span class="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">&#8203;</span>
 
             {{-- MODAL CONTENT --}}
             <div x-show="showDetailModal"
@@ -1361,7 +1448,7 @@
                                         'bg-purple-500': selectedDetail?.header?.status === 'in_progress',
                                         'bg-gray-500': !['pending','approved','completed','rejected','in_progress'].includes(selectedDetail?.header?.status)
                                     }"></span>
-                                    <span x-text="selectedDetail?.header?.status ? selectedDetail.header.status.charAt(0).toUpperCase() + selectedDetail.header.status.slice(1).replace('_', ' ') : '-'"></span>
+                                    <span x-text="getApprovalStatusLabel(selectedDetail?.header)"></span>
                                 </span>
                             </span>
                             <button @click="showDetailModal = false" 
@@ -1820,8 +1907,15 @@ function transaksiApp() {
             return result;
         },
         
-        get completedTransaksi() {
-            return this.transaksiData.filter(tr => tr.status === 'completed');
+        get historyTransaksi() {
+            return this.transaksiData
+                .filter(tr => ['approved', 'rejected', 'completed'].includes(tr.status))
+                .sort((a, b) => {
+                    if (a.updated_at && b.updated_at) {
+                        return new Date(b.updated_at) - new Date(a.updated_at);
+                    }
+                    return (b.id || 0) - (a.id || 0);
+                });
         },
         
         get paginatedTransaksi() {
@@ -2465,6 +2559,104 @@ function transaksiApp() {
             return String(value).replace(/_/g, ' ').toUpperCase();
         },
 
+        getApprovalStatusLabel(tr) {
+            if (!tr || !tr.status) return '-';
+
+            if (tr.status === 'pending') {
+                const currentLevel = parseInt(tr.approval_current_level || 1, 10);
+                const requiredLevel = parseInt(tr.approval_level_required || 1, 10);
+
+                if (requiredLevel >= 2 && currentLevel === 2) {
+                    return 'Pending L2';
+                }
+
+                return 'Pending L1';
+            }
+
+            const labels = {
+                approved: 'Disetujui',
+                rejected: 'Ditolak',
+                in_progress: 'Diproses',
+                completed: 'Selesai'
+            };
+
+            return labels[tr.status] || tr.status.charAt(0).toUpperCase() + tr.status.slice(1).replace('_', ' ');
+        },
+
+        requiresTwoLevelApproval(tr) {
+            return parseInt(tr?.approval_level_required || 1, 10) >= 2;
+        },
+
+        getApprovalStepLabel(tr, level) {
+            const currentLevel = parseInt(tr?.approval_current_level || 1, 10);
+
+            if (currentLevel > level) {
+                return `L${level} OK`;
+            }
+
+            return `Pending L${level}`;
+        },
+
+        getApprovalStepClass(tr, level) {
+            const currentLevel = parseInt(tr?.approval_current_level || 1, 10);
+
+            if (currentLevel > level) {
+                return 'bg-green-50 text-green-700 border border-green-100';
+            }
+
+            if (currentLevel === level) {
+                return 'bg-yellow-100 text-yellow-800 border border-yellow-100';
+            }
+
+            return 'bg-amber-50 text-amber-700 border border-amber-100';
+        },
+
+        getApprovalStepDotClass(tr, level) {
+            const currentLevel = parseInt(tr?.approval_current_level || 1, 10);
+
+            if (currentLevel > level) {
+                return 'bg-green-500';
+            }
+
+            if (currentLevel === level) {
+                return 'bg-yellow-500';
+            }
+
+            return 'bg-amber-400';
+        },
+
+        getHistoryStatusClass(status) {
+            const classes = {
+                approved: 'bg-blue-100 text-blue-800',
+                rejected: 'bg-red-100 text-red-800',
+                completed: 'bg-green-100 text-green-800'
+            };
+
+            return classes[status] || 'bg-gray-100 text-gray-800';
+        },
+
+        getHistoryStatusDotClass(status) {
+            const classes = {
+                approved: 'bg-blue-500',
+                rejected: 'bg-red-500',
+                completed: 'bg-green-500'
+            };
+
+            return classes[status] || 'bg-gray-500';
+        },
+
+        canApproveTransaction(tr) {
+            if (!tr || tr.status !== 'pending') return false;
+
+            const currentLevel = parseInt(tr.approval_current_level || 1, 10);
+
+            if (this.userRole === 'admin') return true;
+            if (currentLevel === 1) return this.userRole === 'approval';
+            if (currentLevel === 2) return this.userRole === 'approval2';
+
+            return false;
+        },
+
         ensureFixedGudang() {
             this.formData.dari_gudang = this.fixedGudangValue;
         },
@@ -2542,6 +2734,7 @@ function transaksiApp() {
                 barang: this.barangItems
                     .filter(item => item.nama_barang && item.jumlah && item.satuan)
                     .map(item => ({
+                        barang_id: item.id,
                         nama_barang: item.nama_barang,
                         jumlah: parseFloat(item.jumlah),
                         satuan: item.satuan,
@@ -3120,7 +3313,7 @@ printDetail(detail, targetWindow = null) {
                     <!-- Status -->
                     <div class="status-container">
                         <span class="status-badge status-${detail.header.status || 'pending'}">
-                            ${detail.header.status ? detail.header.status.toUpperCase().replace('_', ' ') : 'PENDING'}
+                            ${this.getApprovalStatusLabel(detail.header).toUpperCase()}
                         </span>
                     </div>
                     
@@ -3267,7 +3460,9 @@ ${detail.untuk_info ? `
 
         // ============ APPROVAL METHODS ============
         async approveRequest(tr) {
-            if (!confirm(`Setujui permintaan barang ${tr.nomor_pb}?`)) {
+            const level = parseInt(tr.approval_current_level || 1, 10);
+
+            if (!confirm(`Setujui permintaan barang ${tr.nomor_pb} sebagai approval level ${level}?`)) {
                 return;
             }
             
@@ -3300,7 +3495,7 @@ ${detail.untuk_info ? `
                     }
                     
                     if (window.notificationApp) {
-                        window.notificationApp.showNotification('success', '? Permintaan berhasil disetujui!');
+                        window.notificationApp.showNotification('success', data.message || '? Permintaan berhasil disetujui!');
                     }
                     
                 } else {

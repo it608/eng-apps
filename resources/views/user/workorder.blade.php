@@ -708,30 +708,35 @@
         }
     }
 
-    /* Final summary override: keep Work Order score cards visually aligned with Stock Sparepart */
-    .summary-card.stat-card {
-        background: #ffffff !important;
-        border: 1px solid #e5e7eb !important;
-        border-left: 4px solid transparent !important;
-        border-radius: 0.5rem !important;
-        padding: 1rem !important;
+    /* Final summary override: clean metric style, no boxes or white card background */
+    .summary-card.stat-card,
+    .progress-card {
+        background: transparent !important;
+        border: 0 !important;
+        border-left: 0 !important;
+        border-radius: 0 !important;
         box-shadow: none !important;
+        padding: 0.25rem 0 !important;
         position: static !important;
         overflow: visible !important;
-        transition: all 0.2s ease !important;
+        transition: none !important;
     }
 
-    .summary-card.stat-card:hover {
-        border-left-color: #3b82f6 !important;
-        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05) !important;
-        transform: translateY(-2px) !important;
+    .summary-card.stat-card:hover,
+    .progress-card:hover {
+        border: 0 !important;
+        box-shadow: none !important;
+        transform: none !important;
     }
 
-    .summary-card.stat-card::after {
+    .summary-card.stat-card::after,
+    .stat-card::after,
+    .progress-card::after {
         display: none !important;
     }
 
-    .summary-card .label {
+    .summary-card .label,
+    .progress-card .stat-label {
         font-size: 0.75rem !important;
         color: #6b7280 !important;
         text-transform: uppercase !important;
@@ -739,12 +744,27 @@
         font-weight: 400 !important;
     }
 
-    .summary-card .value {
+    .summary-card .value,
+    .progress-card .stat-value {
         font-size: 1.5rem !important;
         line-height: 2rem !important;
         font-weight: 600 !important;
         margin-top: 0.25rem !important;
         margin-bottom: 0 !important;
+    }
+
+    .progress-card .stat-desc {
+        color: #6b7280 !important;
+        font-size: 0.75rem !important;
+        margin-top: 0.25rem !important;
+    }
+
+    .progress-card .progress-icon {
+        display: none !important;
+    }
+
+    .progress-card .flex {
+        justify-content: flex-start !important;
     }
 
 </style>

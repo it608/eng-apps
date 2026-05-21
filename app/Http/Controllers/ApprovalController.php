@@ -9,10 +9,19 @@ use Illuminate\Support\Facades\Log;
 
 class ApprovalController extends Controller
 {
+    private const LEVEL_ONE = 1;
+    private const LEVEL_TWO = 2;
+
     public function index()
     {
         $pendingRequests = DB::table('trBPB')
             ->where('status', 'pending')
+            ->when(auth()->user()->role === 'approval', function ($query) {
+                $query->where('approval_current_level', self::LEVEL_ONE);
+            })
+            ->when(auth()->user()->role === 'approval2', function ($query) {
+                $query->where('approval_current_level', self::LEVEL_TWO);
+            })
             ->orderBy('created_at', 'desc')
             ->get();
 
@@ -24,21 +33,71 @@ class ApprovalController extends Controller
         try {
             DB::beginTransaction();
 
-            // Update status
+            $request = DB::table('trBPB')->where('id', $id)->lockForUpdate()->first();
+
+            if (!$request) {
+                DB::rollBack();
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Permintaan tidak ditemukan'
+                ], 404);
+            }
+
+            if ($request->status !== 'pending') {
+                DB::rollBack();
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Permintaan ini sudah tidak dalam status pending'
+                ], 422);
+            }
+
+            $currentLevel = (int) ($request->approval_current_level ?? self::LEVEL_ONE);
+            $requiredLevel = (int) ($request->approval_level_required ?? self::LEVEL_ONE);
+            $userRole = auth()->user()->role;
+
+            if (!$this->canApproveLevel($userRole, $currentLevel)) {
+                DB::rollBack();
+                return response()->json([
+                    'success' => false,
+                    'message' => 'User ini tidak punya akses approval level ' . $currentLevel
+                ], 403);
+            }
+
+            $updateData = [
+                'updated_at' => now(),
+            ];
+
+            if ($currentLevel === self::LEVEL_ONE) {
+                $updateData['approval_level_1_at'] = now();
+                $updateData['approval_level_1_by'] = auth()->id();
+
+                if ($requiredLevel >= self::LEVEL_TWO) {
+                    $updateData['approval_current_level'] = self::LEVEL_TWO;
+                    $message = 'Approval level 1 berhasil. Permintaan menunggu approval level 2.';
+                } else {
+                    $updateData['status'] = 'approved';
+                    $updateData['approved_at'] = now();
+                    $updateData['approved_by'] = auth()->id();
+                    $message = 'Permintaan berhasil disetujui';
+                }
+            } else {
+                $updateData['approval_level_2_at'] = now();
+                $updateData['approval_level_2_by'] = auth()->id();
+                $updateData['status'] = 'approved';
+                $updateData['approved_at'] = now();
+                $updateData['approved_by'] = auth()->id();
+                $message = 'Approval level 2 berhasil. Permintaan sudah disetujui.';
+            }
+
             DB::table('trBPB')
                 ->where('id', $id)
-                ->update([
-                    'status' => 'approved',
-                    'approved_at' => now(),
-                    'approved_by' => auth()->id(),
-                    'updated_at' => now()
-                ]);
+                ->update($updateData);
 
             DB::commit();
 
             return response()->json([
                 'success' => true,
-                'message' => 'Permintaan berhasil disetujui'
+                'message' => $message
             ]);
 
         } catch (\Exception $e) {
@@ -61,7 +120,26 @@ class ApprovalController extends Controller
 
             DB::beginTransaction();
 
-            // Update status
+            $trbpb = DB::table('trBPB')->where('id', $id)->lockForUpdate()->first();
+
+            if (!$trbpb) {
+                DB::rollBack();
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Permintaan tidak ditemukan'
+                ], 404);
+            }
+
+            $currentLevel = (int) ($trbpb->approval_current_level ?? self::LEVEL_ONE);
+
+            if ($trbpb->status !== 'pending' || !$this->canApproveLevel(auth()->user()->role, $currentLevel)) {
+                DB::rollBack();
+                return response()->json([
+                    'success' => false,
+                    'message' => 'User ini tidak punya akses untuk menolak permintaan pada level ini'
+                ], 403);
+            }
+
             DB::table('trBPB')
                 ->where('id', $id)
                 ->update([
@@ -95,6 +173,8 @@ class ApprovalController extends Controller
         try {
             $stats = [
                 'total_pending' => DB::table('trBPB')->where('status', 'pending')->count(),
+                'pending_level_1' => DB::table('trBPB')->where('status', 'pending')->where('approval_current_level', self::LEVEL_ONE)->count(),
+                'pending_level_2' => DB::table('trBPB')->where('status', 'pending')->where('approval_current_level', self::LEVEL_TWO)->count(),
                 'total_approved' => DB::table('trBPB')->where('status', 'approved')->count(),
                 'total_rejected' => DB::table('trBPB')->where('status', 'rejected')->count(),
                 'total_completed' => DB::table('trBPB')->where('status', 'completed')->count(),
@@ -123,15 +203,43 @@ class ApprovalController extends Controller
 
             DB::beginTransaction();
 
-            DB::table('trBPB')
-                ->whereIn('id', $request->ids)
-                ->where('status', 'pending')
-                ->update([
-                    'status' => 'approved',
-                    'approved_at' => now(),
-                    'approved_by' => auth()->id(),
-                    'updated_at' => now()
-                ]);
+            foreach ($request->ids as $id) {
+                $trbpb = DB::table('trBPB')->where('id', $id)->where('status', 'pending')->lockForUpdate()->first();
+
+                if (!$trbpb) {
+                    continue;
+                }
+
+                $currentLevel = (int) ($trbpb->approval_current_level ?? self::LEVEL_ONE);
+                $requiredLevel = (int) ($trbpb->approval_level_required ?? self::LEVEL_ONE);
+
+                if (!$this->canApproveLevel(auth()->user()->role, $currentLevel)) {
+                    continue;
+                }
+
+                $updateData = ['updated_at' => now()];
+
+                if ($currentLevel === self::LEVEL_ONE) {
+                    $updateData['approval_level_1_at'] = now();
+                    $updateData['approval_level_1_by'] = auth()->id();
+
+                    if ($requiredLevel >= self::LEVEL_TWO) {
+                        $updateData['approval_current_level'] = self::LEVEL_TWO;
+                    } else {
+                        $updateData['status'] = 'approved';
+                        $updateData['approved_at'] = now();
+                        $updateData['approved_by'] = auth()->id();
+                    }
+                } else {
+                    $updateData['approval_level_2_at'] = now();
+                    $updateData['approval_level_2_by'] = auth()->id();
+                    $updateData['status'] = 'approved';
+                    $updateData['approved_at'] = now();
+                    $updateData['approved_by'] = auth()->id();
+                }
+
+                DB::table('trBPB')->where('id', $id)->update($updateData);
+            }
 
             DB::commit();
 
@@ -147,5 +255,15 @@ class ApprovalController extends Controller
                 'message' => 'Gagal approve massal: ' . $e->getMessage()
             ], 500);
         }
+    }
+
+    private function canApproveLevel(string $role, int $level): bool
+    {
+        if ($role === 'admin') {
+            return true;
+        }
+
+        return ($level === self::LEVEL_ONE && $role === 'approval')
+            || ($level === self::LEVEL_TWO && $role === 'approval2');
     }
 }

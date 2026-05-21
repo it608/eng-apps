@@ -6,9 +6,12 @@ use App\Http\Controllers\Controller;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Validation\Rule;
 
 class UserController extends Controller
 {
+    private const ROLES = ['user', 'approval', 'approval2', 'admin'];
+
     public function index()
     {
         $users = User::latest()->get();
@@ -26,7 +29,7 @@ class UserController extends Controller
             'name' => 'required',
             'email' => 'required|email|unique:users',
             'password' => 'required|min:6',
-            'role' => 'required',
+            'role' => ['required', Rule::in(self::ROLES)],
         ]);
 
         User::create([
@@ -49,7 +52,7 @@ class UserController extends Controller
         $request->validate([
             'name' => 'required',
             'email' => 'required|email|unique:users,email,' . $user->id,
-            'role' => 'required',
+            'role' => ['required', Rule::in(self::ROLES)],
         ]);
 
         $user->update($request->only('name', 'email', 'role'));

@@ -130,7 +130,7 @@ Route::prefix('api')->middleware(['auth'])->group(function () {
 Route::get('/cari-barang', [BarangController::class, 'search'])->name('barang.search')->middleware('auth');
 
 // ============= ROUTE UNTUK APPROVAL =============
-Route::middleware(['auth', 'role:approval,admin'])
+Route::middleware(['auth', 'role:approval,approval2,admin'])
     ->prefix('approval')
     ->name('approval.')
     ->group(function () {

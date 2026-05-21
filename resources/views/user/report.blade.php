@@ -25,17 +25,15 @@
     }
 
     .report-summary-card {
-        background: #ffffff;
-        border: 1px solid #e5e7eb;
-        border-radius: 0.5rem;
-        padding: 1rem;
-        transition: all 0.2s ease;
-        border-left: 4px solid transparent;
+        background: transparent;
+        border: 0;
+        border-radius: 0;
+        padding: 0.25rem 0;
+        transition: none;
     }
     .report-summary-card:hover {
-        border-left-color: #3b82f6;
-        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
-        transform: translateY(-2px);
+        box-shadow: none;
+        transform: none;
     }
     .report-summary-card .label {
         font-size: 0.75rem;
