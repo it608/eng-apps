@@ -7,9 +7,11 @@ use App\Http\Controllers\BarangController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\MasterController;
 use App\Http\Controllers\MesinController;
+use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\ReportController;
 use App\Http\Controllers\StockController;
 use App\Http\Controllers\TransaksiController;
+use App\Http\Controllers\WarehouseController;
 use App\Http\Controllers\WorkOrderController;
 use App\Http\Controllers\Warehouse2\DashboardController as Warehouse2DashboardController;
 use App\Http\Controllers\Warehouse2\IssuingController as Warehouse2IssuingController;
@@ -129,6 +131,11 @@ Route::prefix('api')->middleware(['auth'])->group(function () {
 
 Route::get('/cari-barang', [BarangController::class, 'search'])->name('barang.search')->middleware('auth');
 
+// ============= ROUTE NOTIFIKASI =============
+Route::middleware(['auth'])->prefix('notifications')->name('notifications.')->group(function () {
+    Route::get('/approval2', [NotificationController::class, 'approvalLevelTwo'])->name('approval2');
+});
+
 // ============= ROUTE UNTUK APPROVAL =============
 Route::middleware(['auth', 'role:approval,approval2,admin'])
     ->prefix('approval')
@@ -139,6 +146,23 @@ Route::middleware(['auth', 'role:approval,approval2,admin'])
         Route::get('/statistics', [ApprovalController::class, 'statistics'])->name('stats');
         Route::post('/{id}/approve', [ApprovalController::class, 'approve'])->whereNumber('id')->name('approve');
         Route::post('/{id}/reject', [ApprovalController::class, 'reject'])->whereNumber('id')->name('reject');
+    });
+
+// ============= ROUTE WAREHOUSE PB FULFILLMENT =============
+Route::middleware(['auth', 'role:warehouse,admin'])
+    ->prefix('warehouse')
+    ->name('warehouse.')
+    ->group(function () {
+        Route::get('/pb', [WarehouseController::class, 'index'])->name('pb.index');
+        Route::get('/pb/data', [WarehouseController::class, 'data'])->name('pb.data');
+        Route::get('/pb/{id}', [WarehouseController::class, 'show'])->whereNumber('id')->name('pb.show');
+        Route::post('/pb/{id}/erp-reference', [WarehouseController::class, 'updateReference'])
+            ->whereNumber('id')
+            ->name('pb.erp-reference');
+        Route::post('/pb/{id}/items/{detailId}', [WarehouseController::class, 'updateItem'])
+            ->whereNumber('id')
+            ->whereNumber('detailId')
+            ->name('pb.items.update');
     });
 
 // ============= ROUTE WAREHOUSE 2 =============

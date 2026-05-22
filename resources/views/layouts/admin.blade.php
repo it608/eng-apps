@@ -305,12 +305,14 @@
                 <span class="sidebar-text">Permintaan Barang</span>
             </a>
 
-            <a href="/workorder"
-               class="nav-link flex items-center gap-3 px-4 py-3 rounded-lg
-               {{ request()->is('workorder*') ? 'active' : '' }}">
-                <i class="fas fa-receipt w-5 text-center text-gray-300"></i>
-                <span class="sidebar-text">Work Order (WO)</span>
-            </a>
+            @if(auth()->user()->role !== 'approval2')
+                <a href="/workorder"
+                   class="nav-link flex items-center gap-3 px-4 py-3 rounded-lg
+                   {{ request()->is('workorder*') ? 'active' : '' }}">
+                    <i class="fas fa-receipt w-5 text-center text-gray-300"></i>
+                    <span class="sidebar-text">Work Order (WO)</span>
+                </a>
+            @endif
 
             {{-- ================= ADMINISTRASI DATA ================= --}}
             <div class="px-4 pt-6 pb-2">
@@ -372,33 +374,51 @@
                 </a>
             @endif
 
-            {{-- ================= WAREHOUSE 2 MENU (UNTUK SEMUA ROLE) ================= --}}
-            <div class="px-4 pt-6 pb-2">
-                <div class="text-xs font-medium text-gray-400 uppercase tracking-wider sidebar-text">
-                    Warehouse 2
+            @if(in_array(auth()->user()->role, ['admin', 'warehouse']))
+                {{-- ================= GUDANG UTAMA ================= --}}
+                <div class="px-4 pt-6 pb-2">
+                    <div class="text-xs font-medium text-gray-400 uppercase tracking-wider sidebar-text">
+                        Gudang Utama
+                    </div>
                 </div>
-            </div>
 
-            <a href="/warehouse2/stock"
-               class="nav-link flex items-center gap-3 px-4 py-3 rounded-lg
-               {{ request()->is('warehouse2/stock*') ? 'active' : '' }}">
-                <i class="fas fa-boxes w-5 text-center text-gray-300"></i>
-                <span class="sidebar-text">Stock</span>
-            </a>
+                <a href="/warehouse/pb"
+                   class="nav-link flex items-center gap-3 px-4 py-3 rounded-lg
+                   {{ request()->is('warehouse/pb*') ? 'active' : '' }}">
+                    <i class="fas fa-clipboard-check w-5 text-center text-gray-300"></i>
+                    <span class="sidebar-text">PB Fulfillment</span>
+                </a>
+            @endif
 
-            <a href="/warehouse2/receiving"
-               class="nav-link flex items-center gap-3 px-4 py-3 rounded-lg
-               {{ request()->is('warehouse2/receiving*') ? 'active' : '' }}">
-                <i class="fas fa-truck-loading w-5 text-center text-gray-300"></i>
-                <span class="sidebar-text">Terima Barang</span>
-            </a>
+            @if(in_array(auth()->user()->role, ['admin', 'user']))
+                {{-- ================= AREA STOCK ================= --}}
+                <div class="px-4 pt-6 pb-2">
+                    <div class="text-xs font-medium text-gray-400 uppercase tracking-wider sidebar-text">
+                        Area Stock
+                    </div>
+                </div>
 
-            <a href="/warehouse2/issuing"
-               class="nav-link flex items-center gap-3 px-4 py-3 rounded-lg
-               {{ request()->is('warehouse2/issuing*') ? 'active' : '' }}">
-                <i class="fas fa-truck w-5 text-center text-gray-300"></i>
-                <span class="sidebar-text">Keluar Barang</span>
-            </a>
+                <a href="/warehouse2/stock"
+                   class="nav-link flex items-center gap-3 px-4 py-3 rounded-lg
+                   {{ request()->is('warehouse2/stock*') ? 'active' : '' }}">
+                    <i class="fas fa-boxes w-5 text-center text-gray-300"></i>
+                    <span class="sidebar-text">Stock Area</span>
+                </a>
+
+                <a href="/warehouse2/receiving"
+                   class="nav-link flex items-center gap-3 px-4 py-3 rounded-lg
+                   {{ request()->is('warehouse2/receiving*') ? 'active' : '' }}">
+                    <i class="fas fa-truck-loading w-5 text-center text-gray-300"></i>
+                    <span class="sidebar-text">Terima dari Gudang</span>
+                </a>
+
+                <a href="/warehouse2/issuing"
+                   class="nav-link flex items-center gap-3 px-4 py-3 rounded-lg
+                   {{ request()->is('warehouse2/issuing*') ? 'active' : '' }}">
+                    <i class="fas fa-dolly w-5 text-center text-gray-300"></i>
+                    <span class="sidebar-text">Pengeluaran Area</span>
+                </a>
+            @endif
         </nav>
 
 
@@ -457,18 +477,57 @@
             <div class="flex items-center space-x-4">
                 {{-- Quick Actions --}}
                 <div class="flex items-center space-x-2">
-                    <button class="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-600 dark:text-gray-300 transition-colors duration-200">
-                        <i class="fas fa-bell"></i>
-                    </button>
-                    <button class="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-600 dark:text-gray-300 transition-colors duration-200">
-                        <i class="fas fa-question-circle"></i>
-                    </button>
+                    <div x-data="approvalNotificationApp()" x-init="init()" class="relative">
+                        <button type="button"
+                                @click="toggle()"
+                                class="relative p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-600 dark:text-gray-300 transition-colors duration-200">
+                            <i class="fas fa-bell"></i>
+                            <span x-show="count > 0"
+                                  x-text="count > 9 ? '9+' : count"
+                                  class="absolute -right-1 -top-1 inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-red-600 px-1.5 text-[10px] font-bold text-white"></span>
+                        </button>
+
+                        <div x-show="open"
+                             x-cloak
+                             @click.outside="open = false"
+                             class="absolute right-0 z-[1000] mt-2 w-80 overflow-hidden rounded-xl border border-gray-200 bg-white shadow-xl dark:border-gray-700 dark:bg-gray-900">
+                            <div class="border-b border-gray-100 px-4 py-3 dark:border-gray-700">
+                                <div class="text-sm font-semibold text-gray-900 dark:text-white">Notifikasi Approval L2</div>
+                                <div class="text-xs text-gray-500">PB high value menunggu review</div>
+                            </div>
+
+                            <div class="max-h-96 overflow-y-auto">
+                                <template x-if="loading">
+                                    <div class="px-4 py-8 text-center text-sm text-gray-500">Memuat notifikasi...</div>
+                                </template>
+
+                                <template x-if="!loading && items.length === 0">
+                                    <div class="px-4 py-8 text-center text-sm text-gray-500">Tidak ada notifikasi baru</div>
+                                </template>
+
+                                <template x-for="item in items" :key="item.id">
+                                    <a :href="item.url" class="block border-b border-gray-100 px-4 py-3 transition hover:bg-blue-50 dark:border-gray-800 dark:hover:bg-gray-800">
+                                        <div class="flex items-start justify-between gap-3">
+                                            <div>
+                                                <div class="text-sm font-semibold text-gray-900 dark:text-white" x-text="item.nomor_pb"></div>
+                                                <div class="mt-0.5 text-xs text-gray-500" x-text="item.message"></div>
+                                            </div>
+                                            <span class="shrink-0 rounded-full bg-amber-50 px-2 py-0.5 text-[11px] font-semibold text-amber-700">L2</span>
+                                        </div>
+                                        <div class="mt-2 flex items-center justify-between text-xs text-gray-500">
+                                            <span x-text="formatDue(item)"></span>
+                                            <span class="font-mono font-semibold text-gray-700" x-text="formatCurrency(item.total_value)"></span>
+                                        </div>
+                                    </a>
+                                </template>
+                            </div>
+
+                            <div class="border-t border-gray-100 px-4 py-3 dark:border-gray-700">
+                                <a href="{{ route('transaksi.index') }}" class="block text-center text-sm font-semibold text-blue-600 hover:text-blue-700">Buka Approval PB</a>
+                            </div>
+                        </div>
+                    </div>
                 </div>
-                
-                {{-- Dark Mode Toggle --}}
-                <button id="sidebarDarkModeToggle" class="p-2 rounded-lg bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors duration-200">
-                    <i id="sidebarDarkIcon" class="fas fa-moon"></i>
-                </button>
                 
                 {{-- User Info --}}
                 <div class="flex items-center space-x-3 pl-3 border-l border-gray-200 dark:border-gray-700 user-dropdown-container">
@@ -496,7 +555,22 @@
                                     bg-gradient-to-r from-primary-50 to-accent-50
                                     dark:from-primary-900/30 dark:to-accent-900/30
                                     text-primary-600 dark:text-primary-300">
-                                    {{ auth()->user()->role === 'admin' ? 'Administrator' : ucfirst(auth()->user()->role) }}
+                                    @switch(auth()->user()->role)
+                                        @case('admin')
+                                            Administrator
+                                            @break
+                                        @case('approval')
+                                            Approval L1
+                                            @break
+                                        @case('approval2')
+                                            Approval L2
+                                            @break
+                                        @case('warehouse')
+                                            Warehouse
+                                            @break
+                                        @default
+                                            {{ ucfirst(auth()->user()->role) }}
+                                    @endswitch
                                 </p>
                             </div>
                             <div class="p-2">
@@ -553,37 +627,9 @@
 
     {{-- SCRIPTS --}}
     <script>
-        // Dark Mode Toggle
-        const sidebarDarkModeToggle = document.getElementById('sidebarDarkModeToggle');
-        const sidebarDarkIcon = document.getElementById('sidebarDarkIcon');
         const htmlElement = document.documentElement;
-        
-        const currentTheme = localStorage.getItem('theme') || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
-        
-        if (currentTheme === 'dark') {
-            sidebarDarkIcon.className = 'fas fa-sun';
-        } else {
-            sidebarDarkIcon.className = 'fas fa-moon';
-        }
-        
-        sidebarDarkModeToggle.addEventListener('click', () => {
-            htmlElement.classList.toggle('dark');
-            
-            if (htmlElement.classList.contains('dark')) {
-                localStorage.setItem('theme', 'dark');
-                sidebarDarkIcon.className = 'fas fa-sun';
-            } else {
-                localStorage.setItem('theme', 'light');
-                sidebarDarkIcon.className = 'fas fa-moon';
-            }
-            
-            const otherIcons = document.querySelectorAll('[id$="DarkIcon"]');
-            otherIcons.forEach(icon => {
-                if (icon !== sidebarDarkIcon) {
-                    icon.className = htmlElement.classList.contains('dark') ? 'fas fa-sun' : 'fas fa-moon';
-                }
-            });
-        });
+        localStorage.setItem('theme', 'light');
+        htmlElement.classList.remove('dark');
         
         // User dropdown functionality
         document.addEventListener('DOMContentLoaded', function() {
@@ -705,6 +751,56 @@
                     });
                 });
             });
+        }
+
+        function approvalNotificationApp() {
+            return {
+                open: false,
+                loading: false,
+                count: 0,
+                items: [],
+                userRole: '{{ auth()->user()->role }}',
+                async init() {
+                    if (this.userRole !== 'approval2') return;
+                    await this.load();
+                    setInterval(() => this.load(), 60000);
+                },
+                async toggle() {
+                    this.open = !this.open;
+                    if (this.open) await this.load();
+                },
+                async load() {
+                    if (this.userRole !== 'approval2') return;
+                    this.loading = true;
+                    try {
+                        const response = await fetch('{{ route('notifications.approval2') }}', {
+                            headers: {
+                                'Accept': 'application/json',
+                                'X-Requested-With': 'XMLHttpRequest'
+                            }
+                        });
+                        const result = await response.json();
+                        this.count = result.success ? Number(result.count || 0) : 0;
+                        this.items = result.success && Array.isArray(result.items) ? result.items : [];
+                    } catch (error) {
+                        console.error('Notification load error:', error);
+                        this.count = 0;
+                        this.items = [];
+                    } finally {
+                        this.loading = false;
+                    }
+                },
+                formatCurrency(value) {
+                    return 'Rp ' + Number(value || 0).toLocaleString('id-ID', { maximumFractionDigits: 0 });
+                },
+                formatDue(item) {
+                    if (!item.tanggal_diperlukan) return 'Due date belum ada';
+                    const date = new Date(item.tanggal_diperlukan).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' });
+                    if (item.due_days < 0) return `Overdue ${Math.abs(item.due_days)} hari`;
+                    if (item.due_days === 0) return `Due hari ini`;
+                    return `Due ${date}`;
+                }
+            };
         }
         
         document.addEventListener('DOMContentLoaded', initTooltips);

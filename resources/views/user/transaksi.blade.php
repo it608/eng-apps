@@ -501,15 +501,17 @@
                             <span x-show="isRefreshing">Memperbarui...</span>
                         </button>
 
-                        {{-- ADD BUTTON --}}
-                        <button 
-                            @click="showCreateModal = true"
-                            class="bg-primary-600 hover:bg-primary-700 text-white px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-2 transition duration-200 shadow-sm hover:shadow">
-                            <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
-                            </svg>
-                            Buat Permintaan
-                        </button>
+                        @if(in_array(auth()->user()->role, ['admin', 'user']))
+                            {{-- ADD BUTTON --}}
+                            <button
+                                @click="showCreateModal = true"
+                                class="bg-primary-600 hover:bg-primary-700 text-white px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-2 transition duration-200 shadow-sm hover:shadow">
+                                <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+                                </svg>
+                                Buat Permintaan
+                            </button>
+                        @endif
                         
                         {{-- RESET FILTER BUTTON --}}
                         <button 
@@ -897,6 +899,8 @@
                             <tr class="border-b text-left bg-gray-50">
                                 <th class="py-3 px-4 text-xs font-medium text-gray-500 uppercase">No. PB</th>
                                 <th class="py-3 px-4 text-xs font-medium text-gray-500 uppercase">Tanggal</th>
+                                <th class="py-3 px-4 text-xs font-medium text-gray-500 uppercase">Waktu Approval</th>
+                                <th x-show="userRole === 'approval2'" class="py-3 px-4 text-xs font-medium text-gray-500 uppercase min-w-[280px]">Approval Flow</th>
                                 <th class="py-3 px-4 text-xs font-medium text-gray-500 uppercase">Tujuan</th>
                                 <th class="py-3 px-4 text-xs font-medium text-gray-500 uppercase">Status</th>
                                 <th class="py-3 px-4 text-xs font-medium text-gray-500 uppercase text-center w-24">Aksi</th>
@@ -912,6 +916,40 @@
                                     <td class="py-3 px-4">
                                         <div class="text-gray-900" x-text="formatDateForDisplay(tr.tanggal_permintaan)"></div>
                                         <div class="text-xs text-gray-500">Diperlukan: <span x-text="formatDateForDisplay(tr.tanggal_diperlukan)"></span></div>
+                                    </td>
+                                    <td class="py-3 px-4">
+                                        <template x-if="userRole === 'approval2'">
+                                            <div class="space-y-2">
+                                                <div>
+                                                    <div class="text-xs font-semibold uppercase tracking-wide text-gray-400">Approved L1</div>
+                                                    <div class="font-medium text-gray-900" x-text="formatDateTimeForDisplay(tr.approval_level_1_at)"></div>
+                                                </div>
+                                                <div class="border-t-2 border-gray-200 pt-2">
+                                                    <div class="text-xs font-semibold uppercase tracking-wide text-gray-400" x-text="tr.status === 'rejected' ? 'Ditolak L2' : 'Approved L2'"></div>
+                                                    <div class="font-medium text-gray-900" x-text="formatDateTimeForDisplay(tr.approval_level_2_at || tr.approved_at || tr.rejected_at)"></div>
+                                                </div>
+                                            </div>
+                                        </template>
+                                        <template x-if="userRole !== 'approval2'">
+                                            <div>
+                                                <div class="font-medium text-gray-900" x-text="formatDateTimeForDisplay(getApprovalTime(tr))"></div>
+                                                <div class="text-xs text-gray-500" x-text="getApprovalTimeLabel(tr)"></div>
+                                            </div>
+                                        </template>
+                                    </td>
+                                    <td x-show="userRole === 'approval2'" class="py-3 px-4">
+                                        <div class="rounded-lg border border-gray-100 bg-gray-50 px-3 py-2">
+                                            <div class="grid grid-cols-[1fr_auto] gap-x-4 gap-y-1 text-xs">
+                                                <span class="text-gray-500">Request -> L1</span>
+                                                <span class="font-medium text-gray-900" x-text="formatDurationBetween(tr.created_at || tr.tanggal_permintaan, tr.approval_level_1_at)"></span>
+                                                <span class="text-gray-500">L1 -> L2</span>
+                                                <span class="font-medium text-gray-900" x-text="formatDurationBetween(tr.approval_level_1_at, tr.approval_level_2_at || tr.approved_at || tr.rejected_at)"></span>
+                                            </div>
+                                            <div class="mt-2 flex items-center justify-between border-t border-gray-200 pt-2 text-xs">
+                                                <span class="font-semibold text-gray-600">Total proses</span>
+                                                <span class="font-semibold text-blue-700" x-text="formatDurationBetween(tr.created_at || tr.tanggal_permintaan, tr.approval_level_2_at || tr.approved_at || tr.rejected_at)"></span>
+                                            </div>
+                                        </div>
                                     </td>
                                     <td class="py-3 px-4">
                                         <div class="capitalize text-gray-900" x-text="tr.untuk || '-'"></div>
@@ -935,7 +973,7 @@
                                 </tr>
                             </template>
                             <tr x-show="historyTransaksi.length === 0">
-                                <td colspan="5" class="py-12 px-4 text-center text-gray-500">
+                                <td colspan="7" class="py-12 px-4 text-center text-gray-500">
                                     Belum ada riwayat PB
                                 </td>
                             </tr>
@@ -1633,36 +1671,51 @@
                             </div>
                         </div>
                         
-                        <div class="overflow-hidden border border-gray-200 rounded-xl">
-                            <table class="min-w-full divide-y divide-gray-200">
+                        <div class="overflow-x-auto border border-gray-200 rounded-xl">
+                            <table class="min-w-full divide-y divide-gray-200 text-sm">
                                 <thead class="bg-gray-50">
                                     <tr>
-                                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-16">No</th>
-                                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Nama Barang</th>
-                                        <th scope="col" class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider w-24">Jumlah</th>
-                                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-28">Satuan</th>
-                                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Keterangan</th>
+                                        <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-14">No</th>
+                                        <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider min-w-[360px]">Nama Barang</th>
+                                        <th scope="col" class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider w-20">Jumlah</th>
+                                        <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-24">Satuan</th>
+                                        <th scope="col" class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider w-40">
+                                            <div class="relative top-1.5">
+                                                <div class="leading-4">Harga Rata-rata</div>
+                                                <div class="mt-1 text-center text-[11px] font-medium normal-case tracking-normal leading-3 text-gray-400">Nilai item</div>
+                                            </div>
+                                        </th>
+                                        <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider min-w-[160px]">Keterangan</th>
                                     </tr>
                                 </thead>
                                 <tbody class="bg-white divide-y divide-gray-200">
                                     <template x-for="(item, index) in selectedDetail?.detail" :key="index">
                                         <tr class="hover:bg-gray-50 transition duration-150">
-                                            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                                            <td class="px-4 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
                                                 <span class="flex items-center justify-center w-6 h-6 bg-gray-100 rounded-full text-xs">
                                                     <span x-text="index + 1"></span>
                                                 </span>
                                             </td>
-                                            <td class="px-6 py-4 whitespace-nowrap text-sm font-semibold text-gray-900">
+                                            <td class="px-4 py-4 text-sm font-semibold text-gray-900">
                                                 <div x-text="item.nama_barang"></div>
                                                 <div x-show="item.kode_barang" class="text-xs text-gray-500 mt-0.5" x-text="item.kode_barang"></div>
                                             </td>
-                                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 text-right font-mono">
+                                            <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-900 text-right font-mono">
                                                 <span class="font-semibold" x-text="formatNumber(item.jumlah)"></span>
                                             </td>
-                                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
+                                            <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-600">
                                                 <span class="px-2 py-1 bg-gray-100 rounded-md text-xs font-medium" x-text="item.satuan || '-'"></span>
                                             </td>
-                                            <td class="px-6 py-4 text-sm text-gray-600">
+                                            <td class="px-4 py-4 whitespace-nowrap text-sm text-right">
+                                                <div class="font-mono font-semibold"
+                                                     :class="hasAveragePrice(item) ? 'text-gray-900' : 'text-gray-400'"
+                                                     x-text="formatCurrency(item.unit_price)"></div>
+                                                <div x-show="isHighValueItem(item)"
+                                                     class="mt-1 inline-flex rounded-full bg-amber-50 px-2 py-0.5 text-[11px] font-semibold text-amber-700">
+                                                    >= 10 Juta
+                                                </div>
+                                            </td>
+                                            <td class="px-4 py-4 text-sm text-gray-600">
                                                 <span x-show="item.keterangan" x-text="item.keterangan" class="italic"></span>
                                                 <span x-show="!item.keterangan" class="text-gray-400 italic">-</span>
                                             </td>
@@ -1670,7 +1723,7 @@
                                     </template>
                                     
                                     <tr x-show="!selectedDetail?.detail || selectedDetail.detail.length === 0">
-                                        <td colspan="5" class="px-6 py-12 text-center">
+                                        <td colspan="6" class="px-6 py-12 text-center">
                                             <div class="flex flex-col items-center gap-2">
                                                 <svg class="w-12 h-12 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
@@ -1684,13 +1737,16 @@
                                 {{-- FOOTER SUMMARY --}}
                                 <tfoot class="bg-gray-50 border-t-2 border-gray-200">
                                     <tr>
-                                        <td colspan="2" class="px-6 py-3 text-sm font-medium text-gray-700">Total Barang</td>
-                                        <td class="px-6 py-3 text-sm font-bold text-gray-900 text-right font-mono" 
+                                        <td colspan="2" class="px-4 py-3 text-sm font-medium text-gray-700">Total Barang</td>
+                                        <td class="px-4 py-3 text-sm font-bold text-gray-900 text-right font-mono" 
                                             x-text="selectedDetail?.detail ? selectedDetail.detail.reduce((sum, item) => sum + parseFloat(item.jumlah || 0), 0).toFixed(2) : '0.00'">
                                         </td>
-                                        <td colspan="2" class="px-6 py-3 text-sm text-gray-600">
+                                        <td class="px-4 py-3 text-sm text-gray-600">
                                             <span x-text="selectedDetail?.detail?.length || 0 + ' item(s)'"></span>
                                         </td>
+                                        <td class="px-4 py-3 text-xs font-medium text-gray-500 text-right">Total Nilai</td>
+                                        <td class="px-4 py-3 text-sm font-bold text-gray-900 text-left font-mono"
+                                            x-text="formatCurrency(getDetailTotalValue())"></td>
                                     </tr>
                                 </tfoot>
                             </table>
@@ -1852,6 +1908,10 @@ function transaksiApp() {
         // ============ GETTERS ============
         get filteredTransaksi() {
             let result = [...this.transaksiData];
+
+            if (this.isApprovalRole()) {
+                result = result.filter(tr => this.isActionableForCurrentRole(tr));
+            }
             
             if (this.searchQuery && this.searchQuery.length >= 1) {
                 const query = this.searchQuery.toLowerCase();
@@ -1909,7 +1969,7 @@ function transaksiApp() {
         
         get historyTransaksi() {
             return this.transaksiData
-                .filter(tr => ['approved', 'rejected', 'completed'].includes(tr.status))
+                .filter(tr => this.isHistoryForCurrentRole(tr))
                 .sort((a, b) => {
                     if (a.updated_at && b.updated_at) {
                         return new Date(b.updated_at) - new Date(a.updated_at);
@@ -2541,9 +2601,78 @@ function transaksiApp() {
             });
         },
 
+        formatDateTimeForDisplay(value) {
+            if (!value) return '-';
+            const date = new Date(value);
+            return date.toLocaleString('id-ID', {
+                day: 'numeric',
+                month: 'short',
+                year: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit'
+            });
+        },
+
+        formatDurationBetween(startValue, endValue) {
+            if (!startValue || !endValue) return '-';
+
+            const start = new Date(startValue);
+            const end = new Date(endValue);
+            const diffMs = end.getTime() - start.getTime();
+
+            if (Number.isNaN(diffMs) || diffMs < 0) return '-';
+
+            const totalMinutes = Math.floor(diffMs / 60000);
+            const days = Math.floor(totalMinutes / 1440);
+            const hours = Math.floor((totalMinutes % 1440) / 60);
+            const minutes = totalMinutes % 60;
+
+            if (days > 0) return `${days} hari ${hours} jam`;
+            if (hours > 0) return `${hours} jam ${minutes} menit`;
+            return `${minutes} menit`;
+        },
+
+        getApprovalTime(tr) {
+            if (!tr) return null;
+            if (this.userRole === 'approval2') return tr.approval_level_2_at || tr.approved_at || tr.rejected_at;
+            if (this.userRole === 'approval') return tr.approval_level_1_at || tr.approved_at || tr.rejected_at;
+            return tr.approved_at || tr.approval_level_2_at || tr.approval_level_1_at || tr.rejected_at;
+        },
+
+        getApprovalTimeLabel(tr) {
+            if (!tr) return '';
+            if (tr.status === 'rejected') return 'Ditolak';
+            if (this.userRole === 'approval2' || tr.approval_level_2_at) return 'Approved L2';
+            if (this.userRole === 'approval' || tr.approval_level_1_at) return 'Approved L1';
+            return 'Approved';
+        },
+
         formatNumber(value) {
             if (!value) return '0.00';
             return parseFloat(value).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+        },
+
+        formatCurrency(value) {
+            const amount = Number(value || 0);
+            if (amount <= 0) return '-';
+            return 'Rp ' + amount.toLocaleString('id-ID', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
+        },
+
+        hasAveragePrice(item) {
+            return Number(item?.unit_price || 0) > 0;
+        },
+
+        isHighValueItem(item) {
+            return Number(item?.unit_price || 0) >= 10000000 || Boolean(parseInt(item?.is_high_value || 0, 10));
+        },
+
+        getDetailTotalValue() {
+            if (!this.selectedDetail?.detail) return 0;
+            return this.selectedDetail.detail.reduce((sum, item) => {
+                const totalPrice = Number(item.total_price || 0);
+                if (totalPrice > 0) return sum + totalPrice;
+                return sum + (Number(item.unit_price || 0) * Number(item.jumlah || 0));
+            }, 0);
         },
 
         formatGudang(value) {
@@ -2655,6 +2784,44 @@ function transaksiApp() {
             if (currentLevel === 2) return this.userRole === 'approval2';
 
             return false;
+        },
+
+        isApprovalRole() {
+            return ['approval', 'approval2'].includes(this.userRole);
+        },
+
+        isActionableForCurrentRole(tr) {
+            if (!tr || tr.status !== 'pending') return false;
+
+            const currentLevel = parseInt(tr.approval_current_level || 1, 10);
+            const requiredLevel = parseInt(tr.approval_level_required || 1, 10);
+            const isHighValue = Boolean(parseInt(tr.has_high_value_item || 0, 10));
+
+            if (this.userRole === 'approval') {
+                return currentLevel === 1;
+            }
+
+            if (this.userRole === 'approval2') {
+                return currentLevel === 2 && requiredLevel >= 2 && isHighValue;
+            }
+
+            return true;
+        },
+
+        isHistoryForCurrentRole(tr) {
+            if (!tr) return false;
+
+            if (this.userRole === 'approval') {
+                return Boolean(tr.approval_level_1_by)
+                    || (tr.status === 'rejected' && parseInt(tr.approval_current_level || 1, 10) === 1);
+            }
+
+            if (this.userRole === 'approval2') {
+                return Boolean(tr.approval_level_2_by)
+                    || (tr.status === 'rejected' && parseInt(tr.approval_current_level || 1, 10) === 2);
+            }
+
+            return ['approved', 'rejected', 'completed'].includes(tr.status);
         },
 
         ensureFixedGudang() {

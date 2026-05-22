@@ -20,7 +20,9 @@ class ApprovalController extends Controller
                 $query->where('approval_current_level', self::LEVEL_ONE);
             })
             ->when(auth()->user()->role === 'approval2', function ($query) {
-                $query->where('approval_current_level', self::LEVEL_TWO);
+                $query->where('approval_current_level', self::LEVEL_TWO)
+                    ->where('approval_level_required', '>=', self::LEVEL_TWO)
+                    ->where('has_high_value_item', true);
             })
             ->orderBy('created_at', 'desc')
             ->get();
@@ -54,6 +56,14 @@ class ApprovalController extends Controller
             $currentLevel = (int) ($request->approval_current_level ?? self::LEVEL_ONE);
             $requiredLevel = (int) ($request->approval_level_required ?? self::LEVEL_ONE);
             $userRole = auth()->user()->role;
+
+            if ($currentLevel === self::LEVEL_TWO && !$this->requiresLevelTwo($request)) {
+                DB::rollBack();
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Permintaan ini tidak memerlukan approval level 2'
+                ], 422);
+            }
 
             if (!$this->canApproveLevel($userRole, $currentLevel)) {
                 DB::rollBack();
@@ -131,6 +141,14 @@ class ApprovalController extends Controller
             }
 
             $currentLevel = (int) ($trbpb->approval_current_level ?? self::LEVEL_ONE);
+
+            if ($currentLevel === self::LEVEL_TWO && !$this->requiresLevelTwo($trbpb)) {
+                DB::rollBack();
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Permintaan ini tidak memerlukan approval level 2'
+                ], 422);
+            }
 
             if ($trbpb->status !== 'pending' || !$this->canApproveLevel(auth()->user()->role, $currentLevel)) {
                 DB::rollBack();
@@ -213,6 +231,10 @@ class ApprovalController extends Controller
                 $currentLevel = (int) ($trbpb->approval_current_level ?? self::LEVEL_ONE);
                 $requiredLevel = (int) ($trbpb->approval_level_required ?? self::LEVEL_ONE);
 
+                if ($currentLevel === self::LEVEL_TWO && !$this->requiresLevelTwo($trbpb)) {
+                    continue;
+                }
+
                 if (!$this->canApproveLevel(auth()->user()->role, $currentLevel)) {
                     continue;
                 }
@@ -265,5 +287,11 @@ class ApprovalController extends Controller
 
         return ($level === self::LEVEL_ONE && $role === 'approval')
             || ($level === self::LEVEL_TWO && $role === 'approval2');
+    }
+
+    private function requiresLevelTwo(object $request): bool
+    {
+        return (int) ($request->approval_level_required ?? self::LEVEL_ONE) >= self::LEVEL_TWO
+            && (bool) ($request->has_high_value_item ?? false);
     }
 }

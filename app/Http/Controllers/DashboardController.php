@@ -10,6 +10,10 @@ class DashboardController extends Controller
 {
     public function index()
     {
+        if (auth()->user()?->role === 'approval2') {
+            return $this->approvalLevelTwoDashboard();
+        }
+
         $today = Carbon::today();
         $startOfMonth = Carbon::now()->startOfMonth();
 
@@ -51,6 +55,91 @@ class DashboardController extends Controller
             'recentWo' => $this->recentWo(),
             'recentLogs' => $this->recentLogs(),
             'monthlyTrend' => $this->monthlyTrend(),
+            'lastUpdated' => now()->format('H:i:s'),
+        ]);
+    }
+
+    private function approvalLevelTwoDashboard()
+    {
+        $userId = auth()->id();
+
+        $base = DB::table('trBPB')
+            ->where('approval_level_required', '>=', 2)
+            ->where('has_high_value_item', true);
+
+        $summary = [
+            'pending_l2' => (clone $base)
+                ->where('status', 'pending')
+                ->where('approval_current_level', 2)
+                ->count(),
+            'approved_by_me' => (clone $base)
+                ->where('approval_level_2_by', $userId)
+                ->count(),
+            'completed' => (clone $base)
+                ->where('approval_level_2_by', $userId)
+                ->where('status', 'completed')
+                ->count(),
+            'rejected_by_me' => (clone $base)
+                ->where('status', 'rejected')
+                ->where('rejected_by', $userId)
+                ->where('approval_current_level', 2)
+                ->count(),
+        ];
+
+        $pending = (clone $base)
+            ->leftJoin('trBPBDetail as d', 'trBPB.id', '=', 'd.trBPB_id')
+            ->where('trBPB.status', 'pending')
+            ->where('trBPB.approval_current_level', 2)
+            ->select(
+                'trBPB.id',
+                'trBPB.nomor_pb',
+                'trBPB.tanggal_permintaan',
+                'trBPB.tanggal_diperlukan',
+                'trBPB.untuk',
+                'trBPB.jenis_pekerjaan',
+                DB::raw('COUNT(d.id) as total_item'),
+                DB::raw('COALESCE(MAX(d.unit_price), 0) as max_unit_price'),
+                DB::raw('COALESCE(SUM(d.total_price), 0) as total_value')
+            )
+            ->groupBy(
+                'trBPB.id',
+                'trBPB.nomor_pb',
+                'trBPB.tanggal_permintaan',
+                'trBPB.tanggal_diperlukan',
+                'trBPB.untuk',
+                'trBPB.jenis_pekerjaan'
+            )
+            ->orderByDesc('trBPB.created_at')
+            ->limit(6)
+            ->get();
+
+        $history = (clone $base)
+            ->leftJoin('trBPBDetail as d', 'trBPB.id', '=', 'd.trBPB_id')
+            ->where('trBPB.approval_level_2_by', $userId)
+            ->select(
+                'trBPB.id',
+                'trBPB.nomor_pb',
+                'trBPB.status',
+                'trBPB.tanggal_permintaan',
+                'trBPB.approval_level_2_at',
+                DB::raw('COUNT(d.id) as total_item'),
+                DB::raw('COALESCE(SUM(d.total_price), 0) as total_value')
+            )
+            ->groupBy(
+                'trBPB.id',
+                'trBPB.nomor_pb',
+                'trBPB.status',
+                'trBPB.tanggal_permintaan',
+                'trBPB.approval_level_2_at'
+            )
+            ->orderByDesc('trBPB.approval_level_2_at')
+            ->limit(6)
+            ->get();
+
+        return view('admin.dashboard-approval2', [
+            'summary' => $summary,
+            'pending' => $pending,
+            'history' => $history,
             'lastUpdated' => now()->format('H:i:s'),
         ]);
     }

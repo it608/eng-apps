@@ -6,7 +6,7 @@
     $totalUsers = $users->count();
     $adminCount = $users->where('role', 'admin')->count();
     $approvalCount = $users->whereIn('role', ['approval', 'approval2'])->count();
-    $regularUserCount = $users->where('role', 'user')->count();
+    $regularUserCount = $users->whereIn('role', ['user', 'warehouse'])->count();
     $latestUser = $users->sortByDesc('created_at')->first();
 @endphp
 
@@ -41,7 +41,7 @@
         <div>
             <div class="text-sm font-medium text-gray-900 dark:text-white">User</div>
             <div class="mt-1 text-base font-medium text-blue-600 dark:text-blue-400">{{ number_format($regularUserCount, 0, ',', '.') }}</div>
-            <div class="mt-1 text-xs text-gray-500 dark:text-gray-400">Akses operasional</div>
+            <div class="mt-1 text-xs text-gray-500 dark:text-gray-400">User dan warehouse</div>
         </div>
     </div>
 
@@ -96,6 +96,7 @@
                         <option value="admin">Admin</option>
                         <option value="approval">Approval Level 1</option>
                         <option value="approval2">Approval Level 2</option>
+                        <option value="warehouse">Warehouse</option>
                         <option value="user">User</option>
                     </select>
 
@@ -177,11 +178,13 @@
                                     'admin' => 'bg-red-50 text-red-700 border-red-200 dark:bg-red-900/20 dark:text-red-300 dark:border-red-800',
                                     'approval' => 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-900/20 dark:text-amber-300 dark:border-amber-800',
                                     'approval2' => 'bg-purple-50 text-purple-700 border-purple-200 dark:bg-purple-900/20 dark:text-purple-300 dark:border-purple-800',
+                                    'warehouse' => 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-900/20 dark:text-emerald-300 dark:border-emerald-800',
                                     default => 'bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-900/20 dark:text-blue-300 dark:border-blue-800',
                                 };
                                 $roleLabel = match($user->role) {
                                     'approval' => 'Approval L1',
                                     'approval2' => 'Approval L2',
+                                    'warehouse' => 'Warehouse',
                                     default => ucfirst($user->role),
                                 };
                             @endphp

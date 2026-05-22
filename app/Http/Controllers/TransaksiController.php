@@ -313,8 +313,45 @@ class TransaksiController extends Controller
 
     private function getTransaksiData()
     {
-        return DB::table('trBPB')
-            ->leftJoin('trBPBDetail', 'trBPB.id', '=', 'trBPBDetail.trBPB_id')
+        $query = DB::table('trBPB')
+            ->leftJoin('trBPBDetail', 'trBPB.id', '=', 'trBPBDetail.trBPB_id');
+
+        $role = auth()->user()->role ?? null;
+        $userId = auth()->id();
+
+        if ($role === 'approval') {
+            $query->where(function ($q) use ($userId) {
+                $q->where(function ($pending) {
+                    $pending->where('trBPB.status', 'pending')
+                        ->where('trBPB.approval_current_level', 1);
+                })->orWhere(function ($history) use ($userId) {
+                    $history->where('trBPB.approval_level_1_by', $userId)
+                        ->orWhere(function ($rejected) use ($userId) {
+                            $rejected->where('trBPB.status', 'rejected')
+                                ->where('trBPB.rejected_by', $userId)
+                                ->where('trBPB.approval_current_level', 1);
+                        });
+                });
+            });
+        } elseif ($role === 'approval2') {
+            $query->where('trBPB.approval_level_required', '>=', 2)
+                ->where('trBPB.has_high_value_item', true)
+                ->where(function ($q) use ($userId) {
+                    $q->where(function ($pending) {
+                        $pending->where('trBPB.status', 'pending')
+                            ->where('trBPB.approval_current_level', 2);
+                    })->orWhere(function ($history) use ($userId) {
+                        $history->where('trBPB.approval_level_2_by', $userId)
+                            ->orWhere(function ($rejected) use ($userId) {
+                                $rejected->where('trBPB.status', 'rejected')
+                                    ->where('trBPB.rejected_by', $userId)
+                                    ->where('trBPB.approval_current_level', 2);
+                            });
+                    });
+                });
+        }
+
+        return $query
             ->select(
                 'trBPB.*',
                 DB::raw('COUNT(trBPBDetail.id) as jumlah_barang'),

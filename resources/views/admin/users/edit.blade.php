@@ -77,6 +77,7 @@
                         <option value="user" @selected(old('role', $user->role) === 'user')>User</option>
                         <option value="approval" @selected(old('role', $user->role) === 'approval')>Approval Level 1</option>
                         <option value="approval2" @selected(old('role', $user->role) === 'approval2')>Approval Level 2</option>
+                        <option value="warehouse" @selected(old('role', $user->role) === 'warehouse')>Warehouse</option>
                         <option value="admin" @selected(old('role', $user->role) === 'admin')>Admin</option>
                     </select>
                     @error('role')
