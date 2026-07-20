@@ -1455,6 +1455,10 @@ class MobileApprovalController extends Controller
         }
 
         $pbTujuan = $pb->tujuan_nama ?? $pb->tujuan ?? $pb->untuk ?? '-';
+        $pbIsBackdate = (bool) ($pb->is_backdate ?? false);
+        $pbBackdateBlock = $pbIsBackdate
+            ? '<div class="note backdate-note"><span>PB Backdate</span>' . e($pb->backdate_reason ?: '-') . '<small>Diinput: ' . e($this->mobileDateTime($pb->backdate_created_at ?? $pb->created_at ?? null)) . '</small></div>'
+            : '';
 
         $details = DB::table('trBPBDetail')
             ->where('trBPB_id', $id)
@@ -1529,7 +1533,10 @@ class MobileApprovalController extends Controller
                         <p class="eyebrow">Permintaan Barang</p>
                         <h1>' . e($pb->nomor_pb) . '</h1>
                     </div>
-                    <span class="status ' . e($this->mobileStatusClass($status)) . '">' . e($this->mobileStatusLabel($status)) . '</span>
+                    <div class="status-stack">
+                        ' . ($pbIsBackdate ? '<span class="status pending">Backdate</span>' : '') . '
+                        <span class="status ' . e($this->mobileStatusClass($status)) . '">' . e($this->mobileStatusLabel($status)) . '</span>
+                    </div>
                 </div>
                 <div class="meta-grid">
                     <div><span>Tujuan</span><strong>' . e($pbTujuan ?: '-') . '</strong></div>
@@ -1541,6 +1548,7 @@ class MobileApprovalController extends Controller
                     <span>Total nilai</span>
                     <strong>' . e($this->mobileRupiah($pbTotalValue)) . '</strong>
                 </div>
+                ' . $pbBackdateBlock . '
                 <div class="section-title">Daftar Barang</div>
                 <div class="item-list">' . ($rows ?: '<div class="empty small">Tidak ada item.</div>') . '</div>
                 <div class="timeline">
@@ -4116,6 +4124,9 @@ class MobileApprovalController extends Controller
                 'trBPB.nomor_pb',
                 'trBPB.tanggal_permintaan',
                 'trBPB.tanggal_diperlukan',
+                'trBPB.is_backdate',
+                'trBPB.backdate_reason',
+                'trBPB.backdate_created_at',
                 'trBPB.untuk',
                 'trBPB.jenis_pekerjaan',
                 'trBPB.approval_current_level',
@@ -4133,6 +4144,9 @@ class MobileApprovalController extends Controller
                 'trBPB.nomor_pb',
                 'trBPB.tanggal_permintaan',
                 'trBPB.tanggal_diperlukan',
+                'trBPB.is_backdate',
+                'trBPB.backdate_reason',
+                'trBPB.backdate_created_at',
                 'trBPB.untuk',
                 'trBPB.jenis_pekerjaan',
                 'trBPB.approval_current_level',
@@ -4169,6 +4183,9 @@ class MobileApprovalController extends Controller
                 'trBPB.nomor_pb',
                 'trBPB.tanggal_permintaan',
                 'trBPB.tanggal_diperlukan',
+                'trBPB.is_backdate',
+                'trBPB.backdate_reason',
+                'trBPB.backdate_created_at',
                 'trBPB.untuk',
                 'trBPB.jenis_pekerjaan',
                 'trBPB.status',
@@ -4192,6 +4209,9 @@ class MobileApprovalController extends Controller
                 'trBPB.nomor_pb',
                 'trBPB.tanggal_permintaan',
                 'trBPB.tanggal_diperlukan',
+                'trBPB.is_backdate',
+                'trBPB.backdate_reason',
+                'trBPB.backdate_created_at',
                 'trBPB.untuk',
                 'trBPB.jenis_pekerjaan',
                 'trBPB.status',
@@ -4230,6 +4250,9 @@ class MobileApprovalController extends Controller
                 'trBPB.nomor_pb',
                 'trBPB.tanggal_permintaan',
                 'trBPB.tanggal_diperlukan',
+                'trBPB.is_backdate',
+                'trBPB.backdate_reason',
+                'trBPB.backdate_created_at',
                 'trBPB.untuk',
                 'trBPB.jenis_pekerjaan',
                 'trBPB.status',
@@ -4256,6 +4279,9 @@ class MobileApprovalController extends Controller
                 'trBPB.nomor_pb',
                 'trBPB.tanggal_permintaan',
                 'trBPB.tanggal_diperlukan',
+                'trBPB.is_backdate',
+                'trBPB.backdate_reason',
+                'trBPB.backdate_created_at',
                 'trBPB.untuk',
                 'trBPB.jenis_pekerjaan',
                 'trBPB.status',
@@ -4284,6 +4310,9 @@ class MobileApprovalController extends Controller
             'nomor_pb' => $item->nomor_pb,
             'tanggal_permintaan' => $item->tanggal_permintaan,
             'tanggal_diperlukan' => $item->tanggal_diperlukan,
+            'is_backdate' => (bool) ($item->is_backdate ?? false),
+            'backdate_reason' => $item->backdate_reason ?? null,
+            'backdate_created_at' => $item->backdate_created_at ?? null,
             'untuk' => $item->untuk,
             'tujuan_nama' => $item->tujuan_nama,
             'tujuan_kode' => $item->tujuan_kode,
@@ -4473,6 +4502,9 @@ class MobileApprovalController extends Controller
         $dateKey = $date ? Carbon::parse($date)->timezone('Asia/Jakarta')->format('Y-m-d') : '';
         $url = $this->mobileTokenUrl($isPb ? url('/api/mobile/web/pb/' . $id) : url('/api/mobile/web/wo/' . $id));
         $searchText = trim($type . ' ' . $number . ' ' . $title . ' ' . $description . ' ' . $status);
+        $backdateBadge = $isPb && !empty($item['is_backdate'])
+            ? '<span class="status pending">Backdate</span>'
+            : '';
         $meta = $isPb
             ? '<span>' . e($this->mobileDateTime($date)) . '</span><span>' . e($this->mobileRupiah($item['total_value'] ?? 0)) . '</span><span>' . e(($item['jumlah_barang'] ?? 0) . ' item') . '</span>'
             : '<span>' . e($this->mobileDateTime($date)) . '</span><span>' . e(count($item['photos'] ?? []) . ' foto') . '</span>';
@@ -4488,7 +4520,7 @@ class MobileApprovalController extends Controller
         return '<a class="history-card" href="' . e($url) . '" data-type="' . e($type) . '" data-date="' . e($dateKey) . '" data-text="' . e($searchText) . '">
             <div class="card-top">
                 <span class="type-pill ' . e(strtolower($type)) . '">' . e($type) . '</span>
-                <span class="status ' . e($this->mobileStatusClass($status)) . '">' . e($this->mobileStatusLabel($status)) . '</span>
+                <span class="card-statuses">' . $backdateBadge . '<span class="status ' . e($this->mobileStatusClass($status)) . '">' . e($this->mobileStatusLabel($status)) . '</span></span>
             </div>
             <h2>' . e($number) . '</h2>
             <p>' . e($title) . '</p>
@@ -4521,6 +4553,9 @@ class MobileApprovalController extends Controller
                 'trBPB.jenis_pekerjaan',
                 'trBPB.tanggal_permintaan',
                 'trBPB.tanggal_diperlukan',
+                'trBPB.is_backdate',
+                'trBPB.backdate_reason',
+                'trBPB.backdate_created_at',
                 'trBPB.created_at',
                 'trBPB.approved_at',
                 'trBPB.rejected_at',
@@ -4538,6 +4573,9 @@ class MobileApprovalController extends Controller
                 'trBPB.jenis_pekerjaan',
                 'trBPB.tanggal_permintaan',
                 'trBPB.tanggal_diperlukan',
+                'trBPB.is_backdate',
+                'trBPB.backdate_reason',
+                'trBPB.backdate_created_at',
                 'trBPB.created_at',
                 'trBPB.approved_at',
                 'trBPB.rejected_at',
@@ -4581,13 +4619,14 @@ class MobileApprovalController extends Controller
             ? 'Menunggu L' . (int) ($pb->approval_current_level ?: 1)
             : $this->mobileStatusLabel($pb->status);
         $search = trim($pb->nomor_pb . ' ' . $pb->tujuan_nama . ' ' . $pb->status . ' ' . $pb->jenis_pekerjaan);
+        $backdateBadge = !empty($pb->is_backdate) ? '<span class="status pending">Backdate</span>' : '';
 
         $dateKey = $pb->tanggal_permintaan ? Carbon::parse($pb->tanggal_permintaan)->timezone('Asia/Jakarta')->format('Y-m-d') : '';
 
         return '<a class="history-card" href="' . e($this->mobileTokenUrl(url('/api/mobile/web/pb/' . $pb->id))) . '" data-text="' . e(strtolower($search)) . '" data-date="' . e($dateKey) . '">
             <div class="card-top">
                 <span class="type-pill pb">PB</span>
-                <span class="status ' . e($this->mobileStatusClass($pb->status)) . '">' . e($status) . '</span>
+                <span class="card-statuses">' . $backdateBadge . '<span class="status ' . e($this->mobileStatusClass($pb->status)) . '">' . e($status) . '</span></span>
             </div>
             <h2>' . e($pb->nomor_pb) . '</h2>
             <p>' . e($pb->tujuan_nama ?: '-') . '</p>
@@ -5170,6 +5209,8 @@ JS;
         .history-card p { margin:0 0 6px; font-weight:700; color:#243044; }
         .history-card small, .photo-card span, .photo-card small { display:block; color:var(--muted); line-height:1.4; }
         .card-top, .detail-head { display:flex; gap:10px; align-items:flex-start; justify-content:space-between; }
+        .card-statuses, .status-stack { display:flex; flex-wrap:wrap; justify-content:flex-end; gap:6px; }
+        .status-stack { max-width:48%; }
         .type-pill, .status, .mini { display:inline-flex; align-items:center; justify-content:center; min-height:24px; padding:4px 10px; border-radius:999px; font-size:12px; font-weight:800; border:1px solid transparent; }
         .type-pill.pb { color:#1d4ed8; background:#eff6ff; border-color:#bfdbfe; }
         .type-pill.wo { color:#0f766e; background:#ecfdf5; border-color:#ccfbf1; }
@@ -5201,6 +5242,9 @@ JS;
         .timeline div { display:flex; justify-content:space-between; gap:12px; padding:10px 0; border-top:1px solid #e5eaf1; }
         .timeline span { color:var(--muted); }
         .note { margin-top:10px; line-height:1.5; }
+        .note small { display:block; margin-top:6px; color:var(--muted); }
+        .backdate-note { background:#fffbeb; border-color:#fcd34d; color:#78350f; }
+        .backdate-note span, .backdate-note small { color:#92400e; }
         .success-note { background:#f0fdf4; border-color:#bbf7d0; }
         .danger-note { background:#fef2f2; border-color:#fecaca; color:#991b1b; }
         .content-block h2 { margin:0 0 8px; font-size:17px; }

@@ -63,6 +63,8 @@ class TransaksiController extends Controller
     public function store(Request $request)
     {
         try {
+            $isBackdate = $request->boolean('is_backdate');
+
             // Validasi
             $rules = [
                 'nomor_pb' => 'required|string|unique:trBPB,nomor_pb',
@@ -70,7 +72,10 @@ class TransaksiController extends Controller
                 'untuk_id' => 'nullable|numeric',
                 'dari_gudang' => 'required|string',
                 'jenis_pekerjaan' => 'required|string|in:repair,maintenance,utility,project,overhaul',
-                'tanggal_diperlukan' => 'required|date|after_or_equal:today',
+                'tanggal_diperlukan' => $isBackdate ? 'required|date' : 'required|date|after_or_equal:today',
+                'tanggal_permintaan' => $isBackdate ? 'required|date' : 'nullable|date',
+                'is_backdate' => 'nullable|boolean',
+                'backdate_reason' => $isBackdate ? 'required|string|min:8|max:500' : 'nullable|string|max:500',
                 'verification_section_head_id' => 'required|integer|exists:users,id',
                 'material_type' => 'nullable|string|in:sparepart,non_sparepart',
                 'barang' => 'required|array|min:1',
@@ -87,6 +92,25 @@ class TransaksiController extends Controller
             }
 
             $request->validate($rules);
+
+            $tanggalPermintaan = now();
+            if ($isBackdate) {
+                $tanggalPermintaan = Carbon::parse($request->tanggal_permintaan)->startOfDay();
+                $today = now()->startOfDay();
+                $minimumBackdate = now()->subDays(2)->startOfDay();
+
+                if ($tanggalPermintaan->lt($minimumBackdate) || $tanggalPermintaan->gte($today)) {
+                    throw ValidationException::withMessages([
+                        'tanggal_permintaan' => ['Tanggal PB backdate hanya bisa dipilih untuk kemarin atau lusa.'],
+                    ]);
+                }
+
+                if (Carbon::parse($request->tanggal_diperlukan)->startOfDay()->lt($tanggalPermintaan)) {
+                    throw ValidationException::withMessages([
+                        'tanggal_diperlukan' => ['Tanggal diperlukan tidak boleh lebih awal dari tanggal PB backdate.'],
+                    ]);
+                }
+            }
 
             $sectionHead = DB::table('users')
                 ->where('id', $request->verification_section_head_id)
@@ -144,7 +168,7 @@ class TransaksiController extends Controller
             // Insert header
             $insertData = [
                 'nomor_pb' => $request->nomor_pb,
-                'tanggal_permintaan' => now(),
+                'tanggal_permintaan' => $tanggalPermintaan->toDateString(),
                 'bagian' => 'Engineering',
                 'untuk' => $request->untuk,
                 'untuk_id' => $request->untuk_id, // Simpan ID mesin/bangunan
@@ -163,6 +187,22 @@ class TransaksiController extends Controller
             if (Schema::hasColumn('trBPB', 'verification_section_head_id')) {
                 $insertData['verification_section_head_id'] = $sectionHead->id;
                 $insertData['verification_status'] = 'pending';
+            }
+
+            if (Schema::hasColumn('trBPB', 'is_backdate')) {
+                $insertData['is_backdate'] = $isBackdate;
+            }
+
+            if ($isBackdate && Schema::hasColumn('trBPB', 'backdate_reason')) {
+                $insertData['backdate_reason'] = trim((string) $request->backdate_reason);
+            }
+
+            if ($isBackdate && Schema::hasColumn('trBPB', 'backdate_created_by') && auth()->check()) {
+                $insertData['backdate_created_by'] = auth()->id();
+            }
+
+            if ($isBackdate && Schema::hasColumn('trBPB', 'backdate_created_at')) {
+                $insertData['backdate_created_at'] = now();
             }
 
             // Set field spesifik untuk backward compatibility
@@ -226,14 +266,18 @@ class TransaksiController extends Controller
             ]);
             
         } catch (ValidationException $e) {
-            DB::rollBack();
+            if (DB::transactionLevel() > 0) {
+                DB::rollBack();
+            }
             return response()->json([
                 'success' => false,
                 'message' => 'Validasi gagal',
                 'errors' => $e->errors()
             ], 422);
         } catch (\Exception $e) {
-            DB::rollBack();
+            if (DB::transactionLevel() > 0) {
+                DB::rollBack();
+            }
             \Log::error('Error saving transaksi: ' . $e->getMessage());
             \Log::error('Request data: ', $request->all());
             

@@ -683,7 +683,11 @@
                                     <div class="text-sm font-medium text-gray-900" x-text="((currentPage - 1) * perPage) + (index + 1)"></div>
                                 </td>
                                 <td class="py-4 px-6">
-                                    <div class="text-sm font-medium text-gray-900" x-text="tr.nomor_pb"></div>
+                                    <div class="flex flex-wrap items-center gap-2">
+                                        <span class="text-sm font-medium text-gray-900" x-text="tr.nomor_pb"></span>
+                                        <span x-show="tr.is_backdate"
+                                              class="rounded-full border border-amber-200 bg-amber-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-amber-800">Backdate</span>
+                                    </div>
                                     <div class="text-xs text-gray-500" x-text="tr.jenis_pekerjaan || '-'"></div>
                                 </td>
                                 <td class="py-4 px-6">
@@ -976,7 +980,11 @@
                             <template x-for="tr in historyTransaksi" :key="tr.id">
                                 <tr class="border-b hover:bg-gray-50">
                                     <td class="py-3 px-4">
-                                        <div class="font-semibold text-gray-900" x-text="tr.nomor_pb"></div>
+                                        <div class="flex flex-wrap items-center gap-2">
+                                            <span class="font-semibold text-gray-900" x-text="tr.nomor_pb"></span>
+                                            <span x-show="tr.is_backdate"
+                                                  class="rounded-full border border-amber-200 bg-amber-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-amber-800">Backdate</span>
+                                        </div>
                                         <div class="text-xs text-gray-500 capitalize" x-text="tr.jenis_pekerjaan || '-'"></div>
                                     </td>
                                     <td class="py-3 px-4">
@@ -1350,7 +1358,7 @@
                                 </label>
                                 <input type="date"
                                        x-model="formData.tanggal_diperlukan"
-                                       :min="tanggalHariIni"
+                                       :min="formData.is_backdate && formData.tanggal_permintaan ? formData.tanggal_permintaan : tanggalHariIni"
                                        class="w-full h-[38px] px-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 text-sm compact-input">
                                 <p class="mt-0.5 text-xs text-gray-500">
                                     Pilih tanggal kapan barang diperlukan
@@ -1371,6 +1379,43 @@
                                 <p class="mt-0.5 text-xs text-gray-500">
                                     PB wajib diverifikasi Section Head sebelum masuk Approval L1.
                                 </p>
+                            </div>
+                        </div>
+
+                        {{-- BACKDATE SECTION --}}
+                        <div class="rounded-lg border border-amber-200 bg-amber-50 p-4">
+                            <label class="inline-flex items-center gap-2 text-sm font-semibold text-amber-900">
+                                <input type="checkbox"
+                                       x-model="formData.is_backdate"
+                                       @change="handleBackdateToggle"
+                                       class="h-4 w-4 rounded border-amber-300 text-amber-600 focus:ring-amber-500">
+                                PB Backdate
+                            </label>
+                            <p class="mt-1 text-xs text-amber-800">
+                                Gunakan hanya untuk PB yang terlewat input. Maksimal kemarin atau lusa, dan wajib alasan.
+                            </p>
+
+                            <div x-show="formData.is_backdate" x-transition class="mt-3 grid grid-cols-1 gap-3 md:grid-cols-2">
+                                <div>
+                                    <label class="block text-xs font-medium text-gray-700 mb-1 compact-label">
+                                        Tanggal PB Backdate
+                                    </label>
+                                    <input type="date"
+                                           x-model="formData.tanggal_permintaan"
+                                           :min="minBackdateDate"
+                                           :max="maxBackdateDate"
+                                           class="w-full h-[38px] px-3 border border-amber-300 rounded-md focus:outline-none focus:ring-2 focus:ring-amber-500 text-sm compact-input bg-white">
+                                </div>
+                                <div>
+                                    <label class="block text-xs font-medium text-gray-700 mb-1 compact-label">
+                                        Alasan Backdate
+                                    </label>
+                                    <input type="text"
+                                           x-model="formData.backdate_reason"
+                                           maxlength="500"
+                                           placeholder="Contoh: PB terlewat input shift kemarin"
+                                           class="w-full h-[38px] px-3 border border-amber-300 rounded-md focus:outline-none focus:ring-2 focus:ring-amber-500 text-sm compact-input bg-white">
+                                </div>
                             </div>
                         </div>
 
@@ -1738,6 +1783,10 @@
                                       class="px-3 py-1 text-xs font-mono bg-white/20 text-white rounded-full border border-white/30">
                                     <span x-text="selectedDetail?.header?.nomor_pb"></span>
                                 </span>
+                                <span x-show="selectedDetail?.header?.is_backdate"
+                                      class="px-3 py-1 text-xs font-bold uppercase tracking-wide bg-amber-100 text-amber-900 rounded-full border border-amber-200">
+                                    Backdate
+                                </span>
                             </div>
                         </div>
                         <div class="flex items-center gap-2">
@@ -1878,6 +1927,25 @@
                             <div>
                                 <p class="text-xs font-medium text-gray-500 uppercase tracking-wider">Tanggal Permintaan</p>
                                 <p class="text-sm font-semibold text-gray-900 mt-0.5" x-text="formatDateForDisplay(selectedDetail?.header?.tanggal_permintaan)"></p>
+                            </div>
+                        </div>
+                    </div>
+
+                    {{-- BACKDATE INFO --}}
+                    <div x-show="selectedDetail?.header?.is_backdate"
+                         class="bg-amber-50 rounded-lg p-4 border border-amber-200 hover:shadow-md transition duration-200 col-span-1 md:col-span-2">
+                        <div class="flex items-start gap-3">
+                            <div class="bg-amber-100 p-2 rounded-lg">
+                                <svg class="w-5 h-5 text-amber-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                </svg>
+                            </div>
+                            <div>
+                                <p class="text-xs font-medium text-amber-800 uppercase tracking-wider">PB Backdate</p>
+                                <p class="text-sm font-semibold text-gray-900 mt-0.5" x-text="selectedDetail?.header?.backdate_reason || '-'"></p>
+                                <p class="text-xs text-amber-700 mt-1">
+                                    Diinput: <span x-text="formatDateTimeForDisplay(selectedDetail?.header?.created_at)"></span>
+                                </p>
                             </div>
                         </div>
                     </div>
@@ -2153,6 +2221,9 @@ function transaksiApp() {
             untuk_id: '',        // ID untuk mesin atau bangunan
             dari_gudang: 'gudang_11',
             jenis_pekerjaan: '',
+            is_backdate: false,
+            tanggal_permintaan: '',
+            backdate_reason: '',
             tanggal_diperlukan: '',
             verification_section_head_id: '',
             material_type: 'sparepart',
@@ -2200,6 +2271,8 @@ function transaksiApp() {
         
         // ============ DATE UTILS ============
         tanggalHariIni: '',
+        minBackdateDate: '',
+        maxBackdateDate: '',
         tanggalFormat: '',
         
         // ============ MASTER DATA ============
@@ -2217,7 +2290,6 @@ function transaksiApp() {
             { value: 'pack', label: 'Pack' },
             { value: 'roll', label: 'Roll' },
             { value: 'set', label: 'Set' },
-            { value: 'btg', label: 'Batang (BTG)' },
             { value: 'buah', label: 'Buah' },
             { value: 'lembar', label: 'Lembar' },
             { value: 'pair', label: 'Pair (Pasang)' },
@@ -2933,7 +3005,6 @@ function transaksiApp() {
                 'PACK': 'pack', 'PK': 'pack',
                 'ROLL': 'roll', 'ROL': 'roll',
                 'SET': 'set',
-                'BTG': 'btg', 'BATANG': 'btg', 'BT': 'btg',
                 'BTL': 'bottle',
                 'CAN': 'can',
                 'TUBE': 'tube',
@@ -3095,6 +3166,29 @@ function transaksiApp() {
             const nextWeek = new Date(today);
             nextWeek.setDate(today.getDate() + 7);
             return nextWeek.toISOString().split('T')[0];
+        },
+
+        dateInputValue(date) {
+            const year = date.getFullYear();
+            const month = String(date.getMonth() + 1).padStart(2, '0');
+            const day = String(date.getDate()).padStart(2, '0');
+            return `${year}-${month}-${day}`;
+        },
+
+        handleBackdateToggle() {
+            if (this.formData.is_backdate) {
+                this.formData.tanggal_permintaan = this.maxBackdateDate || '';
+                if (this.formData.tanggal_diperlukan && this.formData.tanggal_diperlukan < this.formData.tanggal_permintaan) {
+                    this.formData.tanggal_diperlukan = this.formData.tanggal_permintaan;
+                }
+                return;
+            }
+
+            this.formData.tanggal_permintaan = '';
+            this.formData.backdate_reason = '';
+            if (this.formData.tanggal_diperlukan && this.formData.tanggal_diperlukan < this.tanggalHariIni) {
+                this.formData.tanggal_diperlukan = this.getDefaultRequiredDate();
+            }
         },
 
         formatDateForDisplay(dateString) {
@@ -3474,6 +3568,28 @@ function transaksiApp() {
                 return false;
             }
 
+            if (this.formData.is_backdate) {
+                if (!this.formData.tanggal_permintaan) {
+                    alert('Pilih tanggal PB backdate');
+                    return false;
+                }
+
+                if (this.formData.tanggal_permintaan < this.minBackdateDate || this.formData.tanggal_permintaan > this.maxBackdateDate) {
+                    alert('Tanggal PB backdate hanya bisa dipilih untuk kemarin atau lusa');
+                    return false;
+                }
+
+                if (this.formData.tanggal_diperlukan < this.formData.tanggal_permintaan) {
+                    alert('Tanggal diperlukan tidak boleh lebih awal dari tanggal PB backdate');
+                    return false;
+                }
+
+                if (!this.formData.backdate_reason || this.formData.backdate_reason.trim().length < 8) {
+                    alert('Alasan backdate wajib diisi minimal 8 karakter');
+                    return false;
+                }
+            }
+
             if (!this.formData.verification_section_head_id) {
                 alert('Pilih Section Head untuk verifikasi PB');
                 return false;
@@ -3518,6 +3634,9 @@ function transaksiApp() {
                 untuk_id: this.formData.untuk_id,  // Kirim ID mesin atau bangunan
                 dari_gudang: this.formData.dari_gudang,
                 jenis_pekerjaan: this.formData.jenis_pekerjaan,
+                is_backdate: !!this.formData.is_backdate,
+                tanggal_permintaan: this.formData.is_backdate ? this.formData.tanggal_permintaan : '',
+                backdate_reason: this.formData.is_backdate ? this.formData.backdate_reason.trim() : '',
                 tanggal_diperlukan: this.formData.tanggal_diperlukan,
                 verification_section_head_id: this.formData.verification_section_head_id,
                 material_type: this.formData.material_type || 'sparepart',
@@ -3599,6 +3718,9 @@ function transaksiApp() {
                 untuk_id: '',
                 dari_gudang: 'gudang_11',
                 jenis_pekerjaan: '',
+                is_backdate: false,
+                tanggal_permintaan: '',
+                backdate_reason: '',
                 tanggal_diperlukan: this.getDefaultRequiredDate(),
                 verification_section_head_id: '',
                 material_type: 'sparepart',
@@ -4132,6 +4254,7 @@ printDetail(detail, targetWindow = null) {
                         <span class="status-badge status-${detail.header.status || 'pending'}">
                             ${this.getApprovalStatusLabel(detail.header).toUpperCase()}
                         </span>
+                        ${detail.header.is_backdate ? '<span class="status-badge" style="background:#fef3c7;color:#92400e;border:1px solid #fcd34d;margin-left:8px;">BACKDATE</span>' : ''}
                     </div>
                     
                     <!-- Info Grid 2 Kolom -->
@@ -4161,6 +4284,15 @@ printDetail(detail, targetWindow = null) {
                             <span class="info-value">${this.formatDateForDisplay(detail.header.tanggal_diperlukan)}</span>
                         </div>
                     </div>
+
+                    ${detail.header.is_backdate ? `
+                    <div class="keterangan-box" style="border-color:#fcd34d;background:#fffbeb;">
+                        <div class="keterangan-text">
+                            <strong>PB BACKDATE:</strong> ${detail.header.backdate_reason || '-'}<br>
+                            <span style="font-size:11px;color:#92400e;">Diinput pada: ${this.formatDateTimeForDisplay(detail.header.created_at)}</span>
+                        </div>
+                    </div>
+                    ` : ''}
                     
 <!-- Asset Card (Mesin/Bangunan) - Versi Simple -->
 ${detail.untuk_info ? `
@@ -4420,6 +4552,12 @@ ${detail.untuk_info ? `
             console.log('?? Initializing app...');
             
             this.tanggalHariIni = new Date().toISOString().split('T')[0];
+            const yesterday = new Date();
+            yesterday.setDate(yesterday.getDate() - 1);
+            const twoDaysAgo = new Date();
+            twoDaysAgo.setDate(twoDaysAgo.getDate() - 2);
+            this.maxBackdateDate = this.dateInputValue(yesterday);
+            this.minBackdateDate = this.dateInputValue(twoDaysAgo);
             this.tanggalFormat = this.formatDate();
             this.formData.tanggal_diperlukan = this.getDefaultRequiredDate();
             
