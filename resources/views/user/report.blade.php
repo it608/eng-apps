@@ -937,6 +937,10 @@ function reportCenter() {
             const labels = this.costCenter.labels || [];
             const total = labels.length;
 
+            if (this.costCenter.grouping === 'daily' && total <= 31) {
+                return labels.map((_, index) => index);
+            }
+
             if (total <= 12) {
                 return labels.map((_, index) => index);
             }
@@ -949,6 +953,38 @@ function reportCenter() {
             }
 
             return Array.from(indexes).sort((a, b) => a - b);
+        },
+
+        chartAxisLabel(label) {
+            if (this.costCenter.grouping === 'daily') {
+                return String(label || '').split(' ')[0];
+            }
+
+            return label;
+        },
+
+        chartMonthMarkers() {
+            if (this.costCenter.grouping !== 'daily') {
+                return '';
+            }
+
+            const labels = this.costCenter.labels || [];
+            const markers = [];
+            let lastMonth = '';
+
+            labels.forEach((label, index) => {
+                const parts = String(label || '').split(' ');
+                const month = parts.slice(1).join(' ');
+
+                if (month && month !== lastMonth) {
+                    markers.push({ index, label: month });
+                    lastMonth = month;
+                }
+            });
+
+            return markers.map(marker => `
+                <text x="${this.chartX(marker.index)}" y="328" text-anchor="start" fill="#94a3b8" font-size="10" font-weight="600">${this.escapeSvg(marker.label)}</text>
+            `).join('');
         },
 
         chartSvg() {
@@ -991,17 +1027,19 @@ function reportCenter() {
             `).join('');
 
             const axisLabels = this.chartLabelIndexes().map(index => `
-                <text x="${this.chartX(index)}" y="304" text-anchor="middle" fill="#64748b" font-size="11" font-weight="500">${this.escapeSvg(labels[index])}</text>
+                <text x="${this.chartX(index)}" y="304" text-anchor="middle" fill="#64748b" font-size="10.5" font-weight="500">${this.escapeSvg(this.chartAxisLabel(labels[index]))}</text>
             `).join('');
+            const monthMarkers = this.chartMonthMarkers();
 
             return `
-                <svg class="cost-chart-svg" viewBox="0 0 920 330" role="img" aria-label="Line chart nilai GI cost center Engineering">
+                <svg class="cost-chart-svg" viewBox="0 0 920 345" role="img" aria-label="Line chart nilai GI cost center Engineering">
                     ${ticks}
                     <line x1="72" x2="890" y1="270" y2="270" stroke="#cbd5e1" stroke-width="1.2"></line>
                     <line x1="72" x2="72" y1="50" y2="270" stroke="#cbd5e1" stroke-width="1.2"></line>
                     ${axisTicks}
                     ${lines}
                     ${axisLabels}
+                    ${monthMarkers}
                 </svg>
             `;
         },
