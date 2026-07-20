@@ -45,8 +45,8 @@
     </div>
 
     <div class="bg-white rounded-xl shadow-sm border p-6">
-        <div class="flex flex-col lg:flex-row lg:items-end gap-3 mb-5">
-            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-8 gap-3 flex-1">
+        <div class="mb-5 space-y-4">
+            <div class="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4">
                 <div>
                     <label class="block text-xs font-semibold text-gray-500 uppercase mb-1">Dari Tanggal</label>
                     <input id="giStartDate" type="date" value="{{ $defaultStart }}" class="w-full border rounded-lg px-3 py-2 text-sm">
@@ -72,6 +72,9 @@
                         @endforeach
                     </select>
                 </div>
+            </div>
+
+            <div class="grid grid-cols-1 gap-3 lg:grid-cols-12 lg:items-end">
                 <div>
                     <label class="block text-xs font-semibold text-gray-500 uppercase mb-1">Total Nilai Dari</label>
                     <input id="giMinTotal" type="number" min="0" step="1" class="w-full border rounded-lg px-3 py-2 text-sm" placeholder="0">
@@ -80,23 +83,28 @@
                     <label class="block text-xs font-semibold text-gray-500 uppercase mb-1">Total Nilai Sampai</label>
                     <input id="giMaxTotal" type="number" min="0" step="1" class="w-full border rounded-lg px-3 py-2 text-sm" placeholder="Contoh: 1000000">
                 </div>
-                <div class="lg:col-span-2">
+                <div class="lg:col-span-5 xl:col-span-6">
                     <label class="block text-xs font-semibold text-gray-500 uppercase mb-1">Cari</label>
                     <input id="giSearch" type="text" class="w-full border rounded-lg px-3 py-2 text-sm" placeholder="No GI, kode, nama material, lokasi...">
                 </div>
-            </div>
-            <div class="flex gap-2">
-                <select id="giPerPage" class="border rounded-lg px-3 py-2 text-sm">
-                    <option value="20">20</option>
-                    <option value="50">50</option>
-                    <option value="100">100</option>
-                </select>
-                <button type="button" onclick="loadGoodIssue(1)" class="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-semibold hover:bg-blue-700">
-                    Tampilkan
-                </button>
-                <button type="button" onclick="resetGoodIssueFilters()" class="px-4 py-2 border rounded-lg text-sm font-semibold hover:bg-gray-50">
-                    Reset
-                </button>
+                <div class="flex gap-2 lg:col-span-5 xl:col-span-4">
+                    <div class="w-24">
+                        <label class="block text-xs font-semibold text-gray-500 uppercase mb-1">Baris</label>
+                        <select id="giPerPage" class="w-full border rounded-lg px-3 py-2 text-sm bg-white">
+                            <option value="20">20</option>
+                            <option value="50">50</option>
+                            <option value="100">100</option>
+                        </select>
+                    </div>
+                    <div class="flex flex-1 items-end gap-2">
+                        <button type="button" onclick="loadGoodIssue(1)" class="h-[38px] flex-1 rounded-lg bg-blue-600 px-4 text-sm font-semibold text-white hover:bg-blue-700">
+                            Tampilkan
+                        </button>
+                        <button type="button" onclick="resetGoodIssueFilters()" class="h-[38px] rounded-lg border px-4 text-sm font-semibold hover:bg-gray-50">
+                            Reset
+                        </button>
+                    </div>
+                </div>
             </div>
         </div>
 
