@@ -45,65 +45,88 @@
     </div>
 
     <div class="bg-white rounded-xl shadow-sm border p-6">
-        <div class="mb-5 space-y-4">
-            <div class="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4">
+        <div class="mb-5 rounded-xl border border-slate-200 bg-slate-50/60 p-4">
+            <div class="mb-4 flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
                 <div>
-                    <label class="block text-xs font-semibold text-gray-500 uppercase mb-1">Dari Tanggal</label>
-                    <input id="giStartDate" type="date" value="{{ $defaultStart }}" class="w-full border rounded-lg px-3 py-2 text-sm">
+                    <h2 class="text-sm font-bold text-slate-900">Filter Good Issue</h2>
+                    <p class="text-xs text-slate-500">Atur periode, klasifikasi, nilai dokumen, dan pencarian transaksi ERP.</p>
                 </div>
-                <div>
-                    <label class="block text-xs font-semibold text-gray-500 uppercase mb-1">Sampai Tanggal</label>
-                    <input id="giEndDate" type="date" value="{{ $defaultEnd }}" class="w-full border rounded-lg px-3 py-2 text-sm">
-                </div>
-                <div>
-                    <label class="block text-xs font-semibold text-gray-500 uppercase mb-1">Jenis Material</label>
-                    <select id="giMaterialType" class="w-full border rounded-lg px-3 py-2 text-sm">
-                        <option value="all">Semua Material</option>
-                        <option value="sparepart">Sparepart</option>
-                        <option value="non_sparepart">Non Sparepart</option>
-                    </select>
-                </div>
-                <div>
-                    <label class="block text-xs font-semibold text-gray-500 uppercase mb-1">Nama Cost Center</label>
-                    <select id="giCostCenter" class="w-full border rounded-lg px-3 py-2 text-sm bg-white">
-                        <option value="">Semua Cost Center</option>
-                        @foreach(($costCenters ?? []) as $costCenter)
-                            <option value="{{ $costCenter['value'] }}">{{ $costCenter['label'] }}</option>
-                        @endforeach
-                    </select>
-                </div>
+                <div class="text-xs font-medium text-blue-700">Read-only ERP data</div>
             </div>
 
-            <div class="grid grid-cols-1 gap-3 lg:grid-cols-12 lg:items-end">
-                <div class="lg:col-span-2 xl:col-span-2">
-                    <label class="block whitespace-nowrap text-xs font-semibold text-gray-500 uppercase mb-1">Total Nilai Dari</label>
-                    <input id="giMinTotal" type="number" min="0" step="1" class="w-full border rounded-lg px-3 py-2 text-sm" placeholder="0">
-                </div>
-                <div class="lg:col-span-2 xl:col-span-2">
-                    <label class="block whitespace-nowrap text-xs font-semibold text-gray-500 uppercase mb-1">Total Nilai Sampai</label>
-                    <input id="giMaxTotal" type="number" min="0" step="1" class="w-full border rounded-lg px-3 py-2 text-sm" placeholder="Contoh: 1000000">
-                </div>
-                <div class="lg:col-span-4 xl:col-span-4">
-                    <label class="block text-xs font-semibold text-gray-500 uppercase mb-1">Cari</label>
-                    <input id="giSearch" type="text" class="w-full border rounded-lg px-3 py-2 text-sm" placeholder="No GI, kode, nama material, lokasi...">
-                </div>
-                <div class="flex gap-2 lg:col-span-4 xl:col-span-4">
-                    <div class="w-24">
-                        <label class="block text-xs font-semibold text-gray-500 uppercase mb-1">Baris</label>
-                        <select id="giPerPage" class="w-full border rounded-lg px-3 py-2 text-sm bg-white">
-                            <option value="20">20</option>
-                            <option value="50">50</option>
-                            <option value="100">100</option>
-                        </select>
+            <div class="grid grid-cols-1 gap-4 xl:grid-cols-12">
+                <section class="rounded-lg border border-slate-200 bg-white p-3 xl:col-span-4">
+                    <div class="mb-2 text-xs font-bold uppercase tracking-wide text-slate-500">Periode</div>
+                    <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                        <div>
+                            <label class="mb-1 block text-xs font-semibold text-gray-500 uppercase">Dari Tanggal</label>
+                            <input id="giStartDate" type="date" value="{{ $defaultStart }}" class="h-10 w-full border rounded-lg px-3 text-sm">
+                        </div>
+                        <div>
+                            <label class="mb-1 block text-xs font-semibold text-gray-500 uppercase">Sampai Tanggal</label>
+                            <input id="giEndDate" type="date" value="{{ $defaultEnd }}" class="h-10 w-full border rounded-lg px-3 text-sm">
+                        </div>
                     </div>
-                    <div class="flex flex-1 items-end gap-2">
-                        <button type="button" onclick="loadGoodIssue(1)" class="h-[38px] flex-1 rounded-lg bg-blue-600 px-4 text-sm font-semibold text-white hover:bg-blue-700">
-                            Tampilkan
-                        </button>
-                        <button type="button" onclick="resetGoodIssueFilters()" class="h-[38px] rounded-lg border px-4 text-sm font-semibold hover:bg-gray-50">
-                            Reset
-                        </button>
+                </section>
+
+                <section class="rounded-lg border border-slate-200 bg-white p-3 xl:col-span-4">
+                    <div class="mb-2 text-xs font-bold uppercase tracking-wide text-slate-500">Klasifikasi</div>
+                    <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                        <div>
+                            <label class="mb-1 block text-xs font-semibold text-gray-500 uppercase">Jenis Material</label>
+                            <select id="giMaterialType" class="h-10 w-full border rounded-lg px-3 text-sm bg-white">
+                                <option value="all">Semua Material</option>
+                                <option value="sparepart">Sparepart</option>
+                                <option value="non_sparepart">Non Sparepart</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="mb-1 block text-xs font-semibold text-gray-500 uppercase">Cost Center</label>
+                            <select id="giCostCenter" class="h-10 w-full border rounded-lg px-3 text-sm bg-white">
+                                <option value="">Semua Cost Center</option>
+                                @foreach(($costCenters ?? []) as $costCenter)
+                                    <option value="{{ $costCenter['value'] }}">{{ $costCenter['label'] }}</option>
+                                @endforeach
+                            </select>
+                        </div>
                     </div>
+                </section>
+
+                <section class="rounded-lg border border-slate-200 bg-white p-3 xl:col-span-4">
+                    <div class="mb-2 text-xs font-bold uppercase tracking-wide text-slate-500">Range Total Nilai</div>
+                    <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                        <div>
+                            <label class="mb-1 block whitespace-nowrap text-xs font-semibold text-gray-500 uppercase">Dari Nilai</label>
+                            <input id="giMinTotal" type="number" min="0" step="1" class="h-10 w-full border rounded-lg px-3 text-sm" placeholder="0">
+                        </div>
+                        <div>
+                            <label class="mb-1 block whitespace-nowrap text-xs font-semibold text-gray-500 uppercase">Sampai Nilai</label>
+                            <input id="giMaxTotal" type="number" min="0" step="1" class="h-10 w-full border rounded-lg px-3 text-sm" placeholder="Contoh: 1000000">
+                        </div>
+                    </div>
+                </section>
+            </div>
+
+            <div class="mt-4 grid grid-cols-1 gap-3 lg:grid-cols-12 lg:items-end">
+                <div class="lg:col-span-7 xl:col-span-8">
+                    <label class="mb-1 block text-xs font-semibold text-gray-500 uppercase">Cari</label>
+                    <input id="giSearch" type="text" class="h-10 w-full border rounded-lg px-3 text-sm" placeholder="No GI, kode, nama material, lokasi...">
+                </div>
+                <div class="lg:col-span-2 xl:col-span-1">
+                    <label class="mb-1 block text-xs font-semibold text-gray-500 uppercase">Baris</label>
+                    <select id="giPerPage" class="h-10 w-full border rounded-lg px-3 text-sm bg-white">
+                        <option value="20">20</option>
+                        <option value="50">50</option>
+                        <option value="100">100</option>
+                    </select>
+                </div>
+                <div class="flex gap-2 lg:col-span-3 xl:col-span-3">
+                    <button type="button" onclick="loadGoodIssue(1)" class="h-10 flex-1 rounded-lg bg-blue-600 px-4 text-sm font-semibold text-white hover:bg-blue-700">
+                        Tampilkan
+                    </button>
+                    <button type="button" onclick="resetGoodIssueFilters()" class="h-10 rounded-lg border bg-white px-4 text-sm font-semibold hover:bg-gray-50">
+                        Reset
+                    </button>
                 </div>
             </div>
         </div>
