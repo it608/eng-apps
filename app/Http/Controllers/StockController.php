@@ -1006,7 +1006,16 @@ return $sql;
                 ];
             }
 
-            $grouped = $this->attachGoodIssueSeenLogs($grouped);
+            $canViewSeenAudit = $this->canViewGoodIssueSeenAudit();
+
+            if ($canViewSeenAudit) {
+                $grouped = $this->attachGoodIssueSeenLogs($grouped);
+            } else {
+                foreach ($grouped as &$document) {
+                    unset($document['posting_at'], $document['first_seen_at'], $document['last_seen_at']);
+                }
+                unset($document);
+            }
             $formatted = array_values($grouped);
 
             return response()->json([
@@ -1075,6 +1084,13 @@ return $sql;
         }
 
         return $grouped;
+    }
+
+    private function canViewGoodIssueSeenAudit(): bool
+    {
+        $role = strtolower((string) (Auth::user()->role ?? ''));
+
+        return in_array($role, ['admin', 'administrator', 'approval', 'approval_level1'], true);
     }
 
     public function exportGoodIssue(Request $request)
@@ -1573,12 +1589,10 @@ return $sql;
         $this->ensureDirectory($tempDir . '/xl/_rels');
         $this->ensureDirectory($tempDir . '/xl/worksheets');
 
+        $canViewAudit = $this->canViewGoodIssueSeenAudit();
         $columns = [
             ['title' => 'No', 'width' => 7, 'type' => 'integer'],
             ['title' => 'Tanggal GI', 'width' => 14, 'type' => 'string'],
-            ['title' => 'Waktu Posting ERP', 'width' => 22, 'type' => 'string'],
-            ['title' => 'Pertama Terlihat e-Request', 'width' => 24, 'type' => 'string'],
-            ['title' => 'Terakhir Terlihat e-Request', 'width' => 24, 'type' => 'string'],
             ['title' => 'No GI', 'width' => 24, 'type' => 'string'],
             ['title' => 'Cost Center', 'width' => 30, 'type' => 'string'],
             ['title' => 'Kode Cost Center', 'width' => 18, 'type' => 'string'],
@@ -1593,6 +1607,14 @@ return $sql;
             ['title' => 'Total Dokumen GI', 'width' => 20, 'type' => 'money'],
             ['title' => 'User ERP', 'width' => 16, 'type' => 'string'],
         ];
+
+        if ($canViewAudit) {
+            array_splice($columns, 2, 0, [
+                ['title' => 'Waktu Posting ERP', 'width' => 22, 'type' => 'string'],
+                ['title' => 'Pertama Terlihat e-Request', 'width' => 24, 'type' => 'string'],
+                ['title' => 'Terakhir Terlihat e-Request', 'width' => 24, 'type' => 'string'],
+            ]);
+        }
 
         $sheetPath = $tempDir . '/xl/worksheets/sheet1.xml';
         $sheet = fopen($sheetPath, 'w');
@@ -1659,9 +1681,6 @@ return $sql;
                 $values = [
                     $no,
                     $document['tanggal'] ?? '-',
-                    $document['posting_at'] ?? '-',
-                    $document['first_seen_at'] ?? '-',
-                    $document['last_seen_at'] ?? '-',
                     $document['nomor_gi'] ?? '-',
                     $document['cost_centre'] ?? '-',
                     $document['kode_cost_center'] ?? '-',
@@ -1676,6 +1695,14 @@ return $sql;
                     (float) ($document['total_nilai'] ?? 0),
                     $document['user_erp'] ?? '-',
                 ];
+
+                if ($canViewAudit) {
+                    array_splice($values, 2, 0, [
+                        $document['posting_at'] ?? '-',
+                        $document['first_seen_at'] ?? '-',
+                        $document['last_seen_at'] ?? '-',
+                    ]);
+                }
 
                 fwrite($sheet, '<row r="' . $rowNumber . '">');
                 foreach ($values as $index => $value) {

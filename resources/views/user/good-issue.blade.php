@@ -169,9 +169,14 @@
     </div>
 </div>
 
+@php
+    $canViewGoodIssueSeenAudit = in_array(strtolower((string) (auth()->user()->role ?? '')), ['admin', 'administrator', 'approval', 'approval_level1'], true);
+@endphp
+
 <script>
 let goodIssuePage = 1;
 let goodIssueLastPage = 1;
+const canViewGoodIssueSeenAudit = @json($canViewGoodIssueSeenAudit);
 
 function formatRupiah(value) {
     return 'Rp ' + new Intl.NumberFormat('id-ID', { maximumFractionDigits: 0 }).format(Number(value || 0));
@@ -265,18 +270,20 @@ function renderRows(rows = []) {
             <tr class="align-top">
                 <td class="px-4 py-4 min-w-[180px]">
                     <div class="font-semibold text-gray-900">${escapeHtml(row.tanggal)}</div>
-                    <button type="button"
-                        class="mt-2 inline-flex rounded-full border border-slate-200 bg-white px-2.5 py-1 text-[11px] font-semibold text-slate-600 hover:border-blue-200 hover:bg-blue-50 hover:text-blue-700"
-                        data-target="${timeDetailId}"
-                        aria-expanded="false"
-                        onclick="toggleGiTimeDetail(this)">
-                        Detail waktu
-                    </button>
-                    <div id="${timeDetailId}" class="hidden mt-2 rounded-lg border border-slate-200 bg-slate-50 p-2 text-xs leading-5">
-                        <div class="text-gray-600">Posting ERP: <span class="font-medium text-gray-800">${escapeHtml(row.posting_at || '-')}</span></div>
-                        <div class="text-emerald-700">Terlihat: <span class="font-medium">${escapeHtml(row.first_seen_at || '-')}</span></div>
-                        <div class="text-gray-500">Update cek: <span class="font-medium">${escapeHtml(row.last_seen_at || '-')}</span></div>
-                    </div>
+                    ${canViewGoodIssueSeenAudit ? `
+                        <button type="button"
+                            class="mt-2 inline-flex rounded-full border border-slate-200 bg-white px-2.5 py-1 text-[11px] font-semibold text-slate-600 hover:border-blue-200 hover:bg-blue-50 hover:text-blue-700"
+                            data-target="${timeDetailId}"
+                            aria-expanded="false"
+                            onclick="toggleGiTimeDetail(this)">
+                            Detail waktu
+                        </button>
+                        <div id="${timeDetailId}" class="hidden mt-2 rounded-lg border border-slate-200 bg-slate-50 p-2 text-xs leading-5">
+                            <div class="text-gray-600">Posting ERP: <span class="font-medium text-gray-800">${escapeHtml(row.posting_at || '-')}</span></div>
+                            <div class="text-emerald-700">Terlihat: <span class="font-medium">${escapeHtml(row.first_seen_at || '-')}</span></div>
+                            <div class="text-gray-500">Update cek: <span class="font-medium">${escapeHtml(row.last_seen_at || '-')}</span></div>
+                        </div>
+                    ` : ''}
                 </td>
                 <td class="px-4 py-4">
                     <div class="font-semibold text-gray-900">${escapeHtml(row.nomor_gi)}</div>
