@@ -933,6 +933,24 @@ function reportCenter() {
             });
         },
 
+        chartLabelIndexes() {
+            const labels = this.costCenter.labels || [];
+            const total = labels.length;
+
+            if (total <= 12) {
+                return labels.map((_, index) => index);
+            }
+
+            const step = Math.ceil(total / 8);
+            const indexes = new Set([0, total - 1]);
+
+            for (let index = 0; index < total; index += step) {
+                indexes.add(index);
+            }
+
+            return Array.from(indexes).sort((a, b) => a - b);
+        },
+
         chartSvg() {
             const labels = this.costCenter.labels || [];
             const series = this.costCenter.series || [];
@@ -968,8 +986,12 @@ function reportCenter() {
                 `;
             }).join('');
 
-            const monthLabels = labels.map((label, index) => `
-                <text x="${this.chartX(index)}" y="304" text-anchor="middle" fill="#6b7280" font-size="11">${this.escapeSvg(label)}</text>
+            const axisTicks = labels.map((label, index) => `
+                <line x1="${this.chartX(index)}" x2="${this.chartX(index)}" y1="270" y2="276" stroke="#cbd5e1" stroke-width="1"></line>
+            `).join('');
+
+            const axisLabels = this.chartLabelIndexes().map(index => `
+                <text x="${this.chartX(index)}" y="304" text-anchor="middle" fill="#64748b" font-size="11" font-weight="500">${this.escapeSvg(labels[index])}</text>
             `).join('');
 
             return `
@@ -977,8 +999,9 @@ function reportCenter() {
                     ${ticks}
                     <line x1="72" x2="890" y1="270" y2="270" stroke="#cbd5e1" stroke-width="1.2"></line>
                     <line x1="72" x2="72" y1="50" y2="270" stroke="#cbd5e1" stroke-width="1.2"></line>
+                    ${axisTicks}
                     ${lines}
-                    ${monthLabels}
+                    ${axisLabels}
                 </svg>
             `;
         },
