@@ -308,7 +308,7 @@ class MobileApprovalController extends Controller
             : [];
 
         $metric = function (string $label, int $value, string $class, string $hint, string $type, string $status) {
-            $url = url('/api/mobile/web/dashboard/detail') . '?' . http_build_query([
+            $url = $this->mobileTokenUrl(url('/api/mobile/web/detail'), [
                 'type' => $type,
                 'status' => $status,
             ]);
@@ -328,7 +328,7 @@ class MobileApprovalController extends Controller
             </div>
             ' . $metric('PB Menunggu', $summary['pb_pending'], 'waiting', 'Butuh keputusan', 'PB', 'pending') . '
             ' . $metric('PB Approved', $summary['pb_approved'], 'approved', 'Disetujui', 'PB', 'approved') . '
-            ' . $metric('PB Fulfillment', $summary['pb_progress'], 'progress', 'Proses warehouse', 'PB', 'progress') . '
+            ' . $metric('PB Progress', $summary['pb_progress'], 'progress', 'Diproses', 'PB', 'progress') . '
             ' . $metric('PB Done', $summary['pb_done'], 'done', 'Selesai', 'PB', 'done') . '
             ' . $metric('PB Rejected', $summary['pb_rejected'], 'rejected', 'Ditolak', 'PB', 'rejected') . '
         </section>';
@@ -348,7 +348,7 @@ class MobileApprovalController extends Controller
 
         $factoryPbMetrics = $metric('PB Menunggu', $summary['pb_pending'], 'waiting', 'Butuh keputusan L2', 'PB', 'pending') . '
             ' . $metric('PB Approved', $summary['pb_approved'], 'approved', 'Sudah disetujui', 'PB', 'approved') . '
-            ' . $metric('PB Fulfillment', $summary['pb_progress'], 'progress', 'Proses warehouse', 'PB', 'progress') . '
+            ' . $metric('PB Progress', $summary['pb_progress'], 'progress', 'Diproses gudang', 'PB', 'progress') . '
             ' . $metric('PB Done', $summary['pb_done'], 'done', 'Selesai', 'PB', 'done') . '
             ' . $metric('PB Rejected', $summary['pb_rejected'], 'rejected', 'Ditolak', 'PB', 'rejected');
 
@@ -363,7 +363,7 @@ class MobileApprovalController extends Controller
                     return '<div class="budget-break-row">' . $content . '</div>';
                 }
 
-                $href = url('/api/mobile/web/dashboard/detail') . '?' . http_build_query([
+                $href = $this->mobileTokenUrl(url('/api/mobile/web/detail'), [
                     'type' => 'PB',
                     'status' => 'approved',
                     'source' => $source,
@@ -475,6 +475,7 @@ class MobileApprovalController extends Controller
             ->where('progress_status', 'closed')
             ->whereDate('closed_at', $today)
             ->count();
+        $budget = $this->mobileSectionHeadBudgetSnapshot($auth);
 
         $metric = function (string $label, int $value, string $class, string $hint, string $url) {
             return '<a class="queue-metric ' . e($class) . '" href="' . e($url) . '">
@@ -514,10 +515,15 @@ class MobileApprovalController extends Controller
                     ' . $metric('Done Hari Ini', $doneToday, 'done', 'Pekerjaan selesai', $doneTodayUrl) . '
                 </div>
             </section>
-        <section class="section-action-card">
-            <div class="section-action-grid">
-                <a class="section-action-button" href="' . e($stockUrl) . '">Stock Sparepart</a>
-            </div>
+            <section class="budget-mobile-card section-budget-card">
+                <h2>Budget Snapshot</h2>
+                <p>Ringkasan budget PB section tahun berjalan.</p>
+                <div class="budget-box success"><span>Final Approved</span><strong>' . e($this->mobileRupiah($budget['total_used'] ?? 0)) . '</strong><small>' . e((string) ($budget['approved_count'] ?? 0)) . ' PB final</small></div>
+                <div class="budget-box warning"><span>Masih Menunggu</span><strong>' . e($this->mobileRupiah($budget['waiting'] ?? 0)) . '</strong><small>' . e((string) ($budget['waiting_count'] ?? 0)) . ' PB dalam proses</small></div>
+                <div class="budget-box danger"><span>Tidak Disetujui</span><strong>' . e($this->mobileRupiah($budget['rejected'] ?? 0)) . '</strong><small>' . e((string) ($budget['rejected_count'] ?? 0)) . ' PB ditolak</small></div>
+            </section>
+        <section class="queue-card section-action-card">
+            <a class="primary-action stock-action-button" href="' . e($stockUrl) . '">Stock Sparepart</a>
         </section>
     </section>';
 
@@ -656,6 +662,7 @@ class MobileApprovalController extends Controller
 
         $items = $this->mobileDashboardDetailItems($auth, $type, $status, $source);
         $cards = $items->map(fn ($item) => $this->mobileHistoryCard((array) $item))->implode('');
+        $count = $items->count();
         $title = $this->mobileDashboardDetailTitle($type, $status);
         $subtitle = $type === 'PB'
             ? 'Detail Permintaan Barang sesuai status yang dipilih.'
@@ -675,6 +682,12 @@ class MobileApprovalController extends Controller
 
         $body = '<section class="detail-page">
             <p class="page-subtitle">' . e($subtitle) . '</p>
+            <section class="history-filter-summary"><strong>' . e($title) . '</strong><span>' . e((string) $count) . ' data</span></section>
+            <section class="date-filter-row">
+                <label class="field-wrap"><span>Dari</span><input id="dashboardDateFrom" data-date-filter="from" type="date" onchange="filterCards(document.getElementById(\'dashboardDetailSearch\').value)"></label>
+                <label class="field-wrap"><span>Sampai</span><input id="dashboardDateTo" data-date-filter="to" type="date" onchange="filterCards(document.getElementById(\'dashboardDetailSearch\').value)"></label>
+            </section>
+            <section class="toolbar"><input id="dashboardDetailSearch" class="search" type="search" placeholder="Cari nomor, status, judul..." oninput="filterCards(this.value)"></section>
             <section class="list">' . $cards . '</section>
         </section>';
 
@@ -1220,17 +1233,24 @@ class MobileApprovalController extends Controller
             </section>
             <section class="list">' . $cards . '</section>
             <script>
-                const stockInput = document.getElementById("stockSearch");
-                const stockForm = document.getElementById("stockSearchForm");
-                let stockTimer;
-                document.querySelectorAll("section.toolbar + .stock-head, .stock-head + .stock-head").forEach((node) => node.remove());
-                stockInput?.addEventListener("input", () => {
-                    clearTimeout(stockTimer);
-                    stockTimer = setTimeout(() => {
-                        const value = stockInput.value.trim();
-                        if (value.length === 0 || value.length >= 2) stockForm.submit();
-                    }, 500);
-                });
+                (function () {
+                    var stockInput = document.getElementById("stockSearch");
+                    var stockForm = document.getElementById("stockSearchForm");
+                    var stockTimer;
+                    var duplicateHeads = document.querySelectorAll("section.toolbar + .stock-head, .stock-head + .stock-head");
+                    Array.prototype.forEach.call(duplicateHeads, function (node) {
+                        if (node && node.parentNode) node.parentNode.removeChild(node);
+                    });
+                    if (stockInput && stockForm) {
+                        stockInput.addEventListener("input", function () {
+                            clearTimeout(stockTimer);
+                            stockTimer = setTimeout(function () {
+                                var value = (stockInput.value || "").replace(/^\s+|\s+$/g, "");
+                                if (value.length === 0 || value.length >= 2) stockForm.submit();
+                            }, 500);
+                        });
+                    }
+                })();
             </script>
         ';
 
@@ -1434,11 +1454,18 @@ class MobileApprovalController extends Controller
             return $this->mobileWebResponse('PB tidak ditemukan', '<div class="empty">Data PB tidak ditemukan.</div>', 404);
         }
 
+        $pbTujuan = $pb->tujuan_nama ?? $pb->tujuan ?? $pb->untuk ?? '-';
+        $pbIsBackdate = (bool) ($pb->is_backdate ?? false);
+        $pbBackdateBlock = $pbIsBackdate
+            ? '<div class="note backdate-note"><span>PB Backdate</span>' . e($pb->backdate_reason ?: '-') . '<small>Diinput: ' . e($this->mobileDateTime($pb->backdate_created_at ?? $pb->created_at ?? null)) . '</small></div>'
+            : '';
+
         $details = DB::table('trBPBDetail')
             ->where('trBPB_id', $id)
             ->orWhere('trbpb_id', $id)
             ->orderBy('id')
             ->get(['nama_barang', 'jumlah', 'satuan', 'unit_price', 'total_price', 'keterangan', 'is_high_value']);
+        $pbTotalValue = (float) ($pb->total_value ?? $details->sum(fn ($item) => (float) ($item->total_price ?? 0)));
 
         $rows = $details->map(function ($item) {
             $high = (bool) ($item->is_high_value ?? false) ? '<span class="mini danger">High value</span>' : '';
@@ -1458,8 +1485,27 @@ class MobileApprovalController extends Controller
         $approvalCurrentLevel = (int) (($pb->approval_current_level ?? null)
             ?: (DB::table('trBPB')->where('id', $id)->value('approval_current_level') ?? self::LEVEL_ONE));
         $pbStatus = strtolower((string) $status);
+        $verificationStatus = strtolower((string) ($pb->verification_status ?? ''));
         $pbActionBlock = '';
-        if ($pbStatus === 'pending'
+        if ($auth->role === 'section_head'
+            && $pbStatus === 'verification'
+            && $verificationStatus === 'pending'
+            && (int) ($pb->verification_section_head_id ?? 0) === (int) $auth->id) {
+            $pbActionBlock = '
+                <div class="mobile-action-panel">
+                    <h3>Verifikasi Section Head</h3>
+                    <p>Pastikan data PB dan daftar barang sudah sesuai sebelum dikirim ke Approval L1.</p>
+                    <div id="pbRejectPanel" class="mobile-reject-panel" hidden>
+                        <label for="pbRejectReason">Catatan Penolakan</label>
+                        <textarea id="pbRejectReason" class="mobile-action-field" rows="3" placeholder="Wajib diisi jika PB ditolak"></textarea>
+                    </div>
+                    <div class="mobile-action-buttons">
+                        <button type="button" class="approve" id="pbApproveButton" onclick="approvePbDetail(' . (int) $id . ', this)">Verifikasi PB</button>
+                        <button type="button" class="reject" id="pbRejectButton" onclick="rejectPbDetail(' . (int) $id . ', this)">Tolak PB</button>
+                    </div>
+                </div>
+            ';
+        } elseif ($pbStatus === 'pending'
             && (($auth->role === 'approval' && $approvalCurrentLevel === self::LEVEL_ONE)
                 || ($auth->role === 'approval2' && $approvalCurrentLevel === self::LEVEL_TWO))) {
             $pbActionBlock = '
@@ -1468,9 +1514,13 @@ class MobileApprovalController extends Controller
                     <p>Approve bisa langsung diproses. Catatan wajib diisi hanya saat reject.</p>
                     <label for="pbApprovalNote">Catatan Approval (opsional)</label>
                     <textarea id="pbApprovalNote" class="mobile-action-field" rows="3" placeholder="Tambahkan catatan jika diperlukan"></textarea>
+                    <div id="pbRejectPanel" class="mobile-reject-panel" hidden>
+                        <label for="pbRejectReason">Catatan Reject</label>
+                        <textarea id="pbRejectReason" class="mobile-action-field" rows="3" placeholder="Wajib diisi jika PB ditolak"></textarea>
+                    </div>
                     <div class="mobile-action-buttons">
-                        <button type="button" class="approve" onclick="approvePbDetail(' . (int) $id . ')">Approve PB</button>
-                        <button type="button" class="reject" onclick="rejectPbDetail(' . (int) $id . ')">Reject PB</button>
+                        <button type="button" class="approve" id="pbApproveButton" onclick="approvePbDetail(' . (int) $id . ', this)">Approve PB</button>
+                        <button type="button" class="reject" id="pbRejectButton" onclick="rejectPbDetail(' . (int) $id . ', this)">Reject PB</button>
                     </div>
                 </div>
             ';
@@ -1483,18 +1533,22 @@ class MobileApprovalController extends Controller
                         <p class="eyebrow">Permintaan Barang</p>
                         <h1>' . e($pb->nomor_pb) . '</h1>
                     </div>
-                    <span class="status ' . e($this->mobileStatusClass($status)) . '">' . e($this->mobileStatusLabelForType($status, 'PB')) . '</span>
+                    <div class="status-stack">
+                        ' . ($pbIsBackdate ? '<span class="status pending">Backdate</span>' : '') . '
+                        <span class="status ' . e($this->mobileStatusClass($status)) . '">' . e($this->mobileStatusLabel($status)) . '</span>
+                    </div>
                 </div>
                 <div class="meta-grid">
-                    <div><span>Tujuan</span><strong>' . e($pb->tujuan_nama ?: $pb->untuk) . '</strong></div>
+                    <div><span>Tujuan</span><strong>' . e($pbTujuan ?: '-') . '</strong></div>
                     <div><span>Jenis</span><strong>' . e($pb->jenis_pekerjaan ?: '-') . '</strong></div>
                     <div><span>Tanggal PB</span><strong>' . e($this->mobileDate($pb->tanggal_permintaan)) . '</strong></div>
                     <div><span>Diperlukan</span><strong>' . e($this->mobileDate($pb->tanggal_diperlukan)) . '</strong></div>
                 </div>
                 <div class="total-box">
                     <span>Total nilai</span>
-                    <strong>' . e($this->mobileRupiah($pb->total_value)) . '</strong>
+                    <strong>' . e($this->mobileRupiah($pbTotalValue)) . '</strong>
                 </div>
+                ' . $pbBackdateBlock . '
                 <div class="section-title">Daftar Barang</div>
                 <div class="item-list">' . ($rows ?: '<div class="empty small">Tidak ada item.</div>') . '</div>
                 <div class="timeline">
@@ -1545,10 +1599,22 @@ class MobileApprovalController extends Controller
             return $this->mobileWebResponse('WO tidak ditemukan', '<div class="empty">Data WO tidak ditemukan.</div>', 404);
         }
 
+        if ($request->query('preview') === 'document') {
+            return $this->mobileWoDocumentPreview($request, $wo);
+        }
+
         $status = $wo->progress_status ?: $wo->status;
-        $fileUrl = $wo->file_path ? rtrim($request->getSchemeAndHttpHost(), '/') . Storage::url($wo->file_path) : '';
+        $token = $request->bearerToken()
+            ?: (string) $request->query('token', '')
+            ?: (string) $request->input('token', '');
+        $fileUrl = $wo->file_path
+            ? url('/api/mobile/web/wo/' . (int) $wo->id) . '?' . http_build_query(array_filter([
+                'preview' => 'document',
+                'token' => $token !== '' ? $token : null,
+            ], fn ($value) => $value !== null && $value !== ''))
+            : '';
         $fileBlock = $fileUrl
-            ? '<a class="file-link" href="' . e($fileUrl) . '">Lihat dokumen: ' . e($wo->file_name ?: basename($wo->file_path)) . '</a>'
+            ? '<a class="file-link" href="' . e($fileUrl) . '" target="_blank" rel="noopener">Lihat dokumen: ' . e($wo->file_name ?: basename($wo->file_path)) . '</a>'
             : '<div class="empty small">Tidak ada file lampiran.</div>';
 
         $photos = $this->workOrderPhotos((int) $wo->id);
@@ -1576,17 +1642,48 @@ class MobileApprovalController extends Controller
             $woActionBlock = '
                 <div class="mobile-action-panel">
                     <h3>Approve & Assign WO</h3>
-                    <p>Pilih pelaksana dan isi catatan delegasi sebelum WO dikirim ke Section Head.</p>
+                    <p>Pilih pelaksana sebelum WO dikirim ke Section Head. Catatan delegasi dapat diisi jika diperlukan.</p>
                     <label for="woPelaksana">Pelaksana</label>
                     <select id="woPelaksana" class="mobile-action-field">
                         <option value="">Pilih pelaksana</option>
                         ' . $pelaksanaOptions . '
                     </select>
-                    <label for="woDelegationNotes">Catatan Delegasi</label>
+                    <label for="woDelegationNotes">Catatan Delegasi (opsional)</label>
                     <textarea id="woDelegationNotes" class="mobile-action-field" rows="3" placeholder="Contoh: cek panel MCC dan update kondisi akhir"></textarea>
+                    <div id="woRejectPanel" class="mobile-reject-panel" hidden>
+                        <label for="woRejectReason">Catatan Reject</label>
+                        <textarea id="woRejectReason" class="mobile-action-field" rows="3" placeholder="Wajib diisi jika WO ditolak"></textarea>
+                    </div>
                     <div class="mobile-action-buttons">
-                        <button type="button" class="approve" onclick="approveWoDetail(' . (int) $id . ')">Approve + Assign</button>
-                        <button type="button" class="reject" onclick="rejectWoDetail(' . (int) $id . ')">Reject WO</button>
+                        <button type="button" class="approve" onclick="approveWoDetail(' . (int) $id . ', this)">Approve + Assign</button>
+                        <button type="button" class="reject" onclick="rejectWoDetail(' . (int) $id . ', this)">Reject WO</button>
+                    </div>
+                </div>
+            ';
+        }
+
+        if ($auth->role === 'section_head'
+            && in_array(strtolower((string) ($wo->progress_status ?: 'open')), ['open', 'progress'], true)) {
+            $progressStatus = strtolower((string) ($wo->progress_status ?: 'open'));
+            $startProgressButton = $progressStatus === 'progress'
+                ? '<button type="button" class="approve" disabled>In Progress</button>'
+                : '<button type="button" class="approve" onclick="startSectionWoProgress(' . (int) $id . ', this)">Mulai Progress</button>';
+            $doneButton = $photos->count() > 0
+                ? '<button type="button" class="reject" onclick="doneSectionWo(' . (int) $id . ', this)">Done WO</button>'
+                : '<button type="button" class="reject" disabled>Upload foto untuk mengaktifkan Done</button>';
+
+            $woActionBlock = '
+                <div class="mobile-action-panel">
+                    <h3>Update Hasil Pekerjaan</h3>
+                    <p>Upload dokumentasi hasil pekerjaan sebelum WO dapat diselesaikan.</p>
+                    <label for="sectionWoPhotos">Foto Hasil Pekerjaan</label>
+                    <input id="sectionWoPhotos" class="mobile-action-field" type="file" accept="image/*" multiple>
+                    <label for="sectionWoNotes">Catatan / Deskripsi Hasil</label>
+                    <textarea id="sectionWoNotes" class="mobile-action-field" rows="3" placeholder="Contoh: pekerjaan selesai, panel sudah normal"></textarea>
+                    <div class="mobile-action-buttons stacked">
+                        ' . $startProgressButton . '
+                        <button type="button" class="approve" onclick="uploadSectionWoPhotos(' . (int) $id . ', this)">Upload Foto</button>
+                        ' . $doneButton . '
                     </div>
                 </div>
             ';
@@ -1622,6 +1719,40 @@ class MobileApprovalController extends Controller
         ';
 
         return $this->mobileWebResponse('Detail WO', $body);
+    }
+
+    private function mobileWoDocumentPreview(Request $request, object $wo)
+    {
+        $token = $request->bearerToken()
+            ?: (string) $request->query('token', '')
+            ?: (string) $request->input('token', '');
+        $documentUrl = url('/api/mobile/wo/' . (int) $wo->id . '/document') . ($token !== '' ? '?' . http_build_query(['token' => $token]) : '');
+        $fileName = $wo->file_name ?: basename((string) $wo->file_path);
+        $mimeType = $wo->file_path && Storage::disk('public')->exists($wo->file_path)
+            ? (Storage::disk('public')->mimeType($wo->file_path) ?: '')
+            : '';
+        $previewBlock = str_starts_with((string) $mimeType, 'image/')
+            ? '<div class="document-frame image-frame"><img src="' . e($documentUrl) . '" alt="' . e($fileName) . '"></div>'
+            : '<div class="document-frame"><iframe src="' . e($documentUrl) . '" title="' . e($fileName) . '"></iframe></div>';
+        $helperText = str_starts_with((string) $mimeType, 'image/')
+            ? 'Lampiran gambar ditampilkan langsung dari server internal e-Request.'
+            : 'Lampiran PDF ditampilkan dalam WebView jika perangkat mendukung. Jika pratinjau kosong, gunakan tombol buka dokumen.';
+
+        $body = '
+            <article class="detail-card document-preview">
+                <div class="content-block">
+                    <h2>' . e($fileName) . '</h2>
+                    <p>' . e($helperText) . '</p>
+                </div>
+                ' . $previewBlock . '
+                <div class="document-actions">
+                    <a class="file-link" href="' . e($documentUrl) . '" target="_blank" rel="noopener">Buka dokumen</a>
+                    <a class="file-link secondary-action" href="' . e(url('/api/mobile/web/wo/' . (int) $wo->id) . ($token !== '' ? '?' . http_build_query(['token' => $token]) : '')) . '">Kembali ke detail WO</a>
+                </div>
+            </article>
+        ';
+
+        return $this->mobileWebResponse('Lampiran WO', $body);
     }
 
     public function webEngineeringHome(Request $request)
@@ -1756,12 +1887,14 @@ class MobileApprovalController extends Controller
         $sectionHeads = $this->mobileSectionHeads()
             ->map(fn ($user) => '<option value="' . e($user->id) . '">' . e($user->name) . ' (' . e($user->username ?? '-') . ')</option>')
             ->implode('');
+        $targetSearchUrl = url('/api/mobile/engineering/search/targets');
         $itemSearchUrl = url('/api/mobile/engineering/search/items');
+        $woSearchUrl = url('/api/mobile/engineering/search/work-orders');
 
         $body = '
             <section class="form-card create-form">
                 <div class="form-number"><span>Nomor PB</span><strong>' . e($nomor) . '</strong></div>
-                <form id="pbForm">
+                <form id="pbForm" novalidate onsubmit="return window.submitEngineeringPb ? window.submitEngineeringPb(event) : false;">
                     <input type="hidden" name="nomor_pb" value="' . e($nomor) . '">
                     <div class="form-section">
                         <div class="form-section-title">Informasi Permintaan</div>
@@ -1807,9 +1940,128 @@ class MobileApprovalController extends Controller
                         <div id="pbItems"></div>
                         <button class="reset-filter" id="addPbItemButton" type="button" onclick="return addPbItem()">+ Tambah Item</button>
                     </div>
-                    <button class="apply-filter sticky-submit" type="submit">Simpan PB</button>
+                    <div id="pbSubmitNotice" class="submit-notice" hidden></div>
+                    <button id="pbSubmitButton" class="apply-filter sticky-submit" type="button" onclick="return window.submitEngineeringPb(event)">Simpan PB</button>
                 </form>
             </section>
+            <script>
+                (function () {
+                    var token = ' . json_encode((string) ($request->bearerToken() ?: $request->query('token', ''))) . ' || new URLSearchParams(window.location.search).get("token") || "";
+                    var targetSearchUrl = ' . json_encode($targetSearchUrl) . ';
+                    var woSearchUrl = ' . json_encode($woSearchUrl) . ';
+                    var timers = {};
+                    function esc(value) {
+                        return String(value || "").replace(/[&<>"\']/g, function (char) {
+                            return {"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","\'":"&#39;"}[char];
+                        });
+                    }
+                    function trim(value) {
+                        return String(value || "").replace(/^\\s+|\\s+$/g, "");
+                    }
+                    function withToken(url) {
+                        if (!token) return url;
+                        return url + (url.indexOf("?") >= 0 ? "&" : "?") + "token=" + encodeURIComponent(token);
+                    }
+                    function debounce(key, callback) {
+                        clearTimeout(timers[key]);
+                        timers[key] = setTimeout(callback, 260);
+                    }
+                    function requestJson(url, callback) {
+                        var xhr = new XMLHttpRequest();
+                        xhr.open("GET", withToken(url), true);
+                        xhr.setRequestHeader("Accept", "application/json");
+                        if (token) xhr.setRequestHeader("Authorization", "Bearer " + token);
+                        xhr.onreadystatechange = function () {
+                            if (xhr.readyState !== 4) return;
+                            var rows = [];
+                            try { rows = (JSON.parse(xhr.responseText).data || []); } catch (e) {}
+                            callback(rows);
+                        };
+                        xhr.send();
+                    }
+                    function setBox(id, html) {
+                        var box = document.getElementById(id);
+                        if (box) box.innerHTML = html || "";
+                    }
+                    function renderButtons(id, rows, onPick, emptyText) {
+                        var box = document.getElementById(id);
+                        if (!box) return;
+                        if (!rows.length) {
+                            box.innerHTML = \'<div class="suggestion-empty">\' + esc(emptyText || "Data tidak ditemukan") + \'</div>\';
+                            return;
+                        }
+                        box.innerHTML = rows.map(function (row, index) {
+                            return \'<button type="button" data-index="\' + index + \'"><strong>\' + esc(row.name || row.nomor || "-") + \'</strong><small>\' + esc(row.code || row.judul || "") + \'</small></button>\';
+                        }).join("");
+                        Array.prototype.forEach.call(box.querySelectorAll("button"), function (button) {
+                            button.onclick = function () {
+                                onPick(rows[Number(button.getAttribute("data-index"))]);
+                            };
+                        });
+                    }
+                    window.switchTarget = function () {
+                        var untukEl = document.getElementById("pbUntuk");
+                        var untuk = untukEl ? untukEl.value : "mesin";
+                        var mesin = document.querySelector(".mesin-target");
+                        var bangunan = document.querySelector(".bangunan-target");
+                        var mesinId = document.getElementById("pbMesinId");
+                        var bangunanId = document.getElementById("pbBangunanId");
+                        if (mesin) mesin.hidden = untuk !== "mesin";
+                        if (bangunan) bangunan.hidden = untuk !== "bangunan";
+                        if (mesinId) mesinId.disabled = untuk !== "mesin";
+                        if (bangunanId) bangunanId.disabled = untuk !== "bangunan";
+                    };
+                    window.searchTarget = function (type, value) {
+                        var isMesin = type === "mesin";
+                        var resultId = isMesin ? "pbMesinResults" : "pbBangunanResults";
+                        var hiddenId = isMesin ? "pbMesinId" : "pbBangunanId";
+                        var inputId = isMesin ? "pbMesinSearch" : "pbBangunanSearch";
+                        var hidden = document.getElementById(hiddenId);
+                        var query = trim(value);
+                        if (hidden) hidden.value = "";
+                        if (query.length < 2) {
+                            setBox(resultId, "");
+                            return;
+                        }
+                        setBox(resultId, \'<div class="suggestion-empty">Mencari...</div>\');
+                        debounce("target-" + type, function () {
+                            requestJson(targetSearchUrl + "?type=" + encodeURIComponent(type) + "&q=" + encodeURIComponent(query), function (rows) {
+                                renderButtons(resultId, rows, function (row) {
+                                    var input = document.getElementById(inputId);
+                                    var picked = row.name || "";
+                                    if (row.code) picked += " (" + row.code + ")";
+                                    if (hidden) hidden.value = row.id || "";
+                                    if (input) input.value = picked;
+                                    setBox(resultId, "");
+                                }, isMesin ? "Mesin tidak ditemukan" : "Bangunan tidak ditemukan");
+                            });
+                        });
+                    };
+                    window.searchWorkOrder = function (value) {
+                        var woId = document.getElementById("pbWoId");
+                        var woNumber = document.getElementById("pbWoNumber");
+                        var query = trim(value);
+                        if (woId) woId.value = "";
+                        if (woNumber) woNumber.value = "";
+                        if (query.length < 2) {
+                            setBox("pbWoResults", "");
+                            return;
+                        }
+                        setBox("pbWoResults", \'<div class="suggestion-empty">Mencari...</div>\');
+                        debounce("wo-ref", function () {
+                            requestJson(woSearchUrl + "?q=" + encodeURIComponent(query), function (rows) {
+                                renderButtons("pbWoResults", rows, function (row) {
+                                    var input = document.getElementById("pbWoSearch");
+                                    if (woId) woId.value = row.id || "";
+                                    if (woNumber) woNumber.value = row.nomor || "";
+                                    if (input) input.value = (row.nomor || "-") + " - " + (row.judul || "-");
+                                    setBox("pbWoResults", "");
+                                }, "Belum ada WO approved yang cocok");
+                            });
+                        });
+                    };
+                })();
+            </script>
             <script>
                 (function () {
                     var token = ' . json_encode((string) ($request->bearerToken() ?: $request->query('token', ''))) . ' || new URLSearchParams(window.location.search).get("token") || "";
@@ -1823,6 +2075,17 @@ class MobileApprovalController extends Controller
                         if (!token) return url;
                         return url + (url.indexOf("?") >= 0 ? "&" : "?") + "token=" + encodeURIComponent(token);
                     }
+                    window.setPbUnitValue = function (select, value) {
+                        if (!select) return;
+                        var unit = String(value || "PCS").toUpperCase();
+                        if (!Array.prototype.some.call(select.options, function (option) { return option.value === unit; })) {
+                            var option = document.createElement("option");
+                            option.value = unit;
+                            option.textContent = unit;
+                            select.appendChild(option);
+                        }
+                        select.value = unit;
+                    };
                     window.addPbItem = function () {
                         var wrap = document.getElementById("pbItems");
                         if (!wrap) return false;
@@ -1831,9 +2094,9 @@ class MobileApprovalController extends Controller
                         row.setAttribute("data-row", String(Date.now()));
                         row.innerHTML =
                             \'<input type="hidden" name="barang_id">\' +
-                            \'<input name="nama_barang" placeholder="Ketik minimal 2 huruf nama / kode barang..." autocomplete="off" required oninput="searchItem(this, this.value)">\' +
+                            \'<input name="nama_barang" type="search" placeholder="Ketik minimal 2 huruf nama / kode barang..." autocomplete="off" required oninput="searchItem(this, this.value)">\' +
                             \'<div class="suggestion-list item-results"></div>\' +
-                            \'<div class="item-grid"><input name="jumlah" type="number" step="0.01" min="0.01" placeholder="Qty" required><input name="satuan" placeholder="Satuan" value="PCS" required></div>\' +
+                            \'<div class="item-grid"><input name="jumlah" type="number" step="0.01" min="0.01" placeholder="Qty" required><select name="satuan" required><option value="PCS">PCS</option><option value="UNIT">Unit</option><option value="KG">Kilogram (KG)</option><option value="G">Gram (G)</option><option value="L">Liter (L)</option><option value="ML">Milliliter (ML)</option><option value="M">Meter (M)</option><option value="CM">Centimeter (CM)</option><option value="MM">Millimeter (MM)</option><option value="BOX">Box</option><option value="PACK">Pack</option><option value="ROLL">Roll</option><option value="SET">Set</option><option value="BTG">Batang (BTG)</option><option value="BUAH">Buah</option><option value="LEMBAR">Lembar</option><option value="PAIR">Pair (Pasang)</option><option value="BTL">Bottle (Botol)</option><option value="CAN">Can (Kaleng)</option><option value="TUBE">Tube (Tabung)</option><option value="BAG">Bag (Karung)</option><option value="DRUM">Drum</option><option value="CARTON">Carton (Kardus)</option><option value="PALLET">Pallet</option></select></div>\' +
                             \'<input name="item_keterangan" placeholder="Keterangan item (opsional)">\' +
                             \'<button type="button" onclick="this.closest(\\\'.pb-item\\\').remove()">Hapus item</button>\';
                         wrap.appendChild(row);
@@ -1847,6 +2110,9 @@ class MobileApprovalController extends Controller
                         var resultBox = row.querySelector(".item-results");
                         var hidden = row.querySelector("[name=barang_id]");
                         if (hidden) hidden.value = "";
+                        row.removeAttribute("data-autopick-id");
+                        row.removeAttribute("data-autopick-name");
+                        row.removeAttribute("data-autopick-unit");
                         if (!resultBox) return;
                         value = (value || "").replace(/^\\s+|\\s+$/g, "");
                         if (value.length < 2) {
@@ -1865,8 +2131,20 @@ class MobileApprovalController extends Controller
                             var rows = [];
                             try { rows = (JSON.parse(xhr.responseText).data || []); } catch (e) {}
                             if (!rows.length) {
+                                row.removeAttribute("data-autopick-id");
+                                row.removeAttribute("data-autopick-name");
+                                row.removeAttribute("data-autopick-unit");
                                 resultBox.innerHTML = \'<div class="suggestion-empty">Barang tidak ditemukan</div>\';
                                 return;
+                            }
+                            if (rows.length === 1) {
+                                row.setAttribute("data-autopick-id", rows[0].id || "");
+                                row.setAttribute("data-autopick-name", rows[0].name || "");
+                                row.setAttribute("data-autopick-unit", rows[0].unit || "PCS");
+                            } else {
+                                row.removeAttribute("data-autopick-id");
+                                row.removeAttribute("data-autopick-name");
+                                row.removeAttribute("data-autopick-unit");
                             }
                             resultBox.innerHTML = rows.map(function (item, index) {
                                 return \'<button type="button" data-index="\' + index + \'"><strong>\' + esc(item.name) + \'</strong><small>\' + esc(item.code) + \' - \' + esc(item.unit || "PCS") + \'</small></button>\';
@@ -1876,8 +2154,11 @@ class MobileApprovalController extends Controller
                                     var item = rows[Number(button.getAttribute("data-index"))];
                                     if (hidden) hidden.value = item.id || "";
                                     input.value = item.name || "";
+                                    row.setAttribute("data-autopick-id", item.id || "");
+                                    row.setAttribute("data-autopick-name", item.name || "");
+                                    row.setAttribute("data-autopick-unit", item.unit || "PCS");
                                     var satuan = row.querySelector("[name=satuan]");
-                                    if (satuan) satuan.value = item.unit || "PCS";
+                                    window.setPbUnitValue(satuan, item.unit || "PCS");
                                     resultBox.innerHTML = "";
                                 };
                             });
@@ -1901,48 +2182,94 @@ class MobileApprovalController extends Controller
             <script>' . $this->engineeringWebScript($request->bearerToken()) . '
                 switchTarget();
                 window.ensurePbItemRow();
-                const addPbItemButton = document.getElementById("addPbItemButton");
+                var addPbItemButton = document.getElementById("addPbItemButton");
                 if (addPbItemButton) {
-                    addPbItemButton.addEventListener("click", (event) => {
+                    addPbItemButton.addEventListener("click", function (event) {
                         event.preventDefault();
                         window.addPbItem();
                     });
                 }
-                document.getElementById("pbForm").addEventListener("submit", async (event) => {
-                    event.preventDefault();
-                    const form = event.target;
-                    const items = [...form.querySelectorAll(".pb-item")].map(row => ({
-                        barang_id: row.querySelector("[name=barang_id]").value,
-                        nama_barang: row.querySelector("[name=nama_barang]").value,
-                        jumlah: row.querySelector("[name=jumlah]").value,
-                        satuan: row.querySelector("[name=satuan]").value,
-                        material_type: form.material_type.value,
-                        keterangan: row.querySelector("[name=item_keterangan]").value
-                    })).filter(item => item.nama_barang && Number(item.jumlah) > 0);
-                    const untuk = form.untuk.value;
+                function showPbSubmitNotice(type, message) {
+                    var notice = document.getElementById("pbSubmitNotice");
+                    if (!notice) return;
+                    notice.hidden = false;
+                    notice.className = "submit-notice " + (type || "info");
+                    notice.textContent = message || "";
+                    try { notice.scrollIntoView({ block: "center", behavior: "smooth" }); } catch (e) {}
+                }
+                window.submitEngineeringPb = function (event) {
+                    if (event && event.preventDefault) event.preventDefault();
+                    var form = document.getElementById("pbForm");
+                    if (!form) return false;
+                    var submitButton = document.getElementById("pbSubmitButton");
+                    if (submitButton && submitButton.disabled) return;
+                    showPbSubmitNotice("info", "Menyimpan PB...");
+                    if (submitButton) {
+                        submitButton.disabled = true;
+                        submitButton.textContent = "Menyimpan...";
+                    }
+                    var items = [];
+                    Array.prototype.forEach.call(form.querySelectorAll(".pb-item"), function (row) {
+                        var hidden = row.querySelector("[name=barang_id]");
+                        var nameInput = row.querySelector("[name=nama_barang]");
+                        var unitInput = row.querySelector("[name=satuan]");
+                        if (hidden && !hidden.value && row.getAttribute("data-autopick-id")) {
+                            hidden.value = row.getAttribute("data-autopick-id") || "";
+                            if (nameInput) nameInput.value = row.getAttribute("data-autopick-name") || nameInput.value;
+                            window.setPbUnitValue(unitInput, row.getAttribute("data-autopick-unit") || "PCS");
+                        }
+                        var item = {
+                            barang_id: hidden ? hidden.value : "",
+                            nama_barang: nameInput ? nameInput.value : "",
+                            jumlah: row.querySelector("[name=jumlah]").value,
+                            satuan: unitInput ? unitInput.value : "",
+                            material_type: form.material_type.value,
+                            keterangan: row.querySelector("[name=item_keterangan]").value
+                        };
+                        if (item.nama_barang && Number(item.jumlah) > 0) items.push(item);
+                    });
+                    var untuk = form.untuk.value;
+                    function stopWith(message) {
+                        showPbSubmitNotice("error", message);
+                        alert(message);
+                        if (submitButton) {
+                            submitButton.disabled = false;
+                            submitButton.textContent = "Simpan PB";
+                        }
+                    }
+                    if (!form.tanggal_diperlukan.value) {
+                        stopWith("Pilih tanggal diperlukan.");
+                        return;
+                    }
+                    if (!form.jenis_pekerjaan.value) {
+                        stopWith("Pilih jenis pekerjaan.");
+                        return;
+                    }
                     if (untuk === "mesin" && !form.mesin_id.value) {
-                        alert("Pilih mesin dari hasil pencarian.");
+                        stopWith("Pilih mesin dari hasil pencarian.");
                         return;
                     }
                     if (untuk === "bangunan" && !form.bangunan_id.value) {
-                        alert("Pilih bangunan dari hasil pencarian.");
+                        stopWith("Pilih bangunan dari hasil pencarian.");
                         return;
                     }
                     if (!items.length) {
-                        alert("Tambahkan minimal 1 barang.");
+                        stopWith("Lengkapi minimal 1 barang: nama barang dan qty wajib diisi.");
                         return;
                     }
-                    if (items.some(item => !item.barang_id)) {
-                        alert("Pilih nama barang dari hasil pencarian.");
-                        return;
+                    var missingItem = items.some
+                        ? items.some(function (item) { return !item.barang_id; })
+                        : (function () { for (var i = 0; i < items.length; i++) { if (!items[i].barang_id) return true; } return false; })();
+                    if (missingItem) {
+                        // Backend akan resolve otomatis jika teks barang menghasilkan satu master item.
                     }
                     if (!form.verification_section_head_id.value) {
-                        alert("Pilih Section Head untuk verifikasi PB.");
+                        stopWith("Pilih Section Head untuk verifikasi PB.");
                         return;
                     }
-                    const body = {
+                    var body = {
                         nomor_pb: form.nomor_pb.value,
-                        untuk,
+                        untuk: untuk,
                         untuk_id: untuk === "mesin" ? form.mesin_id.value : form.bangunan_id.value,
                         material_type: form.material_type.value,
                         reference_wo_id: form.reference_wo_id.value,
@@ -1953,10 +2280,30 @@ class MobileApprovalController extends Controller
                         keterangan: form.keterangan.value,
                         barang: items
                     };
-                    const result = await submitJson("' . e(url('/api/mobile/engineering/pb')) . '", body);
-                    alert(result.message || (result.success ? "PB tersimpan" : "Gagal simpan PB"));
-                    if (result.success) location.href = "' . e(url('/api/mobile/web/engineering/pb')) . '";
-                });
+                    submitJson("' . e(url('/api/mobile/engineering/pb')) . '", body).then(function (result) {
+                        var message = result.message || (result.success ? "PB tersimpan" : "Gagal simpan PB");
+                        showPbSubmitNotice(result.success ? "success" : "error", message);
+                        alert(message);
+                        if (result.success) {
+                            setTimeout(function () {
+                                location.href = withMobileToken("' . e(url('/api/mobile/web/engineering/pb')) . '");
+                            }, 850);
+                        } else if (submitButton) {
+                            submitButton.disabled = false;
+                            submitButton.textContent = "Simpan PB";
+                        }
+                    }).catch(function () {
+                        var message = "Gagal simpan PB. Periksa koneksi lalu coba lagi.";
+                        showPbSubmitNotice("error", message);
+                        alert(message);
+                        if (submitButton) {
+                            submitButton.disabled = false;
+                            submitButton.textContent = "Simpan PB";
+                        }
+                    });
+                    return false;
+                };
+                document.getElementById("pbForm").addEventListener("submit", window.submitEngineeringPb);
             </script>
         ';
 
@@ -2025,11 +2372,12 @@ class MobileApprovalController extends Controller
                 </form>
             </section>
             <script>' . $this->engineeringWebScript($request->bearerToken()) . '
-                document.getElementById("woForm").addEventListener("submit", async (event) => {
+                document.getElementById("woForm").addEventListener("submit", function (event) {
                     event.preventDefault();
-                    const result = await submitForm("' . e(url('/api/mobile/engineering/wo')) . '", new FormData(event.target));
-                    alert(result.message || (result.success ? "WO tersimpan" : "Gagal simpan WO"));
-                    if (result.success) location.href = "' . e(url('/api/mobile/web/engineering/wo')) . '";
+                    submitForm("' . e(url('/api/mobile/engineering/wo')) . '", new FormData(event.target)).then(function (result) {
+                        alert(result.message || (result.success ? "WO tersimpan" : "Gagal simpan WO"));
+                        if (result.success) location.href = withMobileToken("' . e(url('/api/mobile/web/engineering/wo')) . '");
+                    });
                 });
             </script>
         ';
@@ -2057,7 +2405,7 @@ class MobileApprovalController extends Controller
             'keterangan' => ['nullable', 'string', 'max:1000'],
             'material_type' => ['nullable', Rule::in(['sparepart', 'non_sparepart'])],
             'barang' => ['required', 'array', 'min:1'],
-            'barang.*.barang_id' => ['required', 'integer'],
+            'barang.*.barang_id' => ['nullable', 'integer'],
             'barang.*.nama_barang' => ['required', 'string', 'max:255'],
             'barang.*.jumlah' => ['required', 'numeric', 'min:0.01'],
             'barang.*.satuan' => ['required', 'string', 'max:30'],
@@ -2086,14 +2434,44 @@ class MobileApprovalController extends Controller
         $hasHighValue = false;
         $detailHasBarangId = Schema::hasColumn('trBPBDetail', 'barang_id');
         $formMaterialType = $this->normalizeMaterialType($data['material_type'] ?? 'sparepart');
-        foreach ($data['barang'] as $item) {
+        foreach ($data['barang'] as $index => $item) {
             $materialType = $this->normalizeMaterialType($item['material_type'] ?? $formMaterialType);
-            $unitPrice = $this->mobileItemAveragePrice($item['nama_barang'], $item['barang_id'] ?? null, $materialType);
+            $barangId = isset($item['barang_id']) && is_numeric($item['barang_id']) ? (int) $item['barang_id'] : null;
+            $itemName = trim((string) ($item['nama_barang'] ?? ''));
+            if (!$barangId) {
+                $matches = DB::connection('pgsql2')
+                    ->table('tb_skb080_1mmara')
+                    ->select('id_items as id', 'item_name as name', 'meins as unit')
+                    ->where(function ($query) use ($materialType) {
+                        $this->applyMaterialScope($query, $materialType);
+                    })
+                    ->where(function ($query) use ($itemName) {
+                        $query->where('item_name', 'ilike', '%' . $itemName . '%')
+                            ->orWhere('code', 'ilike', '%' . $itemName . '%');
+                    })
+                    ->orderByRaw('CASE WHEN lower(item_name) = ? OR lower(code) = ? THEN 0 ELSE 1 END', [mb_strtolower($itemName), mb_strtolower($itemName)])
+                    ->orderBy('item_name')
+                    ->limit(2)
+                    ->get();
+
+                if ($matches->count() !== 1) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'Baris ' . ($index + 1) . ': pilih barang dari hasil pencarian agar item master tepat.',
+                    ], 422);
+                }
+
+                $match = $matches->first();
+                $barangId = (int) $match->id;
+                $itemName = (string) $match->name;
+            }
+
+            $unitPrice = $this->mobileItemAveragePrice($itemName, $barangId, $materialType);
             $qty = (float) $item['jumlah'];
             $isHighValue = $unitPrice >= 10000000;
             $hasHighValue = $hasHighValue || $isHighValue;
             $prepared[] = [
-                'nama_barang' => $item['nama_barang'],
+                'nama_barang' => $itemName,
                 'jumlah' => $qty,
                 'satuan' => $item['satuan'],
                 'unit_price' => $unitPrice,
@@ -2105,7 +2483,7 @@ class MobileApprovalController extends Controller
                 'updated_at' => now(),
             ];
             if ($detailHasBarangId) {
-                $prepared[count($prepared) - 1]['barang_id'] = $item['barang_id'];
+                $prepared[count($prepared) - 1]['barang_id'] = $barangId;
             }
         }
 
@@ -2130,10 +2508,10 @@ class MobileApprovalController extends Controller
                 'updated_at' => now(),
             ];
             if (Schema::hasColumn('trBPB', 'reference_wo_id')) {
-                $header['reference_wo_id'] = $data['reference_wo_id'] ?: null;
+                $header['reference_wo_id'] = ($data['reference_wo_id'] ?? null) ?: null;
             }
             if (Schema::hasColumn('trBPB', 'reference_wo_number')) {
-                $header['reference_wo_number'] = $data['reference_wo_number'] ?: null;
+                $header['reference_wo_number'] = ($data['reference_wo_number'] ?? null) ?: null;
             }
             if (Schema::hasColumn('trBPB', 'verification_section_head_id')) {
                 $header['verification_section_head_id'] = $sectionHead->id;
@@ -2664,6 +3042,8 @@ class MobileApprovalController extends Controller
             });
         } elseif ($auth->role === 'section_head') {
             $query->where('assigned_regu', $auth->name);
+        } elseif ($this->isEngineeringMobileUser($auth)) {
+            $query->where('created_by', $auth->id);
         } else {
             return response()->json(['success' => false, 'message' => 'Approval L2 tidak punya akses WO.'], 403);
         }
@@ -2721,7 +3101,7 @@ class MobileApprovalController extends Controller
         $data = $request->validate([
             'pelaksana' => ['nullable', 'string', Rule::in($pelaksana)],
             'assigned_regu' => ['nullable', 'string', Rule::in($pelaksana)],
-            'delegation_notes' => ['required', 'string', 'max:1000'],
+            'delegation_notes' => ['nullable', 'string', 'max:1000'],
         ]);
 
         $selected = $data['pelaksana'] ?? $data['assigned_regu'] ?? null;
@@ -2747,7 +3127,7 @@ class MobileApprovalController extends Controller
             'assigned_regu' => $selected,
             'assigned_by' => $auth->id,
             'assigned_at' => now(),
-            'delegation_notes' => $data['delegation_notes'],
+            'delegation_notes' => $data['delegation_notes'] ?? null,
             'updated_at' => now(),
         ]);
 
@@ -3084,7 +3464,11 @@ class MobileApprovalController extends Controller
 
     private function mobileUser(Request $request): ?object
     {
-        $token = $request->bearerToken();
+        $token = $request->bearerToken()
+            ?: (string) $request->query('token', '')
+            ?: (string) $request->input('token', '');
+
+        $token = trim((string) $token);
 
         if (!$token) {
             return null;
@@ -3282,6 +3666,77 @@ class MobileApprovalController extends Controller
         ];
     }
 
+    private function mobileSectionHeadBudgetSnapshot(object $user): array
+    {
+        if (!Schema::hasTable('trBPB') || !Schema::hasTable('trBPBDetail') || !Schema::hasColumn('trBPB', 'verification_section_head_id')) {
+            return [
+                'approved_count' => 0,
+                'waiting_count' => 0,
+                'rejected_count' => 0,
+                'total_used' => 0,
+                'waiting' => 0,
+                'rejected' => 0,
+            ];
+        }
+
+        $start = now()->startOfYear()->toDateTimeString();
+        $end = now()->endOfDay()->toDateTimeString();
+        $sectionHeadId = (int) $user->id;
+
+        $summarize = function (callable $filter) use ($sectionHeadId): array {
+            $query = DB::table('trBPB')
+                ->leftJoin('trBPBDetail as d', 'trBPB.id', '=', 'd.trBPB_id')
+                ->where('trBPB.verification_section_head_id', $sectionHeadId);
+
+            $filter($query);
+
+            $row = $query
+                ->selectRaw('COUNT(DISTINCT trBPB.id) as pb_count, COALESCE(SUM(d.total_price), 0) as amount')
+                ->first();
+
+            return [
+                'count' => (int) ($row->pb_count ?? 0),
+                'amount' => (float) ($row->amount ?? 0),
+            ];
+        };
+
+        $approved = $summarize(function ($query) use ($start, $end) {
+            $query->whereIn('trBPB.status', ['approved', 'in_progress', 'completed'])
+                ->where(function ($approval) {
+                    $approval->where(function ($direct) {
+                        $direct->where('trBPB.approval_level_required', self::LEVEL_ONE)
+                            ->where(function ($approvedAt) {
+                                $approvedAt->whereNotNull('trBPB.approval_level_1_at')
+                                    ->orWhereNotNull('trBPB.approved_at');
+                            });
+                    })->orWhere(function ($l2) {
+                        $l2->where('trBPB.approval_level_required', '>=', self::LEVEL_TWO)
+                            ->whereNotNull('trBPB.approval_level_2_at');
+                    });
+                })
+                ->whereRaw('COALESCE(trBPB.approval_level_2_at, trBPB.approval_level_1_at, trBPB.approved_at) BETWEEN ? AND ?', [$start, $end]);
+        });
+
+        $waiting = $summarize(function ($query) use ($start, $end) {
+            $query->whereIn('trBPB.status', ['verification', 'pending'])
+                ->whereRaw('COALESCE(trBPB.verified_at, trBPB.tanggal_permintaan, trBPB.created_at) BETWEEN ? AND ?', [$start, $end]);
+        });
+
+        $rejected = $summarize(function ($query) use ($start, $end) {
+            $query->where('trBPB.status', 'rejected')
+                ->whereBetween('trBPB.rejected_at', [$start, $end]);
+        });
+
+        return [
+            'approved_count' => $approved['count'],
+            'waiting_count' => $waiting['count'],
+            'rejected_count' => $rejected['count'],
+            'total_used' => $approved['amount'],
+            'waiting' => $waiting['amount'],
+            'rejected' => $rejected['amount'],
+        ];
+    }
+
     private function mobileApprovalQueueSummary(object $user): array
     {
         $start = now()->startOfYear()->toDateTimeString();
@@ -3465,10 +3920,6 @@ class MobileApprovalController extends Controller
 
     private function mobileDashboardDetailTitle(string $type, string $status): string
     {
-        if ($type === 'PB' && $status === 'progress') {
-            return 'PB Fulfillment';
-        }
-
         $labels = [
             'pending' => 'Menunggu',
             'approved' => 'Approved',
@@ -3673,6 +4124,9 @@ class MobileApprovalController extends Controller
                 'trBPB.nomor_pb',
                 'trBPB.tanggal_permintaan',
                 'trBPB.tanggal_diperlukan',
+                'trBPB.is_backdate',
+                'trBPB.backdate_reason',
+                'trBPB.backdate_created_at',
                 'trBPB.untuk',
                 'trBPB.jenis_pekerjaan',
                 'trBPB.approval_current_level',
@@ -3690,6 +4144,9 @@ class MobileApprovalController extends Controller
                 'trBPB.nomor_pb',
                 'trBPB.tanggal_permintaan',
                 'trBPB.tanggal_diperlukan',
+                'trBPB.is_backdate',
+                'trBPB.backdate_reason',
+                'trBPB.backdate_created_at',
                 'trBPB.untuk',
                 'trBPB.jenis_pekerjaan',
                 'trBPB.approval_current_level',
@@ -3726,6 +4183,9 @@ class MobileApprovalController extends Controller
                 'trBPB.nomor_pb',
                 'trBPB.tanggal_permintaan',
                 'trBPB.tanggal_diperlukan',
+                'trBPB.is_backdate',
+                'trBPB.backdate_reason',
+                'trBPB.backdate_created_at',
                 'trBPB.untuk',
                 'trBPB.jenis_pekerjaan',
                 'trBPB.status',
@@ -3749,6 +4209,9 @@ class MobileApprovalController extends Controller
                 'trBPB.nomor_pb',
                 'trBPB.tanggal_permintaan',
                 'trBPB.tanggal_diperlukan',
+                'trBPB.is_backdate',
+                'trBPB.backdate_reason',
+                'trBPB.backdate_created_at',
                 'trBPB.untuk',
                 'trBPB.jenis_pekerjaan',
                 'trBPB.status',
@@ -3787,6 +4250,9 @@ class MobileApprovalController extends Controller
                 'trBPB.nomor_pb',
                 'trBPB.tanggal_permintaan',
                 'trBPB.tanggal_diperlukan',
+                'trBPB.is_backdate',
+                'trBPB.backdate_reason',
+                'trBPB.backdate_created_at',
                 'trBPB.untuk',
                 'trBPB.jenis_pekerjaan',
                 'trBPB.status',
@@ -3813,6 +4279,9 @@ class MobileApprovalController extends Controller
                 'trBPB.nomor_pb',
                 'trBPB.tanggal_permintaan',
                 'trBPB.tanggal_diperlukan',
+                'trBPB.is_backdate',
+                'trBPB.backdate_reason',
+                'trBPB.backdate_created_at',
                 'trBPB.untuk',
                 'trBPB.jenis_pekerjaan',
                 'trBPB.status',
@@ -3841,6 +4310,9 @@ class MobileApprovalController extends Controller
             'nomor_pb' => $item->nomor_pb,
             'tanggal_permintaan' => $item->tanggal_permintaan,
             'tanggal_diperlukan' => $item->tanggal_diperlukan,
+            'is_backdate' => (bool) ($item->is_backdate ?? false),
+            'backdate_reason' => $item->backdate_reason ?? null,
+            'backdate_created_at' => $item->backdate_created_at ?? null,
             'untuk' => $item->untuk,
             'tujuan_nama' => $item->tujuan_nama,
             'tujuan_kode' => $item->tujuan_kode,
@@ -4028,8 +4500,11 @@ class MobileApprovalController extends Controller
         $status = $item['progress_status'] ?? $item['status'] ?? '-';
         $date = $item['closed_at'] ?? $item['verified_at'] ?? $item['approved_at'] ?? $item['rejected_at'] ?? $item['created_at'] ?? '';
         $dateKey = $date ? Carbon::parse($date)->timezone('Asia/Jakarta')->format('Y-m-d') : '';
-        $url = $isPb ? url('/api/mobile/web/pb/' . $id) : url('/api/mobile/web/wo/' . $id);
+        $url = $this->mobileTokenUrl($isPb ? url('/api/mobile/web/pb/' . $id) : url('/api/mobile/web/wo/' . $id));
         $searchText = trim($type . ' ' . $number . ' ' . $title . ' ' . $description . ' ' . $status);
+        $backdateBadge = $isPb && !empty($item['is_backdate'])
+            ? '<span class="status pending">Backdate</span>'
+            : '';
         $meta = $isPb
             ? '<span>' . e($this->mobileDateTime($date)) . '</span><span>' . e($this->mobileRupiah($item['total_value'] ?? 0)) . '</span><span>' . e(($item['jumlah_barang'] ?? 0) . ' item') . '</span>'
             : '<span>' . e($this->mobileDateTime($date)) . '</span><span>' . e(count($item['photos'] ?? []) . ' foto') . '</span>';
@@ -4045,7 +4520,7 @@ class MobileApprovalController extends Controller
         return '<a class="history-card" href="' . e($url) . '" data-type="' . e($type) . '" data-date="' . e($dateKey) . '" data-text="' . e($searchText) . '">
             <div class="card-top">
                 <span class="type-pill ' . e(strtolower($type)) . '">' . e($type) . '</span>
-                <span class="status ' . e($this->mobileStatusClass($status)) . '">' . e($this->mobileStatusLabelForType($status, $type)) . '</span>
+                <span class="card-statuses">' . $backdateBadge . '<span class="status ' . e($this->mobileStatusClass($status)) . '">' . e($this->mobileStatusLabel($status)) . '</span></span>
             </div>
             <h2>' . e($number) . '</h2>
             <p>' . e($title) . '</p>
@@ -4078,6 +4553,9 @@ class MobileApprovalController extends Controller
                 'trBPB.jenis_pekerjaan',
                 'trBPB.tanggal_permintaan',
                 'trBPB.tanggal_diperlukan',
+                'trBPB.is_backdate',
+                'trBPB.backdate_reason',
+                'trBPB.backdate_created_at',
                 'trBPB.created_at',
                 'trBPB.approved_at',
                 'trBPB.rejected_at',
@@ -4095,6 +4573,9 @@ class MobileApprovalController extends Controller
                 'trBPB.jenis_pekerjaan',
                 'trBPB.tanggal_permintaan',
                 'trBPB.tanggal_diperlukan',
+                'trBPB.is_backdate',
+                'trBPB.backdate_reason',
+                'trBPB.backdate_created_at',
                 'trBPB.created_at',
                 'trBPB.approved_at',
                 'trBPB.rejected_at',
@@ -4136,15 +4617,16 @@ class MobileApprovalController extends Controller
     {
         $status = $pb->status === 'pending'
             ? 'Menunggu L' . (int) ($pb->approval_current_level ?: 1)
-            : $this->mobileStatusLabelForType($pb->status, 'PB');
+            : $this->mobileStatusLabel($pb->status);
         $search = trim($pb->nomor_pb . ' ' . $pb->tujuan_nama . ' ' . $pb->status . ' ' . $pb->jenis_pekerjaan);
+        $backdateBadge = !empty($pb->is_backdate) ? '<span class="status pending">Backdate</span>' : '';
 
         $dateKey = $pb->tanggal_permintaan ? Carbon::parse($pb->tanggal_permintaan)->timezone('Asia/Jakarta')->format('Y-m-d') : '';
 
-        return '<a class="history-card" href="' . e(url('/api/mobile/web/pb/' . $pb->id)) . '" data-text="' . e(strtolower($search)) . '" data-date="' . e($dateKey) . '">
+        return '<a class="history-card" href="' . e($this->mobileTokenUrl(url('/api/mobile/web/pb/' . $pb->id))) . '" data-text="' . e(strtolower($search)) . '" data-date="' . e($dateKey) . '">
             <div class="card-top">
                 <span class="type-pill pb">PB</span>
-                <span class="status ' . e($this->mobileStatusClass($pb->status)) . '">' . e($status) . '</span>
+                <span class="card-statuses">' . $backdateBadge . '<span class="status ' . e($this->mobileStatusClass($pb->status)) . '">' . e($status) . '</span></span>
             </div>
             <h2>' . e($pb->nomor_pb) . '</h2>
             <p>' . e($pb->tujuan_nama ?: '-') . '</p>
@@ -4165,7 +4647,7 @@ class MobileApprovalController extends Controller
             ? Carbon::parse($wo->submitted_at ?: $wo->created_at)->timezone('Asia/Jakarta')->format('Y-m-d')
             : '';
 
-        return '<a class="history-card" href="' . e(url('/api/mobile/web/wo/' . $wo->id)) . '" data-text="' . e(strtolower($search)) . '" data-date="' . e($dateKey) . '">
+        return '<a class="history-card" href="' . e($this->mobileTokenUrl(url('/api/mobile/web/wo/' . $wo->id))) . '" data-text="' . e(strtolower($search)) . '" data-date="' . e($dateKey) . '">
             <div class="card-top">
                 <span class="type-pill wo">WO</span>
                 <span class="status ' . e($this->mobileStatusClass($status)) . '">' . e($this->mobileStatusLabel($status)) . '</span>
@@ -4182,23 +4664,46 @@ class MobileApprovalController extends Controller
 
     private function engineeringWebScript(?string $token): string
     {
-        return '
-            const TOKEN = ' . json_encode((string) $token) . ';
-            const API = {
-                targets: ' . json_encode(url('/api/mobile/engineering/search/targets')) . ',
-                items: ' . json_encode(url('/api/mobile/engineering/search/items')) . ',
-                workOrders: ' . json_encode(url('/api/mobile/engineering/search/work-orders')) . '
+        $targetSearchUrl = json_encode(url('/api/mobile/engineering/search/targets'));
+        $itemSearchUrl = json_encode(url('/api/mobile/engineering/search/items'));
+        $workOrderSearchUrl = json_encode(url('/api/mobile/engineering/search/work-orders'));
+
+        return 'var TOKEN_FROM_SERVER = ' . json_encode((string) $token) . ';
+' . <<<JS
+            var TOKEN = TOKEN_FROM_SERVER || (window.URLSearchParams ? new URLSearchParams(window.location.search).get("token") : "") || "";
+            function withMobileToken(url) {
+                if (!TOKEN || !url || url.indexOf("#") === 0 || url.indexOf("javascript:") === 0) return url;
+                try {
+                    var parsed = new URL(url, window.location.origin);
+                    if (parsed.pathname.indexOf("/api/mobile/") === 0) {
+                        parsed.searchParams.set("token", TOKEN);
+                        return parsed.toString();
+                    }
+                } catch (e) {}
+                return url;
+            }
+            document.addEventListener("DOMContentLoaded", function () {
+                Array.prototype.forEach.call(document.querySelectorAll("a[href*=\'/api/mobile/web/\']"), function (link) {
+                    link.setAttribute("href", withMobileToken(link.getAttribute("href")));
+                });
+            });
+            var API = {
+                targets: $targetSearchUrl,
+                items: $itemSearchUrl,
+                workOrders: $workOrderSearchUrl
             };
-            const timers = {};
-            function toggleForm(id) { const el = document.getElementById(id); el.hidden = !el.hidden; }
+            var timers = {};
+            function trimText(value) { return String(value || "").replace(/^\s+|\s+$/g, ""); }
+            function toggleForm(id) { var el = document.getElementById(id); if (el) el.hidden = !el.hidden; }
             function switchTarget() {
-                const untuk = document.getElementById("pbUntuk").value;
-                const mesin = document.querySelector(".mesin-target");
-                const bangunan = document.querySelector(".bangunan-target");
-                mesin.hidden = untuk !== "mesin";
-                bangunan.hidden = untuk !== "bangunan";
-                const mesinId = document.getElementById("pbMesinId");
-                const bangunanId = document.getElementById("pbBangunanId");
+                var untukEl = document.getElementById("pbUntuk");
+                var untuk = untukEl ? untukEl.value : "mesin";
+                var mesin = document.querySelector(".mesin-target");
+                var bangunan = document.querySelector(".bangunan-target");
+                if (mesin) mesin.hidden = untuk !== "mesin";
+                if (bangunan) bangunan.hidden = untuk !== "bangunan";
+                var mesinId = document.getElementById("pbMesinId");
+                var bangunanId = document.getElementById("pbBangunanId");
                 if (mesinId) mesinId.disabled = untuk !== "mesin";
                 if (bangunanId) bangunanId.disabled = untuk !== "bangunan";
             }
@@ -4206,195 +4711,316 @@ class MobileApprovalController extends Controller
                 clearTimeout(timers[key]);
                 timers[key] = setTimeout(callback, 280);
             }
-            async function fetchData(url) {
-                const res = await fetch(url, { headers:{ "Accept":"application/json", "Authorization":"Bearer " + TOKEN } });
-                const json = await res.json().catch(() => ({ success:false, data:[] }));
-                return json.data || [];
+            function fetchData(url) {
+                var headers = { "Accept":"application/json" };
+                if (TOKEN) headers.Authorization = "Bearer " + TOKEN;
+                if (typeof fetch !== "function") {
+                    return new Promise(function (resolve) {
+                        var xhr = new XMLHttpRequest();
+                        xhr.open("GET", withMobileToken(url), true);
+                        xhr.setRequestHeader("Accept", "application/json");
+                        if (TOKEN) xhr.setRequestHeader("Authorization", "Bearer " + TOKEN);
+                        xhr.onreadystatechange = function () {
+                            if (xhr.readyState !== 4) return;
+                            try { resolve((JSON.parse(xhr.responseText).data || [])); }
+                            catch (e) { resolve([]); }
+                        };
+                        xhr.onerror = function () { resolve([]); };
+                        xhr.send();
+                    });
+                }
+                return fetch(withMobileToken(url), { headers: headers })
+                    .then(function (res) { return res.json().catch(function () { return { success:false, data:[] }; }); })
+                    .then(function (json) { return json.data || []; })
+                    .catch(function () { return []; });
             }
-            function clearSuggestions(id, message = "") {
-                const box = document.getElementById(id);
-                if (box) box.innerHTML = message ? `<div class="suggestion-empty">${message}</div>` : "";
+            function clearSuggestions(id, message) {
+                var box = document.getElementById(id);
+                if (box) box.innerHTML = message ? '<div class="suggestion-empty">' + escapeHtml(message) + '</div>' : "";
             }
-            function renderSuggestions(id, rows, onPick, emptyMessage = "Tidak ada data") {
-                const box = document.getElementById(id);
+            function renderSuggestions(id, rows, onPick, emptyMessage) {
+                var box = document.getElementById(id);
                 if (!box) return;
+                emptyMessage = emptyMessage || "Tidak ada data";
                 if (!rows.length) {
                     clearSuggestions(id, emptyMessage);
                     return;
                 }
-                box.innerHTML = rows.map((row, index) => `
-                    <button type="button" data-index="${index}">
-                        <strong>${escapeHtml(row.name || row.nomor || "-")}</strong>
-                        <small>${escapeHtml(row.code || row.judul || "")}</small>
-                    </button>
-                `).join("");
-                [...box.querySelectorAll("button")].forEach(button => {
-                    button.onclick = () => onPick(rows[Number(button.dataset.index)]);
+                box.innerHTML = rows.map(function (row, index) {
+                    return '<button type="button" data-index="' + index + '">' +
+                        '<strong>' + escapeHtml(row.name || row.nomor || "-") + '</strong>' +
+                        '<small>' + escapeHtml(row.code || row.judul || "") + '</small>' +
+                        '</button>';
+                }).join("");
+                Array.prototype.forEach.call(box.querySelectorAll("button"), function (button) {
+                    button.onclick = function () { onPick(rows[Number(button.getAttribute("data-index"))]); };
                 });
             }
             function escapeHtml(value) {
-                return String(value || "").replace(/[&<>"\\x27]/g, char => ({ "&":"&amp;", "<":"&lt;", ">":"&gt;", "\"":"&quot;", "\\x27":"&#39;" }[char]));
+                return String(value || "").replace(/[&<>"\']/g, function (char) {
+                    return {"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","\'":"&#39;"}[char];
+                });
             }
             function searchTarget(type, value) {
-                const needle = (value || "").toLowerCase().trim();
-                const isMesin = type === "mesin";
-                const resultId = isMesin ? "pbMesinResults" : "pbBangunanResults";
-                const hiddenId = isMesin ? "pbMesinId" : "pbBangunanId";
-                document.getElementById(hiddenId).value = "";
+                var needle = trimText(value).toLowerCase();
+                var isMesin = type === "mesin";
+                var resultId = isMesin ? "pbMesinResults" : "pbBangunanResults";
+                var hiddenId = isMesin ? "pbMesinId" : "pbBangunanId";
+                var hidden = document.getElementById(hiddenId);
+                if (hidden) hidden.value = "";
                 if (needle.length < 2) {
                     clearSuggestions(resultId);
                     return;
                 }
                 clearSuggestions(resultId, "Mencari...");
-                debounce("target-" + type, async () => {
-                    const rows = await fetchData(`${API.targets}?type=${encodeURIComponent(type)}&q=${encodeURIComponent(value)}`);
-                    renderSuggestions(resultId, rows, row => {
+                debounce("target-" + type, function () {
+                    fetchData(API.targets + "?type=" + encodeURIComponent(type) + "&q=" + encodeURIComponent(value)).then(function (rows) {
+                        renderSuggestions(resultId, rows, function (row) {
                         document.getElementById(hiddenId).value = row.id;
-                        document.getElementById(isMesin ? "pbMesinSearch" : "pbBangunanSearch").value = `${row.name} (${row.code || "-"})`;
+                        document.getElementById(isMesin ? "pbMesinSearch" : "pbBangunanSearch").value = row.name + " (" + (row.code || "-") + ")";
                         clearSuggestions(resultId);
+                        });
                     });
                 });
             }
             function searchWorkOrder(value) {
                 document.getElementById("pbWoId").value = "";
                 document.getElementById("pbWoNumber").value = "";
-                if ((value || "").trim().length < 2) {
+                if (trimText(value).length < 2) {
                     clearSuggestions("pbWoResults");
                     return;
                 }
                 clearSuggestions("pbWoResults", "Mencari...");
-                debounce("wo-ref", async () => {
-                    const rows = await fetchData(`${API.workOrders}?q=${encodeURIComponent(value)}`);
-                    renderSuggestions("pbWoResults", rows, row => {
-                        document.getElementById("pbWoId").value = row.id;
-                        document.getElementById("pbWoNumber").value = row.nomor;
-                        document.getElementById("pbWoSearch").value = `${row.nomor} - ${row.judul || "-"}`;
-                        clearSuggestions("pbWoResults");
-                    }, "Belum ada WO approved yang cocok");
-                });
-            }
-            function searchItem(input, value) {
-                const row = input.closest(".pb-item");
-                const resultBox = row.querySelector(".item-results");
-                const materialSelect = document.getElementById("pbMaterialType");
-                const materialType = materialSelect ? materialSelect.value : "sparepart";
-                row.querySelector("[name=barang_id]").value = "";
-                if ((value || "").trim().length < 2) {
-                    resultBox.innerHTML = "";
-                    return;
-                }
-                resultBox.innerHTML = `<div class="suggestion-empty">Mencari...</div>`;
-                debounce("item-" + row.dataset.row, async () => {
-                    const rows = await fetchData(`${API.items}?q=${encodeURIComponent(value)}&material_type=${encodeURIComponent(materialType)}`);
-                    if (!rows.length) {
-                        resultBox.innerHTML = `<div class="suggestion-empty">Barang tidak ditemukan</div>`;
-                        return;
-                    }
-                    resultBox.innerHTML = rows.map((item, index) => `
-                        <button type="button" data-index="${index}">
-                            <strong>${escapeHtml(item.name)}</strong>
-                            <small>${escapeHtml(item.code)} &middot; ${escapeHtml(item.unit || "PCS")}</small>
-                        </button>
-                    `).join("");
-                    [...resultBox.querySelectorAll("button")].forEach(button => {
-                        button.onclick = () => {
-                            const item = rows[Number(button.dataset.index)];
-                            row.querySelector("[name=barang_id]").value = item.id || "";
-                            row.querySelector("[name=nama_barang]").value = item.name || "";
-                            row.querySelector("[name=satuan]").value = item.unit || "PCS";
-                            resultBox.innerHTML = "";
-                        };
+                debounce("wo-ref", function () {
+                    fetchData(API.workOrders + "?q=" + encodeURIComponent(value)).then(function (rows) {
+                        renderSuggestions("pbWoResults", rows, function (row) {
+                            document.getElementById("pbWoId").value = row.id;
+                            document.getElementById("pbWoNumber").value = row.nomor;
+                            document.getElementById("pbWoSearch").value = row.nomor + " - " + (row.judul || "-");
+                            clearSuggestions("pbWoResults");
+                        }, "Belum ada WO approved yang cocok");
                     });
                 });
             }
+            function searchItem(input, value) {
+                var row = input.closest ? input.closest(".pb-item") : input.parentNode;
+                var resultBox = row ? row.querySelector(".item-results") : null;
+                var materialSelect = document.getElementById("pbMaterialType");
+                var materialType = materialSelect ? materialSelect.value : "sparepart";
+                if (!row || !resultBox) return;
+                row.querySelector("[name=barang_id]").value = "";
+                row.removeAttribute("data-autopick-id");
+                row.removeAttribute("data-autopick-name");
+                row.removeAttribute("data-autopick-unit");
+                if (trimText(value).length < 2) {
+                    resultBox.innerHTML = "";
+                    return;
+                }
+                resultBox.innerHTML = '<div class="suggestion-empty">Mencari...</div>';
+                debounce("item-" + row.getAttribute("data-row"), function () {
+                    fetchData(API.items + "?q=" + encodeURIComponent(value) + "&material_type=" + encodeURIComponent(materialType)).then(function (rows) {
+                    if (!rows.length) {
+                        row.removeAttribute("data-autopick-id");
+                        row.removeAttribute("data-autopick-name");
+                        row.removeAttribute("data-autopick-unit");
+                        resultBox.innerHTML = '<div class="suggestion-empty">Barang tidak ditemukan</div>';
+                        return;
+                    }
+                    if (rows.length === 1) {
+                        row.setAttribute("data-autopick-id", rows[0].id || "");
+                        row.setAttribute("data-autopick-name", rows[0].name || "");
+                        row.setAttribute("data-autopick-unit", rows[0].unit || "PCS");
+                    } else {
+                        row.removeAttribute("data-autopick-id");
+                        row.removeAttribute("data-autopick-name");
+                        row.removeAttribute("data-autopick-unit");
+                    }
+                    resultBox.innerHTML = rows.map(function (item, index) {
+                        return '<button type="button" data-index="' + index + '">' +
+                            '<strong>' + escapeHtml(item.name) + '</strong>' +
+                            '<small>' + escapeHtml(item.code) + ' - ' + escapeHtml(item.unit || "PCS") + '</small>' +
+                            '</button>';
+                    }).join("");
+                    Array.prototype.forEach.call(resultBox.querySelectorAll("button"), function (button) {
+                        button.onclick = function () {
+                            var item = rows[Number(button.getAttribute("data-index"))];
+                            row.querySelector("[name=barang_id]").value = item.id || "";
+                            row.querySelector("[name=nama_barang]").value = item.name || "";
+                            row.setAttribute("data-autopick-id", item.id || "");
+                            row.setAttribute("data-autopick-name", item.name || "");
+                            row.setAttribute("data-autopick-unit", item.unit || "PCS");
+                            setUnitValue(row.querySelector("[name=satuan]"), item.unit || "PCS");
+                            resultBox.innerHTML = "";
+                        };
+                    });
+                    });
+                });
+            }
+            function setUnitValue(select, value) {
+                if (!select) return;
+                var unit = String(value || "PCS").toUpperCase();
+                if (!Array.prototype.some.call(select.options, function (option) { return option.value === unit; })) {
+                    var option = document.createElement("option");
+                    option.value = unit;
+                    option.textContent = unit;
+                    select.appendChild(option);
+                }
+                select.value = unit;
+            }
             window.changeMaterialType = function changeMaterialType() {
-                const wrap = document.getElementById("pbItems");
+                var wrap = document.getElementById("pbItems");
                 if (!wrap) return;
                 wrap.innerHTML = "";
                 window.addPbItem();
             };
             window.ensurePbItemRow = function ensurePbItemRow() {
-                const wrap = document.getElementById("pbItems");
+                var wrap = document.getElementById("pbItems");
                 if (wrap && !wrap.querySelector(".pb-item")) {
                     window.addPbItem();
                 }
             };
             window.addPbItem = function addPbItem() {
-                const wrap = document.getElementById("pbItems");
+                var wrap = document.getElementById("pbItems");
                 if (!wrap) return false;
-                const row = document.createElement("div");
+                var row = document.createElement("div");
                 row.className = "pb-item";
-                row.dataset.row = Date.now() + "-" + Math.random().toString(16).slice(2);
-                row.innerHTML = `
-                    <input type="hidden" name="barang_id">
-                    <input name="nama_barang" placeholder="Ketik minimal 2 huruf nama / kode barang..." autocomplete="off" required oninput="searchItem(this, this.value)">
-                    <div class="suggestion-list item-results"></div>
-                    <div class="item-grid">
-                        <input name="jumlah" type="number" step="0.01" min="0.01" placeholder="Qty" required>
-                        <input name="satuan" placeholder="Satuan" value="PCS" required>
-                    </div>
-                    <input name="item_keterangan" placeholder="Keterangan item (opsional)">
-                    <button type="button" onclick="this.closest(\'.pb-item\').remove()">Hapus item</button>
-                `;
+                row.setAttribute("data-row", Date.now() + "-" + Math.random().toString(16).slice(2));
+                row.innerHTML =
+                    '<input type="hidden" name="barang_id">' +
+                    '<input name="nama_barang" type="search" placeholder="Ketik minimal 2 huruf nama / kode barang..." autocomplete="off" required oninput="searchItem(this, this.value)">' +
+                    '<div class="suggestion-list item-results"></div>' +
+                    '<div class="item-grid"><input name="jumlah" type="number" step="0.01" min="0.01" placeholder="Qty" required><select name="satuan" required><option value="PCS">PCS</option><option value="UNIT">Unit</option><option value="KG">Kilogram (KG)</option><option value="G">Gram (G)</option><option value="L">Liter (L)</option><option value="ML">Milliliter (ML)</option><option value="M">Meter (M)</option><option value="CM">Centimeter (CM)</option><option value="MM">Millimeter (MM)</option><option value="BOX">Box</option><option value="PACK">Pack</option><option value="ROLL">Roll</option><option value="SET">Set</option><option value="BTG">Batang (BTG)</option><option value="BUAH">Buah</option><option value="LEMBAR">Lembar</option><option value="PAIR">Pair (Pasang)</option><option value="BTL">Bottle (Botol)</option><option value="CAN">Can (Kaleng)</option><option value="TUBE">Tube (Tabung)</option><option value="BAG">Bag (Karung)</option><option value="DRUM">Drum</option><option value="CARTON">Carton (Kardus)</option><option value="PALLET">Pallet</option></select></div>' +
+                    '<input name="item_keterangan" placeholder="Keterangan item (opsional)">' +
+                    '<button type="button" onclick="var p=this.parentNode;if(p&&p.parentNode)p.parentNode.removeChild(p);">Hapus item</button>';
                 wrap.appendChild(row);
-                const nameInput = row.querySelector("[name=nama_barang]");
+                var nameInput = row.querySelector("[name=nama_barang]");
                 if (nameInput) nameInput.focus();
                 return false;
             };
-            async function submitJson(url, body) {
-                const res = await fetch(url, { method:"POST", headers:{ "Accept":"application/json", "Content-Type":"application/json", "Authorization":"Bearer " + TOKEN }, body: JSON.stringify(body) });
-                return await res.json().catch(() => ({ success:false, message:"Response tidak valid" }));
+            function submitJson(url, body) {
+                var payload = {};
+                var key;
+                body = body || {};
+                for (key in body) {
+                    if (Object.prototype.hasOwnProperty.call(body, key)) payload[key] = body[key];
+                }
+                if (TOKEN && !payload.token) payload.token = TOKEN;
+                var headers = { "Accept":"application/json", "Content-Type":"application/json" };
+                if (TOKEN) headers.Authorization = "Bearer " + TOKEN;
+                return fetch(withMobileToken(url), { method:"POST", headers: headers, body: JSON.stringify(payload), credentials:"same-origin" })
+                    .then(function (res) {
+                        return res.json().catch(function () { return { success:false, message:"Response tidak valid" }; })
+                            .then(function (data) {
+                                if (!res.ok && data && data.success !== true) data.success = false;
+                                if (!res.ok && data && !data.message) data.message = "Request gagal (" + res.status + ").";
+                                return data;
+                            });
+                    })
+                    .catch(function () { return { success:false, message:"Koneksi gagal. Coba lagi." }; });
             }
-            async function submitForm(url, body) {
-                const res = await fetch(url, { method:"POST", headers:{ "Accept":"application/json", "Authorization":"Bearer " + TOKEN }, body });
-                return await res.json().catch(() => ({ success:false, message:"Response tidak valid" }));
+            function submitForm(url, body) {
+                if (TOKEN && body && typeof body.append === "function" && !body.has("token")) body.append("token", TOKEN);
+                var headers = { "Accept":"application/json" };
+                if (TOKEN) headers.Authorization = "Bearer " + TOKEN;
+                return fetch(withMobileToken(url), { method:"POST", headers: headers, body: body })
+                    .then(function (res) { return res.json().catch(function () { return { success:false, message:"Response tidak valid" }; }); })
+                    .catch(function () { return { success:false, message:"Koneksi gagal. Coba lagi." }; });
             }
-            async function approvePbDetail(id) {
-                const noteEl = document.getElementById("pbApprovalNote");
-                const result = await submitJson("/api/mobile/pb/" + id + "/approve", { notes: noteEl ? noteEl.value.trim() : "" });
-                alert(result.message || (result.success ? "PB berhasil diapprove." : "Gagal approve PB."));
-                if (result.success) window.location.reload();
+            function mobileToast(message, type) {
+                var toast = document.getElementById("mobileToast");
+                if (!toast) {
+                    toast = document.createElement("div");
+                    toast.id = "mobileToast";
+                    toast.style.cssText = "position:fixed;left:18px;right:18px;bottom:92px;z-index:9999;padding:13px 16px;border-radius:16px;background:#111827;color:#fff;font-weight:800;text-align:center;box-shadow:0 18px 40px rgba(15,23,42,.24);";
+                    document.body.appendChild(toast);
+                }
+                toast.textContent = message || "Proses selesai.";
+                toast.style.background = type === "error" ? "#dc2626" : "#111827";
+                toast.style.display = "block";
+                clearTimeout(window.__mobileToastTimer);
+                window.__mobileToastTimer = setTimeout(function () { toast.style.display = "none"; }, 2200);
             }
-            async function rejectPbDetail(id) {
-                const reason = prompt("Masukkan catatan penolakan PB:");
-                if (!reason || !reason.trim()) return;
-                const result = await submitJson("/api/mobile/pb/" + id + "/reject", { alasan: reason.trim() });
-                alert(result.message || (result.success ? "PB berhasil direject." : "Gagal reject PB."));
-                if (result.success) window.location.reload();
+            function setActionLoading(button, loading, text) {
+                if (!button) return;
+                if (!button.dataset.label) button.dataset.label = button.textContent;
+                button.disabled = !!loading;
+                button.textContent = loading ? text : button.dataset.label;
             }
-            async function approveWoDetail(id) {
-                const pelaksanaEl = document.getElementById("woPelaksana");
-                const notesEl = document.getElementById("woDelegationNotes");
-                const pelaksana = pelaksanaEl ? pelaksanaEl.value : "";
-                const notes = notesEl ? notesEl.value.trim() : "";
-                if (!pelaksana) { alert("Pilih pelaksana terlebih dahulu."); return; }
-                if (!notes) { alert("Catatan delegasi wajib diisi."); return; }
-                const result = await submitJson("/api/mobile/wo/" + id + "/approve", { pelaksana: pelaksana, delegation_notes: notes });
-                alert(result.message || (result.success ? "WO berhasil diapprove dan di-assign." : "Gagal approve WO."));
-                if (result.success) window.location.reload();
+            function approvePbDetail(id, button) {
+                var noteEl = document.getElementById("pbApprovalNote");
+                setActionLoading(button, true, "Memproses...");
+                submitJson("/api/mobile/pb/" + id + "/approve", { notes: noteEl ? trimText(noteEl.value) : "" }).then(function (result) {
+                    mobileToast(result.message || (result.success ? "PB berhasil diapprove." : "Gagal approve PB."), result.success ? "success" : "error");
+                    if (result.success) setTimeout(function () { window.location.reload(); }, 650);
+                    else setActionLoading(button, false);
+                });
             }
-            async function rejectWoDetail(id) {
-                const reason = prompt("Masukkan catatan penolakan WO:");
-                if (!reason || !reason.trim()) return;
-                const result = await submitJson("/api/mobile/wo/" + id + "/reject", { rejection_notes: reason.trim() });
-                alert(result.message || (result.success ? "WO berhasil direject." : "Gagal reject WO."));
-                if (result.success) window.location.reload();
+            function rejectPbDetail(id, button) {
+                var panel = document.getElementById("pbRejectPanel");
+                if (panel && panel.hidden) {
+                    panel.hidden = false;
+                    var input = document.getElementById("pbRejectReason");
+                    setTimeout(function () { if (input) input.focus(); }, 50);
+                    mobileToast("Isi catatan reject lalu tekan Reject PB lagi.", "error");
+                    return;
+                }
+                var reasonEl = document.getElementById("pbRejectReason");
+                var reason = reasonEl ? trimText(reasonEl.value) : "";
+                if (!reason) { mobileToast("Catatan reject PB wajib diisi.", "error"); return; }
+                setActionLoading(button, true, "Memproses...");
+                submitJson("/api/mobile/pb/" + id + "/reject", { alasan: reason }).then(function (result) {
+                    mobileToast(result.message || (result.success ? "PB berhasil direject." : "Gagal reject PB."), result.success ? "success" : "error");
+                    if (result.success) setTimeout(function () { window.location.reload(); }, 650);
+                    else setActionLoading(button, false);
+                });
+            }
+            function approveWoDetail(id, button) {
+                var pelaksanaEl = document.getElementById("woPelaksana");
+                var notesEl = document.getElementById("woDelegationNotes");
+                var pelaksana = pelaksanaEl ? pelaksanaEl.value : "";
+                var notes = notesEl ? trimText(notesEl.value) : "";
+                if (!pelaksana) { mobileToast("Pilih pelaksana terlebih dahulu.", "error"); return; }
+                setActionLoading(button, true, "Memproses...");
+                submitJson("/api/mobile/wo/" + id + "/approve", { pelaksana: pelaksana, delegation_notes: notes }).then(function (result) {
+                    mobileToast(result.message || (result.success ? "WO berhasil diapprove dan di-assign." : "Gagal approve WO."), result.success ? "success" : "error");
+                    if (result.success) setTimeout(function () { window.location.reload(); }, 650);
+                    else setActionLoading(button, false);
+                });
+            }
+            function rejectWoDetail(id, button) {
+                var panel = document.getElementById("woRejectPanel");
+                if (panel && panel.hidden) {
+                    panel.hidden = false;
+                    var input = document.getElementById("woRejectReason");
+                    setTimeout(function () { if (input) input.focus(); }, 50);
+                    mobileToast("Isi catatan reject lalu tekan Reject WO lagi.", "error");
+                    return;
+                }
+                var reasonEl = document.getElementById("woRejectReason");
+                var reason = reasonEl ? trimText(reasonEl.value) : "";
+                if (!reason) { mobileToast("Catatan reject WO wajib diisi.", "error"); return; }
+                setActionLoading(button, true, "Memproses...");
+                submitJson("/api/mobile/wo/" + id + "/reject", { rejection_notes: reason }).then(function (result) {
+                    mobileToast(result.message || (result.success ? "WO berhasil direject." : "Gagal reject WO."), result.success ? "success" : "error");
+                    if (result.success) setTimeout(function () { window.location.reload(); }, 650);
+                    else setActionLoading(button, false);
+                });
             }
             function filterCards(value) {
-                const needle = (value || "").toLowerCase();
-                const fromInput = document.querySelector("[data-date-filter=from]");
-                const toInput = document.querySelector("[data-date-filter=to]");
-                const from = fromInput ? fromInput.value : "";
-                const to = toInput ? toInput.value : "";
-                document.querySelectorAll("[data-text]").forEach(card => {
-                    const date = card.dataset.date || "";
-                    const matchText = card.dataset.text.includes(needle);
-                    const matchFrom = !from || !date || date >= from;
-                    const matchTo = !to || !date || date <= to;
+                var needle = (value || "").toLowerCase();
+                var fromInput = document.querySelector("[data-date-filter=from]");
+                var toInput = document.querySelector("[data-date-filter=to]");
+                var from = fromInput ? fromInput.value : "";
+                var to = toInput ? toInput.value : "";
+                Array.prototype.forEach.call(document.querySelectorAll("[data-text]"), function (card) {
+                    var date = card.dataset.date || "";
+                    var matchText = (card.dataset.text || "").indexOf(needle) >= 0;
+                    var matchFrom = !from || !date || date >= from;
+                    var matchTo = !to || !date || date <= to;
                     card.style.display = matchText && matchFrom && matchTo ? "" : "none";
                 });
             }
-        ';
+JS;
     }
 
     private function generateMobilePbNumber(): string
@@ -4526,6 +5152,10 @@ class MobileApprovalController extends Controller
 
     private function mobileWebResponse(string $title, string $body, int $status = 200)
     {
+        $token = request()->bearerToken()
+            ?: (string) request()->query('token', '')
+            ?: (string) request()->input('token', '');
+
         $html = '<!doctype html>
 <html lang="id">
 <head>
@@ -4569,11 +5199,18 @@ class MobileApprovalController extends Controller
         .reset-filter { border:1px solid #bfdbfe; background:#f8fbff; color:var(--blue); }
         .apply-filter { border:1px solid var(--blue); background:var(--blue); color:#fff; box-shadow:0 8px 18px rgba(37,99,235,.18); }
         .list { display:grid; gap:12px; }
+        .history-screen { padding-bottom:18px; }
+        .history-filter-summary { display:flex; align-items:baseline; justify-content:space-between; gap:10px; margin:2px 0 14px; padding:0 2px; line-height:1.35; }
+        .history-filter-summary strong { font-weight:900; }
+        .history-filter-summary span { color:var(--muted); }
+        .history-list { display:grid; gap:16px; }
         .history-card, .detail-card { display:block; background:var(--surface); border:1px solid var(--border); border-radius:16px; padding:15px; box-shadow:0 2px 6px rgba(15,23,42,.05); }
         .history-card h2, .detail-card h1 { margin:8px 0 8px; font-size:18px; line-height:1.2; letter-spacing:0; }
         .history-card p { margin:0 0 6px; font-weight:700; color:#243044; }
         .history-card small, .photo-card span, .photo-card small { display:block; color:var(--muted); line-height:1.4; }
         .card-top, .detail-head { display:flex; gap:10px; align-items:flex-start; justify-content:space-between; }
+        .card-statuses, .status-stack { display:flex; flex-wrap:wrap; justify-content:flex-end; gap:6px; }
+        .status-stack { max-width:48%; }
         .type-pill, .status, .mini { display:inline-flex; align-items:center; justify-content:center; min-height:24px; padding:4px 10px; border-radius:999px; font-size:12px; font-weight:800; border:1px solid transparent; }
         .type-pill.pb { color:#1d4ed8; background:#eff6ff; border-color:#bfdbfe; }
         .type-pill.wo { color:#0f766e; background:#ecfdf5; border-color:#ccfbf1; }
@@ -4605,11 +5242,21 @@ class MobileApprovalController extends Controller
         .timeline div { display:flex; justify-content:space-between; gap:12px; padding:10px 0; border-top:1px solid #e5eaf1; }
         .timeline span { color:var(--muted); }
         .note { margin-top:10px; line-height:1.5; }
+        .note small { display:block; margin-top:6px; color:var(--muted); }
+        .backdate-note { background:#fffbeb; border-color:#fcd34d; color:#78350f; }
+        .backdate-note span, .backdate-note small { color:#92400e; }
         .success-note { background:#f0fdf4; border-color:#bbf7d0; }
         .danger-note { background:#fef2f2; border-color:#fecaca; color:#991b1b; }
         .content-block h2 { margin:0 0 8px; font-size:17px; }
         .content-block p { margin:0; color:#334155; line-height:1.5; }
         .file-link { display:block; color:var(--blue); font-weight:800; }
+        .document-preview { display:grid; gap:12px; }
+        .document-frame { min-height:560px; border:1px solid var(--border); border-radius:16px; overflow:hidden; background:#fff; }
+        .document-frame iframe { display:block; width:100%; height:560px; border:0; background:#fff; }
+        .document-frame.image-frame { min-height:0; display:flex; align-items:center; justify-content:center; padding:10px; background:#f8fafc; }
+        .document-frame.image-frame img { display:block; width:100%; max-height:680px; object-fit:contain; border-radius:10px; }
+        .document-actions { display:grid; gap:10px; }
+        .document-actions .file-link { text-align:center; }
         .photo-list { display:grid; gap:10px; }
         .photo-card { display:grid; grid-template-columns:78px 1fr; gap:12px; align-items:center; background:#fff; }
         .photo-card img { width:78px; height:78px; object-fit:cover; border-radius:12px; border:1px solid var(--border); background:#eef2f7; }
@@ -4621,7 +5268,9 @@ class MobileApprovalController extends Controller
         .mobile-action-field { width:100%; min-height:44px; border:1px solid #d7e2f0; border-radius:14px; padding:12px; font:inherit; color:var(--text); background:#fff; box-sizing:border-box; }
         .mobile-action-field:focus { outline:none; border-color:var(--blue); box-shadow:0 0 0 3px rgba(37,99,235,.12); }
         .mobile-action-buttons { display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-top:12px; }
+        .mobile-action-buttons.stacked { grid-template-columns:1fr; }
         .mobile-action-buttons button { border:0; border-radius:14px; padding:13px 10px; font-weight:900; font-size:14px; color:#fff; box-shadow:0 8px 18px rgba(15,23,42,.12); }
+        .mobile-action-buttons button:disabled { opacity:.62; box-shadow:none; }
         .mobile-action-buttons .approve { background:var(--blue); }
         .mobile-action-buttons .reject { background:#dc2626; }
         .eng-hero { margin:4px 0 14px; padding:18px; border-radius:20px; color:#fff; background:linear-gradient(135deg,#0f172a,#0f766e); box-shadow:0 12px 24px rgba(15,23,42,.14); }
@@ -4696,15 +5345,20 @@ class MobileApprovalController extends Controller
         textarea, input, select { font-family:inherit; }
         textarea { width:100%; border:1px solid var(--border); border-radius:12px; padding:11px 12px; resize:vertical; outline:none; }
         .pb-item { display:grid; gap:8px; margin-bottom:10px; padding:10px; border:1px solid var(--border); border-radius:14px; background:var(--soft); }
-        .pb-item input { width:100%; border:1px solid var(--border); background:#fff; color:var(--text); border-radius:12px; height:42px; padding:0 12px; font:inherit; outline:none; }
+        .pb-item input, .pb-item select { width:100%; border:1px solid var(--border); background:#fff; color:var(--text); border-radius:12px; height:42px; padding:0 12px; font:inherit; outline:none; }
         .pb-item > button { height:36px; border:1px solid #fecaca; border-radius:12px; background:#fff1f2; color:#be123c; font-weight:800; }
-        .pb-item .suggestion-list { display:grid; gap:7px; max-height:232px; overflow-y:auto; padding:3px 2px 8px; overscroll-behavior:contain; }
-        .pb-item .suggestion-list button { display:block; height:auto; min-height:56px; padding:9px 12px; border:1px solid #dbeafe; border-left:4px solid var(--blue); border-radius:13px; background:#fff; color:var(--text); text-align:left; font-weight:850; box-shadow:0 2px 7px rgba(15,23,42,.07); }
-        .pb-item .suggestion-list button strong { display:-webkit-box; color:#0f172a; font-size:12px; line-height:1.22; overflow:hidden; overflow-wrap:anywhere; -webkit-line-clamp:2; -webkit-box-orient:vertical; }
-        .pb-item .suggestion-list button small { display:block; margin-top:4px; color:#64748b; font-size:11px; line-height:1.2; font-weight:800; }
+        .pb-item .suggestion-list { display:grid; gap:6px; max-height:232px; overflow-y:auto; margin-top:8px; margin-bottom:12px; padding:0 2px 6px; overscroll-behavior:contain; }
+        .pb-item .suggestion-list:empty { display:none; }
+        .pb-item .suggestion-list button { display:grid; gap:4px; width:100%; min-height:66px; padding:10px 12px; border:1px solid #dbeafe; border-radius:12px; background:#fff; color:var(--text); text-align:left; font:inherit; box-shadow:0 1px 2px rgba(15,23,42,.04); }
+        .pb-item .suggestion-list button strong { display:-webkit-box; color:var(--text); font-size:13px; line-height:1.25; overflow:hidden; overflow-wrap:anywhere; -webkit-line-clamp:2; -webkit-box-orient:vertical; }
+        .pb-item .suggestion-list button small { display:block; color:var(--muted); font-size:12px; line-height:1.25; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
         .pb-item .suggestion-list button:active { background:#eff6ff; border-color:#93c5fd; }
-        .pb-item .suggestion-empty { background:#f8fafc; color:#64748b; border-color:#cbd5e1; }
+        .pb-item .suggestion-empty { padding:9px 11px; border:1px dashed #cbd5e1; border-radius:12px; background:#f8fafc; color:var(--muted); font-size:12px; }
         .item-grid { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+        .submit-notice { margin:2px 0 4px; padding:11px 12px; border-radius:14px; font-weight:800; line-height:1.35; }
+        .submit-notice.info { border:1px solid #bfdbfe; background:#eff6ff; color:#1d4ed8; }
+        .submit-notice.success { border:1px solid #bbf7d0; background:#f0fdf4; color:#15803d; }
+        .submit-notice.error { border:1px solid #fecaca; background:#fef2f2; color:#b91c1c; }
         .approval-dashboard { display:grid; gap:12px; }
         .dashboard-topbar { position:sticky; top:0; z-index:70; display:grid; grid-template-columns:auto 1fr; align-items:start; gap:12px; min-height:68px; margin:0 -10px 10px; padding:10px 10px 12px; border-bottom:1px solid rgba(219,228,239,.74); background:linear-gradient(180deg,rgba(243,246,250,.98) 0%,rgba(243,246,250,.95) 82%,rgba(243,246,250,0) 100%); backdrop-filter:blur(10px); -webkit-backdrop-filter:blur(10px); }
         .dashboard-topbar .back-link { align-self:start; }
@@ -4738,6 +5392,8 @@ class MobileApprovalController extends Controller
         .factory-metric-grid .queue-metric:last-child span,
         .factory-metric-grid .queue-metric:last-child small { grid-column:1; }
         .factory-metric-grid .queue-metric:last-child strong { grid-column:2; grid-row:1 / span 2; margin:0; font-size:32px; }
+        .engineering-metric-grid .queue-metric:last-child { grid-column:auto; min-height:92px; }
+        .engineering-metric-grid .queue-metric:last-child strong { margin-top:10px; font-size:31px; }
         .queue-card { padding:0; border:0; border-radius:0; background:transparent; box-shadow:none; }
         .budget-mobile-card { padding:12px; border:1px solid var(--border); border-radius:18px; background:#fff; box-shadow:0 2px 8px rgba(15,23,42,.06); }
         .queue-title { display:flex; align-items:flex-start; justify-content:space-between; gap:10px; margin-bottom:12px; padding:0 2px; }
@@ -4814,10 +5470,240 @@ class MobileApprovalController extends Controller
         @media (max-width:360px) { .meta-grid, .filter-grid { grid-template-columns:1fr; } .photo-card { grid-template-columns:64px 1fr; } .photo-card img { width:64px; height:64px; } }
     </style>
 </head>
-<body>' . $this->mobileWebChrome($title) . $body . '</body>
+<body>' . $this->mobileWebChrome($title) . $body . '
+    <script>' . $this->mobileWebActionScript($token) . '</script>
+</body>
 </html>';
 
         return response($html, $status)->header('Content-Type', 'text/html; charset=UTF-8');
+    }
+
+    private function mobileWebActionScript(?string $token): string
+    {
+        return 'var TOKEN_FROM_SERVER = ' . json_encode((string) $token) . ';
+' . <<<'JS'
+            var TOKEN = TOKEN_FROM_SERVER || (window.URLSearchParams ? new URLSearchParams(window.location.search).get("token") : "") || "";
+            function withMobileToken(url) {
+                if (!TOKEN || !url || url.indexOf("#") === 0 || url.indexOf("javascript:") === 0) return url;
+                try {
+                    var parsed = new URL(url, window.location.origin);
+                    if (parsed.pathname.indexOf("/api/mobile/") === 0) {
+                        parsed.searchParams.set("token", TOKEN);
+                        if (!parsed.searchParams.get("back") && window.location.pathname.indexOf("/api/mobile/web/") === 0) {
+                            parsed.searchParams.set("back", window.location.pathname + window.location.search);
+                        }
+                        return parsed.toString();
+                    }
+                } catch (e) {}
+                return url;
+            }
+            document.addEventListener("DOMContentLoaded", function () {
+                Array.prototype.forEach.call(document.querySelectorAll("a[href*='/api/mobile/web/']"), function (link) {
+                    link.setAttribute("href", withMobileToken(link.getAttribute("href")));
+                });
+            });
+            function mobileBack(event, link) {
+                if (event) event.preventDefault();
+                var fallback = link && link.getAttribute("href") ? link.getAttribute("href") : "/api/mobile/web/dashboard";
+                if (link && link.dataset && link.dataset.backMode === "home") {
+                    window.location.href = withMobileToken(fallback);
+                    return false;
+                }
+                var qsBack = "";
+                try {
+                    qsBack = window.URLSearchParams ? new URLSearchParams(window.location.search).get("back") : "";
+                } catch (e) {}
+                if (qsBack) {
+                    window.location.href = withMobileToken(qsBack);
+                    return false;
+                }
+                if (window.history.length > 1 && !(link && link.dataset && link.dataset.backMode === "fallback")) {
+                    window.history.back();
+                    return false;
+                }
+                window.location.href = withMobileToken(fallback);
+                return false;
+            }
+            function submitJson(url, body) {
+                var payload = {};
+                var key;
+                body = body || {};
+                for (key in body) {
+                    if (Object.prototype.hasOwnProperty.call(body, key)) payload[key] = body[key];
+                }
+                if (TOKEN && !payload.token) payload.token = TOKEN;
+                var headers = { "Accept":"application/json", "Content-Type":"application/json" };
+                if (TOKEN) headers.Authorization = "Bearer " + TOKEN;
+                return fetch(withMobileToken(url), { method:"POST", headers: headers, body: JSON.stringify(payload), credentials:"same-origin" })
+                    .then(function (res) {
+                        return res.json().catch(function () {
+                            return { success:false, message:"Response tidak valid" };
+                        }).then(function (data) {
+                            if (!res.ok && data && data.success !== true) data.success = false;
+                            if (!res.ok && data && !data.message) data.message = "Request gagal (" + res.status + ").";
+                            return data;
+                        });
+                    })
+                    .catch(function () {
+                        return { success:false, message:"Koneksi gagal. Coba lagi." };
+                    });
+            }
+            function submitMobileForm(url, body) {
+                if (TOKEN && body && typeof body.append === "function" && !body.has("token")) body.append("token", TOKEN);
+                var headers = { "Accept":"application/json" };
+                if (TOKEN) headers.Authorization = "Bearer " + TOKEN;
+                return fetch(withMobileToken(url), { method:"POST", headers: headers, body: body, credentials:"same-origin" })
+                    .then(function (res) {
+                        return res.json().catch(function () {
+                            return { success:false, message:"Response tidak valid" };
+                        }).then(function (data) {
+                            if (!res.ok && data && data.success !== true) data.success = false;
+                            if (!res.ok && data && !data.message) data.message = "Request gagal (" + res.status + ").";
+                            return data;
+                        });
+                    })
+                    .catch(function () {
+                        return { success:false, message:"Koneksi gagal. Coba lagi." };
+                    });
+            }
+            function mobileToast(message, type) {
+                var toast = document.getElementById("mobileToast");
+                if (!toast) {
+                    toast = document.createElement("div");
+                    toast.id = "mobileToast";
+                    toast.style.cssText = "position:fixed;left:18px;right:18px;bottom:92px;z-index:9999;padding:13px 16px;border-radius:16px;background:#111827;color:#fff;font-weight:800;text-align:center;box-shadow:0 18px 40px rgba(15,23,42,.24);";
+                    document.body.appendChild(toast);
+                }
+                toast.textContent = message || "Proses selesai.";
+                toast.style.background = type === "error" ? "#dc2626" : "#111827";
+                toast.style.display = "block";
+                clearTimeout(window.__mobileToastTimer);
+                window.__mobileToastTimer = setTimeout(function () { toast.style.display = "none"; }, 2200);
+            }
+            function setActionLoading(button, loading, text) {
+                if (!button) return;
+                if (!button.dataset.label) button.dataset.label = button.textContent;
+                button.disabled = !!loading;
+                button.textContent = loading ? text : button.dataset.label;
+            }
+            function approvePbDetail(id, button) {
+                var noteEl = document.getElementById("pbApprovalNote");
+                setActionLoading(button, true, "Memproses...");
+                submitJson("/api/mobile/pb/" + id + "/approve", { notes: noteEl ? noteEl.value.replace(/^\s+|\s+$/g, "") : "" }).then(function (result) {
+                    mobileToast(result.message || (result.success ? "PB berhasil diapprove." : "Gagal approve PB."), result.success ? "success" : "error");
+                    if (result.success) setTimeout(function () { window.location.reload(); }, 650);
+                    else setActionLoading(button, false);
+                });
+            }
+            function rejectPbDetail(id, button) {
+                var panel = document.getElementById("pbRejectPanel");
+                if (panel && panel.hidden) {
+                    panel.hidden = false;
+                    var input = document.getElementById("pbRejectReason");
+                    setTimeout(function () { if (input) input.focus(); }, 50);
+                    mobileToast("Isi catatan reject lalu tekan Reject PB lagi.", "error");
+                    return;
+                }
+                var reasonEl = document.getElementById("pbRejectReason");
+                var reason = reasonEl ? reasonEl.value.replace(/^\s+|\s+$/g, "") : "";
+                if (!reason) { mobileToast("Catatan reject PB wajib diisi.", "error"); return; }
+                setActionLoading(button, true, "Memproses...");
+                submitJson("/api/mobile/pb/" + id + "/reject", { alasan: reason }).then(function (result) {
+                    mobileToast(result.message || (result.success ? "PB berhasil direject." : "Gagal reject PB."), result.success ? "success" : "error");
+                    if (result.success) setTimeout(function () { window.location.reload(); }, 650);
+                    else setActionLoading(button, false);
+                });
+            }
+            function approveWoDetail(id, button) {
+                var pelaksanaEl = document.getElementById("woPelaksana");
+                var notesEl = document.getElementById("woDelegationNotes");
+                var pelaksana = pelaksanaEl ? pelaksanaEl.value : "";
+                var notes = notesEl ? notesEl.value.replace(/^\s+|\s+$/g, "") : "";
+                if (!pelaksana) { mobileToast("Pilih pelaksana terlebih dahulu.", "error"); return; }
+                setActionLoading(button, true, "Memproses...");
+                submitJson("/api/mobile/wo/" + id + "/approve", { pelaksana: pelaksana, delegation_notes: notes }).then(function (result) {
+                    mobileToast(result.message || (result.success ? "WO berhasil diapprove dan di-assign." : "Gagal approve WO."), result.success ? "success" : "error");
+                    if (result.success) setTimeout(function () { window.location.reload(); }, 650);
+                    else setActionLoading(button, false);
+                });
+            }
+            function rejectWoDetail(id, button) {
+                var panel = document.getElementById("woRejectPanel");
+                if (panel && panel.hidden) {
+                    panel.hidden = false;
+                    var input = document.getElementById("woRejectReason");
+                    setTimeout(function () { if (input) input.focus(); }, 50);
+                    mobileToast("Isi catatan reject lalu tekan Reject WO lagi.", "error");
+                    return;
+                }
+                var reasonEl = document.getElementById("woRejectReason");
+                var reason = reasonEl ? reasonEl.value.replace(/^\s+|\s+$/g, "") : "";
+                if (!reason) { mobileToast("Catatan reject WO wajib diisi.", "error"); return; }
+                setActionLoading(button, true, "Memproses...");
+                submitJson("/api/mobile/wo/" + id + "/reject", { rejection_notes: reason }).then(function (result) {
+                    mobileToast(result.message || (result.success ? "WO berhasil direject." : "Gagal reject WO."), result.success ? "success" : "error");
+                    if (result.success) setTimeout(function () { window.location.reload(); }, 650);
+                    else setActionLoading(button, false);
+                });
+            }
+            function startSectionWoProgress(id, button) {
+                setActionLoading(button, true, "Memproses...");
+                submitJson("/api/mobile/section/work-orders/" + id + "/progress", {}).then(function (result) {
+                    mobileToast(result.message || (result.success ? "WO masuk In Progress." : "Gagal mulai progress."), result.success ? "success" : "error");
+                    if (result.success) setTimeout(function () { window.location.reload(); }, 650);
+                    else setActionLoading(button, false);
+                });
+            }
+            function uploadSectionWoPhotos(id, button) {
+                var input = document.getElementById("sectionWoPhotos");
+                var notes = document.getElementById("sectionWoNotes");
+                var files = input && input.files ? input.files : [];
+                if (!files.length) {
+                    mobileToast("Pilih minimal 1 foto hasil pekerjaan.", "error");
+                    return;
+                }
+                var form = new FormData();
+                for (var i = 0; i < files.length; i++) {
+                    form.append("photos[]", files[i]);
+                }
+                form.append("notes", notes ? notes.value.replace(/^\s+|\s+$/g, "") : "");
+                setActionLoading(button, true, "Upload...");
+                submitMobileForm("/api/mobile/section/work-orders/" + id + "/photos", form).then(function (result) {
+                    mobileToast(result.message || (result.success ? "Foto berhasil diupload." : "Gagal upload foto."), result.success ? "success" : "error");
+                    if (result.success) setTimeout(function () { window.location.reload(); }, 750);
+                    else setActionLoading(button, false);
+                });
+            }
+            function doneSectionWo(id, button) {
+                var notes = document.getElementById("sectionWoNotes");
+                var value = notes ? notes.value.replace(/^\s+|\s+$/g, "") : "";
+                if (!value) {
+                    mobileToast("Catatan hasil pekerjaan wajib diisi sebelum Done.", "error");
+                    if (notes) notes.focus();
+                    return;
+                }
+                setActionLoading(button, true, "Memproses...");
+                submitJson("/api/mobile/section/work-orders/" + id + "/done", { notes: value }).then(function (result) {
+                    mobileToast(result.message || (result.success ? "WO selesai." : "Gagal menyelesaikan WO."), result.success ? "success" : "error");
+                    if (result.success) setTimeout(function () { window.location.href = withMobileToken("/api/mobile/web/section/done-today"); }, 750);
+                    else setActionLoading(button, false);
+                });
+            }
+            function filterCards(value) {
+                var needle = (value || "").toLowerCase();
+                var fromInput = document.querySelector("[data-date-filter=from]");
+                var toInput = document.querySelector("[data-date-filter=to]");
+                var from = fromInput ? fromInput.value : "";
+                var to = toInput ? toInput.value : "";
+                Array.prototype.forEach.call(document.querySelectorAll("[data-text]"), function (card) {
+                    var date = card.dataset.date || "";
+                    var matchText = card.dataset.text.indexOf(needle) >= 0;
+                    var matchFrom = !from || !date || date >= from;
+                    var matchTo = !to || !date || date <= to;
+                    card.style.display = matchText && matchFrom && matchTo ? "" : "none";
+                });
+            }
+JS;
     }
 
     private function mobileWebChrome(string $title): string
@@ -4849,12 +5735,14 @@ class MobileApprovalController extends Controller
             'Buat PB' => url('/api/mobile/web/engineering/pb'),
             'Buat WO' => url('/api/mobile/web/engineering/wo'),
             'Detail PB', 'Detail WO' => url('/api/mobile/web/history'),
+            'History' => url('/api/mobile/web/dashboard'),
             'Stock Sparepart' => url('/api/mobile/web/history'),
             default => url('/api/mobile/web/dashboard'),
         };
+        $backMode = $title === 'History' ? 'home' : 'history';
 
         return '<section class="mobile-page-head">
-            <a class="back-link" href="' . e($backUrl) . '"><span aria-hidden="true">&lsaquo;</span>Kembali</a>
+            <a class="back-link" href="' . e($backUrl) . '" data-back-mode="' . e($backMode) . '" onclick="return mobileBack(event, this)"><span aria-hidden="true">&lsaquo;</span>Kembali</a>
             <div>
                 <h1>' . e($displayTitle) . '</h1>
                 ' . ($subtitle !== '' ? '<p>' . e($subtitle) . '</p>' : '') . '
@@ -4884,7 +5772,7 @@ class MobileApprovalController extends Controller
     private function mobileStatusLabel(?string $status): string
     {
         return match (strtolower((string) $status)) {
-            'closed', 'completed', 'fulfilled' => 'Done',
+            'closed', 'completed' => 'Done',
             'progress', 'in_progress' => 'In Progress',
             'approved' => 'Approved',
             'verified' => 'Terverifikasi',
@@ -4894,17 +5782,6 @@ class MobileApprovalController extends Controller
             'open' => 'Open',
             default => ucfirst((string) ($status ?: '-')),
         };
-    }
-
-    private function mobileStatusLabelForType(?string $status, string $type): string
-    {
-        $normalized = strtolower((string) $status);
-
-        if (strtoupper($type) === 'PB' && in_array($normalized, ['progress', 'in_progress'], true)) {
-            return 'Fulfillment';
-        }
-
-        return $this->mobileStatusLabel($status);
     }
 
     private function mobileDateTime($value): string
@@ -4928,6 +5805,23 @@ class MobileApprovalController extends Controller
     private function mobileRupiah($value): string
     {
         return 'Rp ' . number_format((float) $value, 0, ',', '.');
+    }
+
+    private function mobileTokenUrl(string $url, array $params = []): string
+    {
+        $token = request()->bearerToken()
+            ?: (string) request()->query('token', '')
+            ?: (string) request()->input('token', '');
+
+        if ($token !== '') {
+            $params['token'] = $token;
+        }
+
+        if (!$params) {
+            return $url;
+        }
+
+        return $url . (str_contains($url, '?') ? '&' : '?') . http_build_query($params);
     }
 
     private function mobileQty($value): string
