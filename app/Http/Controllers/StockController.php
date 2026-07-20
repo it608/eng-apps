@@ -721,6 +721,8 @@ return $sql;
                 'end_date' => 'required|date|after_or_equal:start_date',
                 'material_type' => 'nullable|in:all,sparepart,non_sparepart',
                 'cost_center' => 'nullable|string|max:150',
+                'min_total' => 'nullable|numeric|min:0',
+                'max_total' => 'nullable|numeric|min:0',
                 'search' => 'nullable|string|max:120',
                 'page' => 'nullable|integer|min:1',
                 'per_page' => 'nullable|integer|min:10|max:100',
@@ -740,6 +742,18 @@ return $sql;
             $materialType = $request->input('material_type', 'all');
             $search = trim((string) $request->input('search', ''));
             $costCenter = trim((string) $request->input('cost_center', ''));
+            $minTotal = $request->filled('min_total') ? (float) $request->input('min_total') : null;
+            $maxTotal = $request->filled('max_total') ? (float) $request->input('max_total') : null;
+
+            if ($minTotal !== null && $maxTotal !== null && $maxTotal < $minTotal) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Total nilai akhir tidak boleh lebih kecil dari total nilai awal.',
+                    'errors' => [
+                        'max_total' => ['Total nilai akhir tidak boleh lebih kecil dari total nilai awal.'],
+                    ],
+                ], 422);
+            }
 
             $scopeSql = match ($materialType) {
                 'sparepart' => $this->stockMaterialSql('e', false),
@@ -791,26 +805,67 @@ return $sql;
                 array_push($params, $costCenterKeyword, $costCenterKeyword, $costCenterKeyword, $costCenterKeyword);
             }
 
+            $totalValueHaving = [];
+            $totalValueParams = [];
+
+            if ($minTotal !== null) {
+                $totalValueHaving[] = 'SUM(COALESCE(nilai, 0)) >= ?';
+                $totalValueParams[] = $minTotal;
+            }
+
+            if ($maxTotal !== null) {
+                $totalValueHaving[] = 'SUM(COALESCE(nilai, 0)) <= ?';
+                $totalValueParams[] = $maxTotal;
+            }
+
+            $totalValueHavingSql = $totalValueHaving
+                ? 'HAVING ' . implode(' AND ', $totalValueHaving)
+                : '';
+
             $summarySql = "
+                WITH filtered AS (
+                    SELECT
+                        b.mblnr AS nomor_gi,
+                        COALESCE(d.menge, 0) AS quantity,
+                        COALESCE(d.wrbtr, 0) AS nilai,
+                        COALESCE(
+                            NULLIF(TRIM(cc.name_costctr), ''),
+                            NULLIF(TRIM(cc.desc_costctr), ''),
+                            NULLIF(TRIM(cc.code_costctr), ''),
+                            CAST(COALESCE(NULLIF(d.kostl, 0), NULLIF(b.kostl, 0)) AS TEXT)
+                        ) AS cost_center_key
+                    FROM tb_skb008_1mmseg b
+                    JOIN tb_skb008_2dmseg d ON d.idmse = b.idmse
+                    JOIN tb_skb080_1mmara e ON e.id_items = d.matnr
+                    LEFT JOIN tb_skb051_1mcostctr cc
+                        ON cc.id_costctr = COALESCE(NULLIF(d.kostl, 0), NULLIF(b.kostl, 0))
+                    WHERE {$whereSql}
+                ),
+                gi_docs AS (
+                    SELECT
+                        nomor_gi,
+                        COUNT(*) AS item_count,
+                        SUM(COALESCE(quantity, 0)) AS total_qty,
+                        SUM(COALESCE(nilai, 0)) AS total_nilai
+                    FROM filtered
+                    GROUP BY nomor_gi
+                    {$totalValueHavingSql}
+                ),
+                doc_cost_centers AS (
+                    SELECT DISTINCT f.cost_center_key
+                    FROM filtered f
+                    JOIN gi_docs gd ON gd.nomor_gi = f.nomor_gi
+                    WHERE COALESCE(f.cost_center_key, '') <> ''
+                )
                 SELECT
-                    COUNT(DISTINCT b.mblnr) AS total_gi,
-                    COUNT(*) AS total_item,
-                    COALESCE(SUM(COALESCE(d.menge, 0)), 0) AS total_qty,
-                    COALESCE(SUM(COALESCE(d.wrbtr, 0)), 0) AS total_nilai,
-                    COUNT(DISTINCT COALESCE(
-                        NULLIF(TRIM(cc.name_costctr), ''),
-                        NULLIF(TRIM(cc.desc_costctr), ''),
-                        NULLIF(TRIM(cc.code_costctr), ''),
-                        CAST(COALESCE(NULLIF(d.kostl, 0), NULLIF(b.kostl, 0)) AS TEXT)
-                    )) AS total_cost_center
-                FROM tb_skb008_1mmseg b
-                JOIN tb_skb008_2dmseg d ON d.idmse = b.idmse
-                JOIN tb_skb080_1mmara e ON e.id_items = d.matnr
-                LEFT JOIN tb_skb051_1mcostctr cc
-                    ON cc.id_costctr = COALESCE(NULLIF(d.kostl, 0), NULLIF(b.kostl, 0))
-                WHERE {$whereSql}
+                    COUNT(*) AS total_gi,
+                    COALESCE(SUM(item_count), 0) AS total_item,
+                    COALESCE(SUM(total_qty), 0) AS total_qty,
+                    COALESCE(SUM(total_nilai), 0) AS total_nilai,
+                    (SELECT COUNT(*) FROM doc_cost_centers) AS total_cost_center
+                FROM gi_docs
             ";
-            $summary = DB::connection('pgsql2')->selectOne($summarySql, $params);
+            $summary = DB::connection('pgsql2')->selectOne($summarySql, array_merge($params, $totalValueParams));
 
             $countSql = "
                 SELECT COUNT(*) AS total
@@ -823,9 +878,13 @@ return $sql;
                         ON cc.id_costctr = COALESCE(NULLIF(d.kostl, 0), NULLIF(b.kostl, 0))
                     WHERE {$whereSql}
                     GROUP BY b.mblnr
+                    " . ($totalValueHaving ? 'HAVING ' . implode(' AND ', array_map(
+                        fn ($condition) => str_replace('nilai', 'd.wrbtr', $condition),
+                        $totalValueHaving
+                    )) : '') . "
                 ) docs
             ";
-            $total = (int) (DB::connection('pgsql2')->selectOne($countSql, $params)->total ?? 0);
+            $total = (int) (DB::connection('pgsql2')->selectOne($countSql, array_merge($params, $totalValueParams))->total ?? 0);
 
             $dataSql = "
                 WITH filtered AS (
@@ -880,6 +939,7 @@ return $sql;
                         STRING_AGG(DISTINCT NULLIF(cost_centre, ''), ', ') AS cost_centre
                     FROM filtered
                     GROUP BY nomor_gi
+                    {$totalValueHavingSql}
                     ORDER BY MAX(tanggal) DESC, MAX(gi_id) DESC
                     LIMIT {$perPage} OFFSET {$offset}
                 )
@@ -908,7 +968,7 @@ return $sql;
                 ORDER BY gd.tanggal DESC, gd.latest_id DESC, f.kode_material ASC
             ";
 
-            $items = DB::connection('pgsql2')->select($dataSql, $params);
+            $items = DB::connection('pgsql2')->select($dataSql, array_merge($params, $totalValueParams));
             $grouped = [];
 
             foreach ($items as $item) {

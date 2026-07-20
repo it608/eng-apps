@@ -46,7 +46,7 @@
 
     <div class="bg-white rounded-xl shadow-sm border p-6">
         <div class="flex flex-col lg:flex-row lg:items-end gap-3 mb-5">
-            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-3 flex-1">
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-8 gap-3 flex-1">
                 <div>
                     <label class="block text-xs font-semibold text-gray-500 uppercase mb-1">Dari Tanggal</label>
                     <input id="giStartDate" type="date" value="{{ $defaultStart }}" class="w-full border rounded-lg px-3 py-2 text-sm">
@@ -71,6 +71,14 @@
                             <option value="{{ $costCenter['value'] }}">{{ $costCenter['label'] }}</option>
                         @endforeach
                     </select>
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-gray-500 uppercase mb-1">Total Nilai Dari</label>
+                    <input id="giMinTotal" type="number" min="0" step="1" class="w-full border rounded-lg px-3 py-2 text-sm" placeholder="0">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-gray-500 uppercase mb-1">Total Nilai Sampai</label>
+                    <input id="giMaxTotal" type="number" min="0" step="1" class="w-full border rounded-lg px-3 py-2 text-sm" placeholder="Contoh: 1000000">
                 </div>
                 <div class="lg:col-span-2">
                     <label class="block text-xs font-semibold text-gray-500 uppercase mb-1">Cari</label>
@@ -226,6 +234,21 @@ function renderPagination(pagination = {}) {
 
 async function loadGoodIssue(page = 1) {
     const body = document.getElementById('goodIssueBody');
+    const minTotalInput = document.getElementById('giMinTotal');
+    const maxTotalInput = document.getElementById('giMaxTotal');
+    const minTotal = minTotalInput.value !== '' ? Number(minTotalInput.value) : null;
+    const maxTotal = maxTotalInput.value !== '' ? Number(maxTotalInput.value) : null;
+
+    if ((minTotal !== null && minTotal < 0) || (maxTotal !== null && maxTotal < 0)) {
+        body.innerHTML = '<tr><td colspan="7" class="px-4 py-10 text-center text-red-600">Range total nilai tidak boleh minus.</td></tr>';
+        return;
+    }
+
+    if (minTotal !== null && maxTotal !== null && maxTotal < minTotal) {
+        body.innerHTML = '<tr><td colspan="7" class="px-4 py-10 text-center text-red-600">Total nilai sampai tidak boleh lebih kecil dari total nilai dari.</td></tr>';
+        return;
+    }
+
     body.innerHTML = '<tr><td colspan="7" class="px-4 py-10 text-center text-gray-500">Memuat data...</td></tr>';
 
     const params = new URLSearchParams({
@@ -233,6 +256,8 @@ async function loadGoodIssue(page = 1) {
         end_date: document.getElementById('giEndDate').value,
         material_type: document.getElementById('giMaterialType').value,
         cost_center: document.getElementById('giCostCenter').value.trim(),
+        min_total: minTotalInput.value.trim(),
+        max_total: maxTotalInput.value.trim(),
         search: document.getElementById('giSearch').value.trim(),
         per_page: document.getElementById('giPerPage').value,
         page: page,
@@ -261,6 +286,8 @@ function resetGoodIssueFilters() {
     document.getElementById('giEndDate').value = '{{ $defaultEnd }}';
     document.getElementById('giMaterialType').value = 'all';
     document.getElementById('giCostCenter').value = '';
+    document.getElementById('giMinTotal').value = '';
+    document.getElementById('giMaxTotal').value = '';
     document.getElementById('giSearch').value = '';
     document.getElementById('giPerPage').value = '20';
     loadGoodIssue(1);
@@ -270,7 +297,7 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('goodIssuePrev').addEventListener('click', () => loadGoodIssue(goodIssuePage - 1));
     document.getElementById('goodIssueNext').addEventListener('click', () => loadGoodIssue(goodIssuePage + 1));
 
-    ['giSearch', 'giCostCenter'].forEach(id => {
+    ['giSearch', 'giCostCenter', 'giMinTotal', 'giMaxTotal'].forEach(id => {
         document.getElementById(id).addEventListener('keydown', event => {
             if (event.key === 'Enter') {
                 loadGoodIssue(1);
