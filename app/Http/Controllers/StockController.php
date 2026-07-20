@@ -49,7 +49,50 @@ class StockController extends Controller
 
     public function goodIssueIndex()
     {
-        return view('user.good-issue');
+        return view('user.good-issue', [
+            'costCenters' => $this->engineeringCostCenters(),
+        ]);
+    }
+
+    private function engineeringCostCenters(): array
+    {
+        try {
+            return Cache::remember('engineering_gi_cost_centers', 600, function () {
+                return collect(DB::connection('pgsql2')->select("
+                    SELECT
+                        id_costctr,
+                        TRIM(code_costctr) AS code_costctr,
+                        COALESCE(
+                            NULLIF(TRIM(name_costctr), ''),
+                            NULLIF(TRIM(desc_costctr), ''),
+                            NULLIF(TRIM(code_costctr), ''),
+                            CAST(id_costctr AS TEXT)
+                        ) AS name_costctr
+                    FROM tb_skb051_1mcostctr
+                    WHERE UPPER(COALESCE(name_costctr, '')) LIKE '%ENGINEERING%'
+                       OR UPPER(COALESCE(desc_costctr, '')) LIKE '%ENGINEERING%'
+                       OR UPPER(COALESCE(code_costctr, '')) LIKE '%ENGINEERING%'
+                    ORDER BY name_costctr, code_costctr, id_costctr
+                "))
+                    ->map(function ($row) {
+                        $name = $this->cleanUtf8($row->name_costctr ?? '');
+                        $code = $this->cleanUtf8($row->code_costctr ?? '');
+
+                        return [
+                            'value' => $name !== '' ? $name : $code,
+                            'label' => $name !== '' && $code !== '' ? "{$name} - {$code}" : ($name ?: $code),
+                        ];
+                    })
+                    ->filter(fn ($row) => ($row['value'] ?? '') !== '')
+                    ->unique('value')
+                    ->values()
+                    ->all();
+            });
+        } catch (\Exception $e) {
+            Log::warning('Good Issue cost center dropdown error: ' . $e->getMessage());
+
+            return [];
+        }
     }
 
     /**

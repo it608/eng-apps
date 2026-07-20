@@ -65,7 +65,12 @@
                 </div>
                 <div>
                     <label class="block text-xs font-semibold text-gray-500 uppercase mb-1">Nama Cost Center</label>
-                    <input id="giCostCenter" type="text" class="w-full border rounded-lg px-3 py-2 text-sm" placeholder="Contoh: maintenance">
+                    <select id="giCostCenter" class="w-full border rounded-lg px-3 py-2 text-sm bg-white">
+                        <option value="">Semua Cost Center</option>
+                        @foreach(($costCenters ?? []) as $costCenter)
+                            <option value="{{ $costCenter['value'] }}">{{ $costCenter['label'] }}</option>
+                        @endforeach
+                    </select>
                 </div>
                 <div class="lg:col-span-2">
                     <label class="block text-xs font-semibold text-gray-500 uppercase mb-1">Cari</label>
