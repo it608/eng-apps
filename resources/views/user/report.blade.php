@@ -545,29 +545,7 @@
                     </div>
 
                     <div class="overflow-x-auto">
-                        <svg class="cost-chart-svg min-w-[760px]" viewBox="0 0 920 330" role="img" aria-label="Line chart nilai GI cost center Engineering">
-                            <template x-for="tick in chartTicks()" :key="`tick-${tick.index}`">
-                                <g>
-                                    <line x1="72" x2="890" :y1="tick.y" :y2="tick.y" stroke="#e5e7eb" stroke-width="1"></line>
-                                    <text x="62" :y="tick.y + 4" text-anchor="end" class="fill-gray-500 text-[11px]" x-text="formatCurrencyShort(tick.value)"></text>
-                                </g>
-                            </template>
-
-                            <template x-for="serie in costCenter.series" :key="`line-${serie.key}`">
-                                <g>
-                                    <polyline fill="none" :stroke="serie.color" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" :points="chartPoints(serie)"></polyline>
-                                    <template x-for="point in chartPointList(serie)" :key="`${serie.key}-${point.index}`">
-                                        <circle :cx="point.x" :cy="point.y" r="4" fill="white" :stroke="serie.color" stroke-width="2">
-                                            <title x-text="`${serie.label} ${costCenter.labels[point.index]}: ${formatCurrency(point.value)}`"></title>
-                                        </circle>
-                                    </template>
-                                </g>
-                            </template>
-
-                            <template x-for="(label, index) in costCenter.labels" :key="`month-${label}`">
-                                <text :x="chartX(index)" y="304" text-anchor="middle" class="fill-gray-500 text-[11px]" x-text="label"></text>
-                            </template>
-                        </svg>
+                        <div class="min-w-[760px]" x-html="chartSvg()"></div>
                     </div>
                 </div>
 
@@ -932,6 +910,65 @@ function reportCenter() {
                     y: 50 + (index * 55)
                 };
             });
+        },
+
+        chartSvg() {
+            const labels = this.costCenter.labels || [];
+            const series = this.costCenter.series || [];
+
+            if (!labels.length || !series.length) {
+                return `
+                    <div class="flex h-[320px] items-center justify-center rounded-lg border border-dashed border-gray-200 text-sm text-gray-500">
+                        Belum ada data cost center untuk periode ini.
+                    </div>
+                `;
+            }
+
+            const ticks = this.chartTicks().map(tick => `
+                <g>
+                    <line x1="72" x2="890" y1="${tick.y}" y2="${tick.y}" stroke="#e5e7eb" stroke-width="1"></line>
+                    <text x="62" y="${tick.y + 4}" text-anchor="end" fill="#6b7280" font-size="11">${this.escapeSvg(this.formatCurrencyShort(tick.value))}</text>
+                </g>
+            `).join('');
+
+            const lines = series.map(serie => {
+                const points = this.chartPoints(serie);
+                const circles = this.chartPointList(serie).map(point => `
+                    <circle cx="${point.x}" cy="${point.y}" r="4" fill="#ffffff" stroke="${serie.color}" stroke-width="2">
+                        <title>${this.escapeSvg(`${serie.label} ${labels[point.index]}: ${this.formatCurrency(point.value)}`)}</title>
+                    </circle>
+                `).join('');
+
+                return `
+                    <g>
+                        <polyline fill="none" stroke="${serie.color}" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" points="${points}"></polyline>
+                        ${circles}
+                    </g>
+                `;
+            }).join('');
+
+            const monthLabels = labels.map((label, index) => `
+                <text x="${this.chartX(index)}" y="304" text-anchor="middle" fill="#6b7280" font-size="11">${this.escapeSvg(label)}</text>
+            `).join('');
+
+            return `
+                <svg class="cost-chart-svg" viewBox="0 0 920 330" role="img" aria-label="Line chart nilai GI cost center Engineering">
+                    ${ticks}
+                    <line x1="72" x2="890" y1="270" y2="270" stroke="#cbd5e1" stroke-width="1.2"></line>
+                    <line x1="72" x2="72" y1="50" y2="270" stroke="#cbd5e1" stroke-width="1.2"></line>
+                    ${lines}
+                    ${monthLabels}
+                </svg>
+            `;
+        },
+
+        escapeSvg(value) {
+            return String(value ?? '')
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#039;');
         },
 
         statusClass(status) {
