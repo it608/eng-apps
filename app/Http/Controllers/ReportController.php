@@ -260,13 +260,20 @@ class ReportController extends Controller
     {
         [$start, $end] = $this->costCenterPeriod($request);
         $definitions = $this->costCenterDefinitions();
-        $months = $this->monthBuckets($start, $end);
+        $grouping = $this->costCenterGrouping($request, $start, $end);
+        $buckets = $this->costCenterBuckets($start, $end, $grouping);
+        $dateExpression = $grouping === 'daily'
+            ? 'b.budat::date'
+            : "DATE_TRUNC('month', b.budat)::date";
+        $keyExpression = $grouping === 'daily'
+            ? "TO_CHAR(bucket_date, 'YYYY-MM-DD')"
+            : "TO_CHAR(bucket_date, 'YYYY-MM')";
         $params = [$start->toDateString(), $end->toDateString()];
 
         $rows = DB::connection('pgsql2')->select("
             WITH filtered AS (
                 SELECT
-                    DATE_TRUNC('month', b.budat)::date AS month_date,
+                    {$dateExpression} AS bucket_date,
                     b.mblnr AS nomor_gi,
                     COALESCE(d.menge, 0) AS quantity,
                     COALESCE(d.wrbtr, 0) AS nilai,
@@ -280,7 +287,7 @@ class ReportController extends Controller
                   AND COALESCE(d.saknr, 0) <> 7755
             )
             SELECT
-                TO_CHAR(month_date, 'YYYY-MM') AS month_key,
+                {$keyExpression} AS period_key,
                 CASE
                     WHEN cost_center_name LIKE '%CIVIL%' THEN 'civil'
                     WHEN cost_center_name LIKE '%MAINTENANCE%' OR cost_center_name LIKE '%MAINT%' THEN 'maintenance'
@@ -296,8 +303,8 @@ class ReportController extends Controller
                OR cost_center_name LIKE '%MAINTENANCE%'
                OR cost_center_name LIKE '%MAINT%'
                OR cost_center_name LIKE '%REPAIR%'
-            GROUP BY month_key, cost_center_key
-            ORDER BY month_key, cost_center_key
+            GROUP BY period_key, cost_center_key
+            ORDER BY period_key, cost_center_key
         ", $params);
 
         $series = [];
@@ -307,7 +314,7 @@ class ReportController extends Controller
                 'key' => $key,
                 'label' => $definition['label'],
                 'color' => $definition['color'],
-                'values' => array_fill(0, count($months), 0),
+                'values' => array_fill(0, count($buckets), 0),
                 'documents' => 0,
                 'items' => 0,
                 'quantity' => 0,
@@ -315,16 +322,16 @@ class ReportController extends Controller
             ];
         }
 
-        $monthIndex = array_flip(array_column($months, 'key'));
+        $bucketIndex = array_flip(array_column($buckets, 'key'));
 
         foreach ($rows as $row) {
             $key = (string) $row->cost_center_key;
 
-            if (!isset($series[$key]) || !isset($monthIndex[$row->month_key])) {
+            if (!isset($series[$key]) || !isset($bucketIndex[$row->period_key])) {
                 continue;
             }
 
-            $index = $monthIndex[$row->month_key];
+            $index = $bucketIndex[$row->period_key];
             $value = (float) ($row->total_value ?? 0);
             $series[$key]['values'][$index] = $value;
             $series[$key]['documents'] += (int) ($row->documents ?? 0);
@@ -344,7 +351,9 @@ class ReportController extends Controller
                     'start' => $start->format('d/m/Y'),
                     'end' => $end->format('d/m/Y'),
                 ],
-                'labels' => array_column($months, 'label'),
+                'grouping' => $grouping,
+                'grouping_label' => $grouping === 'daily' ? 'Harian' : 'Bulanan',
+                'labels' => array_column($buckets, 'label'),
                 'series' => array_values($series),
                 'max_value' => $maxValue,
                 'totals' => [
@@ -356,6 +365,7 @@ class ReportController extends Controller
             ],
             'meta' => [
                 'mode' => 'costcenter',
+                'grouping' => $grouping,
                 'source' => 'ERP Good Issue read-only',
             ],
         ];
@@ -519,6 +529,42 @@ class ReportController extends Controller
         }
 
         return [$start, $end];
+    }
+
+    private function costCenterGrouping(Request $request, Carbon $start, Carbon $end): string
+    {
+        $requested = strtolower((string) $request->get('cost_grouping', 'auto'));
+
+        if (in_array($requested, ['daily', 'monthly'], true)) {
+            return $requested;
+        }
+
+        return $start->diffInDays($end) <= 45 ? 'daily' : 'monthly';
+    }
+
+    private function costCenterBuckets(Carbon $start, Carbon $end, string $grouping): array
+    {
+        return $grouping === 'daily'
+            ? $this->dayBuckets($start, $end)
+            : $this->monthBuckets($start, $end);
+    }
+
+    private function dayBuckets(Carbon $start, Carbon $end): array
+    {
+        $days = [];
+        $cursor = $start->copy()->startOfDay();
+        $last = $end->copy()->startOfDay();
+
+        while ($cursor->lte($last)) {
+            $days[] = [
+                'key' => $cursor->format('Y-m-d'),
+                'label' => $cursor->format('d M'),
+            ];
+
+            $cursor->addDay();
+        }
+
+        return $days;
     }
 
     private function monthBuckets(Carbon $start, Carbon $end): array

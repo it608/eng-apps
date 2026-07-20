@@ -289,6 +289,21 @@
                         </select>
                     </div>
                 </div>
+
+                <div x-show="activeTab === 'costcenter'" class="grid grid-cols-1 md:grid-cols-3 gap-3 mt-4">
+                    <div>
+                        <label class="block text-xs font-medium text-gray-500 mb-1">Mode Trend</label>
+                        <select
+                            x-model="filters.cost_grouping"
+                            @change="loadData()"
+                            class="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                            <option value="auto">Auto</option>
+                            <option value="daily">Harian</option>
+                            <option value="monthly">Bulanan</option>
+                        </select>
+                        <p class="mt-1 text-xs text-gray-500">Auto memakai harian untuk range pendek, bulanan untuk range panjang.</p>
+                    </div>
+                </div>
             </div>
 
             <div class="mb-4 px-3 py-2 border border-gray-200 bg-gray-50 rounded-lg flex items-center justify-between text-xs text-gray-500">
@@ -531,7 +546,7 @@
                         <div>
                             <h3 class="text-base font-semibold text-gray-900">Trend Nilai GI per Cost Center Engineering</h3>
                             <p class="mt-1 text-sm text-gray-500">
-                                Perbandingan bulanan Civil, Maintenance, dan Repair berdasarkan transaksi Good Issue ERP.
+                                Perbandingan <span x-text="(costCenter.grouping_label || 'Bulanan').toLowerCase()"></span> Civil, Maintenance, dan Repair berdasarkan transaksi Good Issue ERP.
                             </p>
                         </div>
                         <div class="flex flex-wrap gap-3 text-xs">
@@ -620,6 +635,8 @@ function reportCenter() {
         },
         costCenter: {
             period: { start: '-', end: '-' },
+            grouping: 'monthly',
+            grouping_label: 'Bulanan',
             labels: [],
             series: [],
             max_value: 1,
@@ -655,6 +672,7 @@ function reportCenter() {
             status: 'all',
             jenis_pekerjaan: 'all',
             untuk: 'all',
+            cost_grouping: 'auto',
             per_page: '20',
             page: 1
         },
@@ -725,7 +743,8 @@ function reportCenter() {
                     date_from: this.filters.date_from,
                     date_to: this.filters.date_to,
                     jenis_pekerjaan: this.filters.jenis_pekerjaan,
-                    untuk: this.filters.untuk
+                    untuk: this.filters.untuk,
+                    cost_grouping: this.filters.cost_grouping
                 });
 
                 const response = await fetch(`/report/data?${params.toString()}`, {
@@ -773,7 +792,8 @@ function reportCenter() {
                 date_from: this.filters.date_from,
                 date_to: this.filters.date_to,
                 jenis_pekerjaan: this.filters.jenis_pekerjaan,
-                untuk: this.filters.untuk
+                untuk: this.filters.untuk,
+                cost_grouping: this.filters.cost_grouping
             });
 
             window.location.href = `/report/export?${params.toString()}`;
@@ -787,6 +807,7 @@ function reportCenter() {
                 status: 'all',
                 jenis_pekerjaan: 'all',
                 untuk: 'all',
+                cost_grouping: 'auto',
                 per_page: '20',
                 page: 1
             };
