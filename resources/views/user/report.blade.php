@@ -1,6 +1,6 @@
 @extends('layouts.admin')
 
-@section('title', 'Reports & Analytics - e-Request')
+@section('title', 'Reports & Analytics - Engineering Apps')
 
 
 
@@ -58,6 +58,15 @@
         font-size: 0.75rem;
         line-height: 1.25rem;
     }
+    .cost-chart-panel {
+        border: 1px solid #e5e7eb;
+        border-radius: 0.75rem;
+        background: #fff;
+    }
+    .cost-chart-svg {
+        width: 100%;
+        min-height: 320px;
+    }
 </style>
 @endpush
 
@@ -94,7 +103,7 @@
 
     <div class="mb-6">
             <h1 class="text-2xl font-semibold text-gray-800">Reports & Analytics</h1>
-            <p class="mt-1 text-sm text-gray-500">Rekap, audit, dan export data e-Request</p>
+            <p class="mt-1 text-sm text-gray-500">Rekap, audit, dan export data Engineering Apps</p>
         </div>
 
         {{-- Metric Row --}}
@@ -161,6 +170,14 @@
                         :class="activeTab === 'workorder' ? 'text-blue-600 border-blue-600 bg-blue-50/50' : 'text-gray-600 border-transparent hover:text-blue-600'"
                         class="report-tab-btn">
                         Work Order
+                    </button>
+
+                    <button
+                        type="button"
+                        @click="changeTab('costcenter')"
+                        :class="activeTab === 'costcenter' ? 'text-blue-600 border-blue-600 bg-blue-50/50' : 'text-gray-600 border-transparent hover:text-blue-600'"
+                        class="report-tab-btn">
+                        Cost Center
                     </button>
                 </div>
 
@@ -284,7 +301,8 @@
 
                 <div>
                     <span x-show="pagination" x-text="`${formatNumber(pagination?.total || 0)} data ditemukan`"></span>
-                    <span x-show="!pagination">Ringkasan berdasarkan filter periode aktif</span>
+                    <span x-show="activeTab === 'costcenter'">Sumber: ERP Good Issue read-only</span>
+                    <span x-show="!pagination && activeTab !== 'costcenter'">Ringkasan berdasarkan filter periode aktif</span>
                 </div>
             </div>
 
@@ -480,7 +498,109 @@
                 </table>
             </div>
 
-            <div x-show="pagination && activeTab !== 'overview'" class="px-6 py-4 border-t border-gray-200 flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+            {{-- Cost Center Analytics --}}
+            <div x-show="activeTab === 'costcenter'" class="space-y-5">
+                <div class="grid grid-cols-1 gap-4 md:grid-cols-4">
+                    <template x-for="serie in costCenter.series" :key="serie.key">
+                        <div class="rounded-xl border border-gray-200 bg-white p-4">
+                            <div class="flex items-center justify-between gap-3">
+                                <div>
+                                    <div class="text-xs font-semibold uppercase tracking-wide text-gray-500" x-text="serie.label"></div>
+                                    <div class="mt-1 font-mono text-lg font-semibold text-gray-900" x-text="formatCurrency(serie.total_value)"></div>
+                                </div>
+                                <span class="h-3 w-3 rounded-full" :style="`background:${serie.color}`"></span>
+                            </div>
+                            <div class="mt-2 text-xs text-gray-500">
+                                <span x-text="formatNumber(serie.documents)"></span> dokumen GI ·
+                                <span x-text="formatNumber(serie.items)"></span> item
+                            </div>
+                        </div>
+                    </template>
+
+                    <div class="rounded-xl border border-emerald-200 bg-emerald-50 p-4">
+                        <div class="text-xs font-semibold uppercase tracking-wide text-emerald-700">Total Engineering</div>
+                        <div class="mt-1 font-mono text-lg font-semibold text-emerald-900" x-text="formatCurrency(costCenter.totals.total_value)"></div>
+                        <div class="mt-2 text-xs text-emerald-700">
+                            <span x-text="formatNumber(costCenter.totals.documents)"></span> dokumen GI
+                        </div>
+                    </div>
+                </div>
+
+                <div class="cost-chart-panel p-5">
+                    <div class="mb-4 flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+                        <div>
+                            <h3 class="text-base font-semibold text-gray-900">Trend Nilai GI per Cost Center Engineering</h3>
+                            <p class="mt-1 text-sm text-gray-500">
+                                Perbandingan bulanan Civil, Maintenance, dan Repair berdasarkan transaksi Good Issue ERP.
+                            </p>
+                        </div>
+                        <div class="flex flex-wrap gap-3 text-xs">
+                            <template x-for="serie in costCenter.series" :key="`legend-${serie.key}`">
+                                <div class="inline-flex items-center gap-2 rounded-full border border-gray-200 px-3 py-1.5">
+                                    <span class="h-2.5 w-2.5 rounded-full" :style="`background:${serie.color}`"></span>
+                                    <span class="font-medium text-gray-700" x-text="serie.label"></span>
+                                </div>
+                            </template>
+                        </div>
+                    </div>
+
+                    <div class="overflow-x-auto">
+                        <svg class="cost-chart-svg min-w-[760px]" viewBox="0 0 920 330" role="img" aria-label="Line chart nilai GI cost center Engineering">
+                            <template x-for="tick in chartTicks()" :key="`tick-${tick.index}`">
+                                <g>
+                                    <line x1="72" x2="890" :y1="tick.y" :y2="tick.y" stroke="#e5e7eb" stroke-width="1"></line>
+                                    <text x="62" :y="tick.y + 4" text-anchor="end" class="fill-gray-500 text-[11px]" x-text="formatCurrencyShort(tick.value)"></text>
+                                </g>
+                            </template>
+
+                            <template x-for="serie in costCenter.series" :key="`line-${serie.key}`">
+                                <g>
+                                    <polyline fill="none" :stroke="serie.color" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" :points="chartPoints(serie)"></polyline>
+                                    <template x-for="point in chartPointList(serie)" :key="`${serie.key}-${point.index}`">
+                                        <circle :cx="point.x" :cy="point.y" r="4" fill="white" :stroke="serie.color" stroke-width="2">
+                                            <title x-text="`${serie.label} ${costCenter.labels[point.index]}: ${formatCurrency(point.value)}`"></title>
+                                        </circle>
+                                    </template>
+                                </g>
+                            </template>
+
+                            <template x-for="(label, index) in costCenter.labels" :key="`month-${label}`">
+                                <text :x="chartX(index)" y="304" text-anchor="middle" class="fill-gray-500 text-[11px]" x-text="label"></text>
+                            </template>
+                        </svg>
+                    </div>
+                </div>
+
+                <div class="overflow-x-auto rounded-xl border border-gray-200">
+                    <table class="w-full text-sm">
+                        <thead class="bg-gray-50 text-xs uppercase tracking-wide text-gray-600">
+                            <tr>
+                                <th class="px-4 py-3 text-left">Cost Center</th>
+                                <th class="px-4 py-3 text-right">Total Nilai</th>
+                                <th class="px-4 py-3 text-right">Dokumen GI</th>
+                                <th class="px-4 py-3 text-right">Item</th>
+                                <th class="px-4 py-3 text-right">Qty</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-gray-100">
+                            <template x-for="serie in costCenter.series" :key="`row-${serie.key}`">
+                                <tr>
+                                    <td class="px-4 py-3">
+                                        <span class="mr-2 inline-block h-2.5 w-2.5 rounded-full" :style="`background:${serie.color}`"></span>
+                                        <span class="font-semibold text-gray-900" x-text="serie.label"></span>
+                                    </td>
+                                    <td class="px-4 py-3 text-right font-mono font-semibold" x-text="formatCurrency(serie.total_value)"></td>
+                                    <td class="px-4 py-3 text-right" x-text="formatNumber(serie.documents)"></td>
+                                    <td class="px-4 py-3 text-right" x-text="formatNumber(serie.items)"></td>
+                                    <td class="px-4 py-3 text-right" x-text="formatNumber(serie.quantity)"></td>
+                                </tr>
+                            </template>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div x-show="pagination && !['overview', 'costcenter'].includes(activeTab)" class="px-6 py-4 border-t border-gray-200 flex flex-col md:flex-row md:items-center md:justify-between gap-3">
                 <div class="text-sm text-gray-500">
                     Halaman <span x-text="pagination?.current_page || 1"></span> dari <span x-text="pagination?.last_page || 1"></span>
                 </div>
@@ -519,6 +639,18 @@ function reportCenter() {
             wo_status: [],
             pb_jenis: [],
             pb_untuk: []
+        },
+        costCenter: {
+            period: { start: '-', end: '-' },
+            labels: [],
+            series: [],
+            max_value: 1,
+            totals: {
+                documents: 0,
+                items: 0,
+                quantity: 0,
+                total_value: 0
+            }
         },
         pagination: null,
         summary: {
@@ -579,6 +711,9 @@ function reportCenter() {
                 { value: 'open', label: 'Progress: Open' },
                 { value: 'progress', label: 'Progress: Progress' },
                 { value: 'closed', label: 'Progress: Closed' }
+            ],
+            costcenter: [
+                { value: 'all', label: 'Semua Status' }
             ]
         },
 
@@ -632,6 +767,10 @@ function reportCenter() {
 
                 if (this.activeTab === 'overview') {
                     this.overview = result.data || this.overview;
+                    this.rows = [];
+                    this.pagination = null;
+                } else if (this.activeTab === 'costcenter') {
+                    this.costCenter = result.data || this.costCenter;
                     this.rows = [];
                     this.pagination = null;
                 } else {
@@ -732,6 +871,67 @@ function reportCenter() {
         formatNumber(value) {
             const number = Number(value || 0);
             return new Intl.NumberFormat('id-ID').format(number);
+        },
+
+        formatCurrency(value) {
+            return 'Rp ' + new Intl.NumberFormat('id-ID', { maximumFractionDigits: 0 }).format(Number(value || 0));
+        },
+
+        formatCurrencyShort(value) {
+            const number = Number(value || 0);
+
+            if (number >= 1000000000) {
+                return 'Rp ' + new Intl.NumberFormat('id-ID', { maximumFractionDigits: 1 }).format(number / 1000000000) + ' M';
+            }
+
+            if (number >= 1000000) {
+                return 'Rp ' + new Intl.NumberFormat('id-ID', { maximumFractionDigits: 1 }).format(number / 1000000) + ' jt';
+            }
+
+            if (number >= 1000) {
+                return 'Rp ' + new Intl.NumberFormat('id-ID', { maximumFractionDigits: 0 }).format(number / 1000) + ' rb';
+            }
+
+            return 'Rp ' + this.formatNumber(number);
+        },
+
+        chartMax() {
+            return Math.max(Number(this.costCenter.max_value || 0), 1);
+        },
+
+        chartX(index) {
+            const total = Math.max((this.costCenter.labels || []).length - 1, 1);
+            return 72 + (index * (818 / total));
+        },
+
+        chartY(value) {
+            return 270 - ((Number(value || 0) / this.chartMax()) * 220);
+        },
+
+        chartPointList(serie) {
+            return (serie.values || []).map((value, index) => ({
+                index,
+                value,
+                x: this.chartX(index),
+                y: this.chartY(value)
+            }));
+        },
+
+        chartPoints(serie) {
+            return this.chartPointList(serie)
+                .map(point => `${point.x},${point.y}`)
+                .join(' ');
+        },
+
+        chartTicks() {
+            return [0, 1, 2, 3, 4].map(index => {
+                const value = this.chartMax() * ((4 - index) / 4);
+                return {
+                    index,
+                    value,
+                    y: 50 + (index * 55)
+                };
+            });
         },
 
         statusClass(status) {

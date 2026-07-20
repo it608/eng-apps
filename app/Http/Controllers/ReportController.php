@@ -24,6 +24,8 @@ class ReportController extends Controller
                 $payload = $this->getTransaksiData($request);
             } elseif ($tab === 'workorder') {
                 $payload = $this->getWorkOrderData($request);
+            } elseif ($tab === 'costcenter') {
+                $payload = $this->getCostCenterData($request);
             } else {
                 $payload = $this->getOverviewData($request);
             }
@@ -58,6 +60,9 @@ class ReportController extends Controller
             } elseif ($tab === 'transaksi') {
                 [$headers, $rows, $sheetName] = $this->buildTransaksiExport($request);
                 $filename = "report_permintaan_barang_{$timestamp}.xlsx";
+            } elseif ($tab === 'costcenter') {
+                [$headers, $rows, $sheetName] = $this->buildCostCenterExport($request);
+                $filename = "report_cost_center_engineering_{$timestamp}.xlsx";
             } else {
                 [$headers, $rows, $sheetName] = $this->buildOverviewExport($request);
                 $filename = "report_overview_{$timestamp}.xlsx";
@@ -90,9 +95,30 @@ class ReportController extends Controller
     {
         $tab = strtolower((string) $tab);
 
-        return in_array($tab, ['overview', 'transaksi', 'workorder'], true)
+        return in_array($tab, ['overview', 'transaksi', 'workorder', 'costcenter'], true)
             ? $tab
             : 'overview';
+    }
+
+    private function costCenterDefinitions(): array
+    {
+        return [
+            'civil' => [
+                'label' => 'Civil',
+                'color' => '#2563eb',
+                'keywords' => ['CIVIL'],
+            ],
+            'maintenance' => [
+                'label' => 'Maintenance',
+                'color' => '#059669',
+                'keywords' => ['MAINTENANCE', 'MAINT'],
+            ],
+            'repair' => [
+                'label' => 'Repair',
+                'color' => '#f97316',
+                'keywords' => ['REPAIR'],
+            ],
+        ];
     }
 
     private function buildSummary(Request $request): array
@@ -227,6 +253,111 @@ class ReportController extends Controller
         return [
             'data' => collect($data->items())->map(fn ($row) => $this->formatWorkOrderRow($row))->values(),
             'pagination' => $this->paginationPayload($data),
+        ];
+    }
+
+    private function getCostCenterData(Request $request): array
+    {
+        [$start, $end] = $this->costCenterPeriod($request);
+        $definitions = $this->costCenterDefinitions();
+        $months = $this->monthBuckets($start, $end);
+        $params = [$start->toDateString(), $end->toDateString()];
+
+        $rows = DB::connection('pgsql2')->select("
+            WITH filtered AS (
+                SELECT
+                    DATE_TRUNC('month', b.budat)::date AS month_date,
+                    b.mblnr AS nomor_gi,
+                    COALESCE(d.menge, 0) AS quantity,
+                    COALESCE(d.wrbtr, 0) AS nilai,
+                    UPPER(COALESCE(NULLIF(TRIM(cc.name_costctr), ''), NULLIF(TRIM(cc.desc_costctr), ''), NULLIF(TRIM(cc.code_costctr), ''), '')) AS cost_center_name
+                FROM tb_skb008_1mmseg b
+                JOIN tb_skb008_2dmseg d ON d.idmse = b.idmse
+                LEFT JOIN tb_skb051_1mcostctr cc
+                    ON cc.id_costctr = COALESCE(NULLIF(d.kostl, 0), NULLIF(b.kostl, 0))
+                WHERE b.budat BETWEEN ? AND ?
+                  AND d.bwart = '201'
+                  AND COALESCE(d.saknr, 0) <> 7755
+            )
+            SELECT
+                TO_CHAR(month_date, 'YYYY-MM') AS month_key,
+                CASE
+                    WHEN cost_center_name LIKE '%CIVIL%' THEN 'civil'
+                    WHEN cost_center_name LIKE '%MAINTENANCE%' OR cost_center_name LIKE '%MAINT%' THEN 'maintenance'
+                    WHEN cost_center_name LIKE '%REPAIR%' THEN 'repair'
+                    ELSE 'other'
+                END AS cost_center_key,
+                COUNT(DISTINCT nomor_gi) AS documents,
+                COUNT(*) AS items,
+                COALESCE(SUM(quantity), 0) AS quantity,
+                COALESCE(SUM(nilai), 0) AS total_value
+            FROM filtered
+            WHERE cost_center_name LIKE '%CIVIL%'
+               OR cost_center_name LIKE '%MAINTENANCE%'
+               OR cost_center_name LIKE '%MAINT%'
+               OR cost_center_name LIKE '%REPAIR%'
+            GROUP BY month_key, cost_center_key
+            ORDER BY month_key, cost_center_key
+        ", $params);
+
+        $series = [];
+
+        foreach ($definitions as $key => $definition) {
+            $series[$key] = [
+                'key' => $key,
+                'label' => $definition['label'],
+                'color' => $definition['color'],
+                'values' => array_fill(0, count($months), 0),
+                'documents' => 0,
+                'items' => 0,
+                'quantity' => 0,
+                'total_value' => 0,
+            ];
+        }
+
+        $monthIndex = array_flip(array_column($months, 'key'));
+
+        foreach ($rows as $row) {
+            $key = (string) $row->cost_center_key;
+
+            if (!isset($series[$key]) || !isset($monthIndex[$row->month_key])) {
+                continue;
+            }
+
+            $index = $monthIndex[$row->month_key];
+            $value = (float) ($row->total_value ?? 0);
+            $series[$key]['values'][$index] = $value;
+            $series[$key]['documents'] += (int) ($row->documents ?? 0);
+            $series[$key]['items'] += (int) ($row->items ?? 0);
+            $series[$key]['quantity'] += (float) ($row->quantity ?? 0);
+            $series[$key]['total_value'] += $value;
+        }
+
+        $maxValue = max(1, ...array_values(array_map(
+            fn ($serie) => max($serie['values'] ?: [0]),
+            $series
+        )));
+
+        return [
+            'data' => [
+                'period' => [
+                    'start' => $start->format('d/m/Y'),
+                    'end' => $end->format('d/m/Y'),
+                ],
+                'labels' => array_column($months, 'label'),
+                'series' => array_values($series),
+                'max_value' => $maxValue,
+                'totals' => [
+                    'documents' => array_sum(array_column($series, 'documents')),
+                    'items' => array_sum(array_column($series, 'items')),
+                    'quantity' => array_sum(array_column($series, 'quantity')),
+                    'total_value' => array_sum(array_column($series, 'total_value')),
+                ],
+            ],
+            'meta' => [
+                'mode' => 'costcenter',
+                'source' => 'ERP Good Issue read-only',
+            ],
         ];
     }
 
@@ -371,6 +502,41 @@ class ReportController extends Controller
         if ($request->filled('date_to')) {
             $query->whereDate($column, '<=', $request->get('date_to'));
         }
+    }
+
+    private function costCenterPeriod(Request $request): array
+    {
+        $start = $request->filled('date_from')
+            ? Carbon::parse($request->get('date_from'))->startOfDay()
+            : now()->copy()->startOfYear();
+
+        $end = $request->filled('date_to')
+            ? Carbon::parse($request->get('date_to'))->endOfDay()
+            : now()->copy()->endOfDay();
+
+        if ($end->lt($start)) {
+            [$start, $end] = [$end->copy()->startOfDay(), $start->copy()->endOfDay()];
+        }
+
+        return [$start, $end];
+    }
+
+    private function monthBuckets(Carbon $start, Carbon $end): array
+    {
+        $months = [];
+        $cursor = $start->copy()->startOfMonth();
+        $last = $end->copy()->startOfMonth();
+
+        while ($cursor->lte($last)) {
+            $months[] = [
+                'key' => $cursor->format('Y-m'),
+                'label' => $cursor->translatedFormat('M Y'),
+            ];
+
+            $cursor->addMonth();
+        }
+
+        return $months;
     }
 
     private function formatTransaksiRow($row): array
@@ -527,6 +693,36 @@ class ReportController extends Controller
             'Lead Time',
             'Catatan Reject',
         ], $rows, 'Report WO'];
+    }
+
+    private function buildCostCenterExport(Request $request): array
+    {
+        $payload = $this->getCostCenterData($request)['data'];
+        $rows = [];
+
+        foreach ($payload['series'] as $serie) {
+            foreach ($payload['labels'] as $index => $label) {
+                $rows[] = [
+                    count($rows) + 1,
+                    $label,
+                    $serie['label'],
+                    (float) ($serie['values'][$index] ?? 0),
+                    (int) $serie['documents'],
+                    (int) $serie['items'],
+                    (float) $serie['quantity'],
+                ];
+            }
+        }
+
+        return [[
+            'No',
+            'Periode',
+            'Cost Center',
+            'Nilai GI',
+            'Total Dokumen GI',
+            'Total Item',
+            'Total Qty',
+        ], $rows, 'Cost Center'];
     }
 
     private function buildOverviewExport(Request $request): array
