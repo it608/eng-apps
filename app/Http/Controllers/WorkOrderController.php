@@ -874,11 +874,10 @@ class WorkOrderController extends Controller
 
             $validator = Validator::make($request->all(), [
                 'assigned_regu' => ['required', 'string', Rule::in($pelaksanaOptions)],
-                'delegation_notes' => ['required', 'string', 'max:1000'],
+                'delegation_notes' => ['nullable', 'string', 'max:1000'],
             ], [
                 'assigned_regu.required' => 'Pelaksana wajib dipilih sebelum approve WO.',
                 'assigned_regu.in' => 'Pelaksana tidak valid.',
-                'delegation_notes.required' => 'Catatan delegasi wajib diisi sebelum approve WO.',
             ]);
 
             if ($validator->fails()) {
@@ -917,7 +916,7 @@ class WorkOrderController extends Controller
                     'assigned_regu' => $request->assigned_regu,
                     'assigned_by' => auth()->id(),
                     'assigned_at' => now(),
-                    'delegation_notes' => $request->delegation_notes,
+                    'delegation_notes' => $request->filled('delegation_notes') ? $request->delegation_notes : null,
                     'updated_at' => now()
                 ]);
 

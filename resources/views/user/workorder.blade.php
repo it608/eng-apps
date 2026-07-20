@@ -75,50 +75,50 @@
         justify-content: center;
         min-width: 85px;
     }
-
+    
     .badge-draft {
         background-color: #f3f4f6;
         color: #1f2937;
         border: 1px solid #e5e7eb;
     }
-
+    
     .badge-submitted {
         background-color: #dbeafe;
         color: #1e40af;
         border: 1px solid #bfdbfe;
     }
-
+    
     .badge-approved {
         background-color: #dcfce7;
         color: #166534;
         border: 1px solid #bbf7d0;
     }
-
+    
     .badge-rejected {
         background-color: #fee2e2;
         color: #991b1b;
         border: 1px solid #fecaca;
     }
-
+    
     .badge-completed {
         background-color: #f3e8ff;
         color: #6b21a5;
         border: 1px solid #e9d5ff;
     }
-
+    
     /* Progress badges */
     .badge-open {
         background-color: #fef3c7;
         color: #92400e;
         border: 1px solid #fde68a;
     }
-
+    
     .badge-progress {
         background-color: #dbeafe;
         color: #1e40af;
         border: 1px solid #bfdbfe;
     }
-
+    
     .badge-closed {
         background-color: #dcfce7;
         color: #166534;
@@ -327,7 +327,7 @@
         width: 100%;
         border-collapse: collapse;
     }
-
+    
     .data-table th {
         background-color: #f9fafb;
         padding: 0.75rem 1rem;
@@ -339,18 +339,18 @@
         border-bottom: 1px solid #e5e7eb;
         white-space: nowrap;
     }
-
+    
     .data-table td {
         padding: 0.75rem 1rem;
         font-size: 0.875rem;
         color: #1f2937;
         border-bottom: 1px solid #e5e7eb;
     }
-
+    
     .data-table tbody tr:hover {
         background-color: #f9fafb;
     }
-
+    
     .data-table tbody tr:last-child td {
         border-bottom: none;
     }
@@ -365,13 +365,13 @@
         background-color: white;
         transition: all 0.2s;
     }
-
+    
     .filter-input:focus {
         outline: none;
         border-color: #3b82f6;
         box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
     }
-
+    
     .filter-select {
         padding: 0.5rem 2rem 0.5rem 0.75rem;
         font-size: 0.75rem;
@@ -395,7 +395,7 @@
         border-radius: 0.5rem;
         border: 1px solid #e5e7eb;
     }
-
+    
     .search-input {
         flex: 1;
         padding: 0.25rem 0.5rem;
@@ -403,11 +403,11 @@
         font-size: 0.875rem;
         background: transparent;
     }
-
+    
     .search-input:focus {
         outline: none;
     }
-
+    
     .search-icon {
         padding: 0.25rem;
         color: #9ca3af;
@@ -419,7 +419,7 @@
         gap: 0.25rem;
         justify-content: center;
     }
-
+    
     .action-btn {
         padding: 0.375rem;
         border-radius: 0.375rem;
@@ -428,13 +428,13 @@
         background: transparent;
         border: 1px solid transparent;
     }
-
+    
     .action-btn:hover {
         background-color: #f3f4f6;
         border-color: #e5e7eb;
         color: #374151;
     }
-
+    
     .action-btn svg {
         width: 1.125rem;
         height: 1.125rem;
@@ -449,45 +449,45 @@
         transition: all 0.2s;
         border: 1px solid transparent;
     }
-
+    
     .progress-btn.open {
         background-color: #fef3c7;
         color: #92400e;
         border-color: #fde68a;
     }
-
+    
     .progress-btn.open:hover {
         background-color: #fde68a;
     }
-
+    
     .progress-btn.open.selected {
         ring: 2px solid #f59e0b;
     }
-
+    
     .progress-btn.progress {
         background-color: #dbeafe;
         color: #1e40af;
         border-color: #bfdbfe;
     }
-
+    
     .progress-btn.progress:hover {
         background-color: #bfdbfe;
     }
-
+    
     .progress-btn.progress.selected {
         ring: 2px solid #3b82f6;
     }
-
+    
     .progress-btn.closed {
         background-color: #dcfce7;
         color: #166534;
         border-color: #bbf7d0;
     }
-
+    
     .progress-btn.closed:hover {
         background-color: #bbf7d0;
     }
-
+    
     .progress-btn.closed.selected {
         ring: 2px solid #10b981;
     }
@@ -502,16 +502,16 @@
         border-top: 1px solid #e5e7eb;
         font-size: 0.875rem;
     }
-
+    
     .pagination-info {
         color: #6b7280;
     }
-
+    
     .pagination-buttons {
         display: flex;
         gap: 0.25rem;
     }
-
+    
     .pagination-btn {
         padding: 0.375rem 0.75rem;
         border: 1px solid #e5e7eb;
@@ -521,12 +521,12 @@
         font-size: 0.75rem;
         transition: all 0.2s;
     }
-
+    
     .pagination-btn:hover:not(:disabled) {
         background-color: #f9fafb;
         border-color: #9ca3af;
     }
-
+    
     .pagination-btn:disabled {
         opacity: 0.5;
         cursor: not-allowed;
@@ -601,18 +601,18 @@
         position: relative;
         padding: 1rem 0 1rem 2rem;
     }
-
+    
     .timeline-item {
         position: relative;
         padding-bottom: 1.5rem;
         border-left: 2px solid #e5e7eb;
         padding-left: 1.5rem;
     }
-
+    
     .timeline-item:last-child {
         border-left-color: transparent;
     }
-
+    
     .timeline-dot {
         position: absolute;
         left: -0.5625rem;
@@ -623,20 +623,20 @@
         border: 2px solid white;
         box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
     }
-
+    
     .timeline-date {
         font-size: 0.7rem;
         color: #6b7280;
         margin-bottom: 0.25rem;
     }
-
+    
     .timeline-title {
         font-size: 0.875rem;
         font-weight: 600;
         color: #111827;
         margin-bottom: 0.25rem;
     }
-
+    
     .timeline-description {
         font-size: 0.75rem;
         color: #4b5563;
@@ -652,7 +652,7 @@
         transition: all 0.2s;
         background-color: #f9fafb;
     }
-
+    
     .upload-area:hover {
         border-color: #3b82f6;
         background-color: #eff6ff;
@@ -678,11 +678,11 @@
     .ring-2 {
         box-shadow: 0 0 0 2px currentColor;
     }
-
+    
     .ring-offset-2 {
         box-shadow: 0 0 0 2px white, 0 0 0 4px currentColor;
     }
-
+    
     .ring-blue-500 {
         --tw-ring-color: #3b82f6;
     }
@@ -692,16 +692,16 @@
         .stat-value {
             font-size: 1.5rem;
         }
-
+        
         .data-table {
             font-size: 0.75rem;
         }
-
+        
         .data-table th,
         .data-table td {
             padding: 0.5rem;
         }
-
+        
         .badge {
             min-width: 70px;
             font-size: 0.65rem;
@@ -876,7 +876,7 @@
                             <input type="text" id="woSearch" class="search-input" placeholder="Cari nomor / judul WO...">
                         </div>
                     </div>
-
+                    
                     <select id="woStatus" class="filter-select w-36">
                         <option value="">Semua Status</option>
                         <option value="draft">Draft</option>
@@ -885,14 +885,14 @@
                         <option value="rejected">Rejected</option>
                         <option value="completed">Completed</option>
                     </select>
-
+                    
                     <select id="woPerPage" class="filter-select w-24">
                         <option value="10">10</option>
                         <option value="20" selected>20</option>
                         <option value="50">50</option>
                         <option value="100">100</option>
                     </select>
-
+                    
                     <button onclick="resetFilters()" class="px-4 py-2 text-sm border border-gray-300 rounded-lg hover:bg-gray-50 transition flex items-center gap-2">
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
@@ -971,7 +971,7 @@
                             </div>
                         </div>
                     </div>
-
+                    
                     <div class="progress-card progress">
                         <div class="flex items-center justify-between">
                             <div>
@@ -986,7 +986,7 @@
                             </div>
                         </div>
                     </div>
-
+                    
                     <div class="progress-card closed">
                         <div class="flex items-center justify-between">
                             <div>
@@ -1013,7 +1013,7 @@
                             <input type="text" id="progressSearch" class="search-input" placeholder="Cari nomor / judul / pelaksana WO...">
                         </div>
                     </div>
-
+                    
                     <select id="progressStatus" class="filter-select w-36">
                         <option value="">Semua Progress</option>
                         <option value="open">Open</option>
@@ -1021,14 +1021,14 @@
                         <option value="closed">Closed</option>
                         <option value="rejected">Rejected</option>
                     </select>
-
+                    
                     <select id="progressPerPage" class="filter-select w-24">
                         <option value="10">10</option>
                         <option value="20" selected>20</option>
                         <option value="50">50</option>
                         <option value="100">100</option>
                     </select>
-
+                    
                     <button onclick="resetProgressFilters()" class="px-4 py-2 text-sm border border-gray-300 rounded-lg hover:bg-gray-50 transition flex items-center gap-2">
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
@@ -1077,27 +1077,27 @@
 <div id="workOrderModal" class="modal fixed inset-0 hidden items-center justify-center z-50">
     <div class="modal-content w-full max-w-2xl p-6 relative fade-in">
         <h2 class="text-xl font-semibold mb-4" id="modalTitle">Tambah Work Order</h2>
-
+        
         <form id="workOrderForm" enctype="multipart/form-data">
             @csrf
             <input type="hidden" name="id" id="woId">
 
             <div class="mb-4">
                 <label class="block text-sm font-medium mb-1">Nomor Work Order <span class="text-xs text-gray-400">(otomatis)</span></label>
-                <input type="text" name="nomor" id="woNomor" class="filter-input"
+                <input type="text" name="nomor" id="woNomor" class="filter-input" 
                        placeholder="Nomor dibuat otomatis oleh sistem" readonly required>
                 <p class="text-xs text-gray-500 mt-1" id="nomorHelpText">Nomor dibuat otomatis dan digunakan sebagai nama file</p>
             </div>
 
             <div class="mb-4">
                 <label class="block text-sm font-medium mb-1">Judul <span class="text-red-500">*</span></label>
-                <input type="text" name="judul" id="woJudul" class="filter-input"
+                <input type="text" name="judul" id="woJudul" class="filter-input" 
                        placeholder="Judul work order" required>
             </div>
 
             <div class="mb-4">
                 <label class="block text-sm font-medium mb-1">Deskripsi</label>
-                <textarea name="deskripsi" id="woDeskripsi" rows="3"
+                <textarea name="deskripsi" id="woDeskripsi" rows="3" 
                           class="filter-input" placeholder="Deskripsi work order..."></textarea>
             </div>
 
@@ -1106,7 +1106,7 @@
                 <div class="upload-area" id="dropArea">
                     <input type="file" name="dokumen" id="woFile" class="hidden" accept=".pdf,.jpg,.jpeg,.png,.webp,application/pdf,image/jpeg,image/png,image/webp">
                     <svg class="w-12 h-12 mx-auto text-gray-400 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
                               d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path>
                     </svg>
                     <p class="text-sm text-gray-600" id="fileText">
@@ -1140,7 +1140,7 @@
                 </button>
             </div>
         </form>
-
+        
         <button onclick="closeModal()" class="absolute top-4 right-4 text-gray-400 hover:text-gray-600">
             <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
@@ -1153,7 +1153,7 @@
 <div id="viewModal" class="modal fixed inset-0 hidden items-center justify-center z-50">
     <div class="modal-content w-full max-w-2xl p-6 relative fade-in">
         <h2 class="text-xl font-semibold mb-4">Detail Work Order</h2>
-
+        
         <div class="space-y-3">
             <div class="flex border-b pb-2">
                 <div class="w-1/3 text-sm text-gray-600">Nomor WO</div>
@@ -1188,13 +1188,13 @@
                 <div class="w-2/3" id="viewCreated"></div>
             </div>
         </div>
-
+        
         <div class="flex justify-end mt-6">
             <button onclick="closeViewModal()" class="px-4 py-2 rounded-lg bg-gray-100 hover:bg-gray-200 transition">
                 Tutup
             </button>
         </div>
-
+        
         <button onclick="closeViewModal()" class="absolute top-4 right-4 text-gray-400 hover:text-gray-600">
             <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
@@ -1224,10 +1224,10 @@
             </div>
 
             <div class="mb-5">
-                <label for="delegationNotes" class="block text-sm font-medium mb-1">Catatan Delegasi <span class="text-red-500">*</span></label>
-                <textarea id="delegationNotes" rows="4" class="filter-input" required
+                <label for="delegationNotes" class="block text-sm font-medium mb-1">Catatan Delegasi <span class="text-gray-400">(opsional)</span></label>
+                <textarea id="delegationNotes" rows="4" class="filter-input"
                           placeholder="Contoh: Cek panel MCC, pastikan area aman, update hasil pekerjaan dengan foto."></textarea>
-                <p class="text-xs text-gray-500 mt-1">Instruksi ini akan tampil untuk Section Head.</p>
+                <p class="text-xs text-gray-500 mt-1">Instruksi tambahan ini akan tampil untuk Section Head jika diisi.</p>
             </div>
 
             <div class="flex justify-end gap-2">
@@ -1252,17 +1252,17 @@
 <div id="rejectModal" class="modal fixed inset-0 hidden items-center justify-center z-50">
     <div class="modal-content w-full max-w-md p-6 relative fade-in">
         <h2 class="text-xl font-semibold mb-4">Tolak Work Order</h2>
-
+        
         <form id="rejectForm">
             @csrf
             <input type="hidden" id="rejectId">
-
+            
             <div class="mb-4">
                 <label class="block text-sm font-medium mb-1">Catatan Penolakan <span class="text-red-500">*</span></label>
-                <textarea id="rejectionNotes" rows="4" class="filter-input"
+                <textarea id="rejectionNotes" rows="4" class="filter-input" 
                           placeholder="Alasan penolakan..."></textarea>
             </div>
-
+            
             <div class="flex justify-end gap-2">
                 <button type="button" onclick="closeRejectModal()" class="px-4 py-2 rounded-lg bg-gray-100 hover:bg-gray-200 transition">
                     Batal
@@ -1272,7 +1272,7 @@
                 </button>
             </div>
         </form>
-
+        
         <button onclick="closeRejectModal()" class="absolute top-4 right-4 text-gray-400 hover:text-gray-600">
             <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
@@ -1285,12 +1285,12 @@
 <div id="progressModal" class="modal fixed inset-0 hidden items-center justify-center z-50">
     <div class="modal-content w-full max-w-md p-6 relative fade-in">
         <h2 class="text-xl font-semibold mb-4">Update Progress Work Order</h2>
-
+        
         <form id="progressForm">
             @csrf
             <input type="hidden" id="progressId">
             <input type="hidden" id="currentProgress">
-
+            
             <div class="mb-4">
                 <label class="block text-sm font-medium mb-2">Progress Status</label>
                 <div class="flex gap-2">
@@ -1299,13 +1299,13 @@
                     <button type="button" onclick="setProgress('closed')" class="flex-1 progress-btn closed py-2" id="btnClosed">Closed</button>
                 </div>
             </div>
-
+            
             <div class="mb-4">
                 <label class="block text-sm font-medium mb-1">Catatan Progress</label>
-                <textarea id="progressNotes" rows="3" class="filter-input"
+                <textarea id="progressNotes" rows="3" class="filter-input" 
                           placeholder="Tambahkan catatan progress..."></textarea>
             </div>
-
+            
             <div class="flex justify-end gap-2">
                 <button type="button" onclick="closeProgressModal()" class="px-4 py-2 rounded-lg bg-gray-100 hover:bg-gray-200 transition">
                     Batal
@@ -1315,7 +1315,7 @@
                 </button>
             </div>
         </form>
-
+        
         <button onclick="closeProgressModal()" class="absolute top-4 right-4 text-gray-400 hover:text-gray-600">
             <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
@@ -1328,17 +1328,17 @@
 <div id="timelineModal" class="modal fixed inset-0 hidden items-center justify-center z-50">
     <div class="modal-content w-full max-w-lg p-6 relative fade-in">
         <h2 class="text-xl font-semibold mb-4">Timeline Progress</h2>
-
+        
         <div id="timelineContent" class="timeline max-h-96 overflow-y-auto">
             <!-- Timeline akan diisi via JavaScript -->
         </div>
-
+        
         <div class="flex justify-end mt-4">
             <button onclick="closeTimelineModal()" class="px-4 py-2 rounded-lg bg-gray-100 hover:bg-gray-200 transition">
                 Tutup
             </button>
         </div>
-
+        
         <button onclick="closeTimelineModal()" class="absolute top-4 right-4 text-gray-400 hover:text-gray-600">
             <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
@@ -1414,20 +1414,20 @@ function initEventListeners() {
         currentPage = 1;
         loadData();
     }, 500));
-
+    
     // Status filter Tab 1
     document.getElementById('woStatus').addEventListener('change', function() {
         currentPage = 1;
         loadData();
     });
-
+    
     // Per page Tab 1
     document.getElementById('woPerPage').addEventListener('change', function() {
         perPage = parseInt(this.value) || 20;
         currentPage = 1;
         loadData();
     });
-
+    
     // Column filters Tab 1
     document.querySelectorAll('#woTable .filter-input[data-key], #woTable .filter-select[data-key]').forEach(el => {
         el.addEventListener('change', function() {
@@ -1441,19 +1441,19 @@ function initEventListeners() {
             loadData();
         });
     });
-
+    
     // Search Tab 2
     document.getElementById('progressSearch').addEventListener('input', debounce(function() {
         progressPage = 1;
         loadProgressData();
     }, 500));
-
+    
     // Status filter Tab 2
     document.getElementById('progressStatus').addEventListener('change', function() {
         progressPage = 1;
         loadProgressData();
     });
-
+    
     // Per page Tab 2
     document.getElementById('progressPerPage').addEventListener('change', function() {
         progressPerPage = parseInt(this.value) || 20;
@@ -1473,19 +1473,19 @@ function debounce(func, wait) {
 // ============= FUNCTIONS TAB 1 =============
 function loadData() {
     showLoading();
-
+    
     const params = new URLSearchParams({
         page: currentPage,
         per_page: perPage,
         search: document.getElementById('woSearch').value,
         status: document.getElementById('woStatus').value
     });
-
+    
     // Add column filters
     Object.entries(filters).forEach(([key, value]) => {
         params.append(`filter_${key}`, value);
     });
-
+    
     fetch(`/workorder/data?${params.toString()}`)
         .then(response => response.json())
         .then(result => {
@@ -1541,19 +1541,19 @@ function renderTable(data) {
         `;
         return;
     }
-
+    
     let html = '';
     data.forEach((item, index) => {
         const statusBadge = getStatusBadge(item.status);
         const rowNumber = (currentPage - 1) * perPage + index + 1;
-
+        
         html += '<tr class="hover:bg-gray-50">';
         html += `<td class="text-center font-medium">${rowNumber}</td>`;
         html += `<td class="font-mono">${item.nomor || '-'}</td>`;
         html += `<td>${item.judul || '-'}</td>`;
         html += `<td>${(item.deskripsi || '').substring(0, 50)}${item.deskripsi && item.deskripsi.length > 50 ? '...' : ''}</td>`;
         html += `<td class="text-center">
-            ${item.file_name ?
+            ${item.file_name ? 
                 `<a href="/workorder/download/${item.id}" class="text-blue-600 hover:text-blue-800" title="Download">
                     <svg class="w-4 h-4 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path>
@@ -1562,7 +1562,7 @@ function renderTable(data) {
         </td>`;
         html += `<td class="text-center">${statusBadge}</td>`;
         html += `<td>${item.created_at ? new Date(item.created_at).toLocaleDateString('id-ID') : '-'}</td>`;
-
+        
         // Kolom Dibuat Oleh - KHUSUS APPROVAL
         if (window.isApproval) {
             html += `<td>
@@ -1577,31 +1577,31 @@ function renderTable(data) {
                 </div>
             </td>`;
         }
-
+        
         html += `<td class="text-center">
             <div class="action-group">`;
-
+        
         // ============= ACTION BERDASARKAN ROLE =============
-
+        
         if (window.isApproval) {
             // ===== APPROVAL LEVEL =====
             if (item.status === 'submitted') {
-                html += `<button onclick="openApproveModal(${item.id})"
-                            class="action-btn text-green-600 hover:text-green-700"
+                html += `<button onclick="openApproveModal(${item.id})" 
+                            class="action-btn text-green-600 hover:text-green-700" 
                             title="Approve & Assign Pelaksana">
                             <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
                             </svg>
                         </button>
-                        <button onclick="openRejectModal(${item.id})"
-                            class="action-btn text-red-600 hover:text-red-700"
+                        <button onclick="openRejectModal(${item.id})" 
+                            class="action-btn text-red-600 hover:text-red-700" 
                             title="Reject">
                             <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
                             </svg>
                         </button>`;
             }
-
+            
         } else {
             // ===== USER LEVEL =====
             if (item.status === 'draft') {
@@ -1613,15 +1613,15 @@ function renderTable(data) {
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"></path>
                             </svg>
                         </button>
-                        <button onclick="submitForApproval(${item.id})"
-                            class="action-btn text-blue-600 hover:text-blue-700"
+                        <button onclick="submitForApproval(${item.id})" 
+                            class="action-btn text-blue-600 hover:text-blue-700" 
                             title="Submit for Approval">
                             <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
                             </svg>
                         </button>`;
             }
-
+            
             if (['draft', 'rejected'].includes(item.status)) {
                 html += `<button onclick="deleteWorkOrder(${item.id})" class="action-btn text-red-600 hover:text-red-700" title="Delete">
                             <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1630,7 +1630,7 @@ function renderTable(data) {
                         </button>`;
             }
         }
-
+        
         // View Detail (SEMUA ROLE)
         html += `<button onclick='viewDetail(${JSON.stringify(item).replace(/'/g, "\\'")})' class="action-btn text-blue-600 hover:text-blue-700" title="Detail">
                     <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1638,7 +1638,7 @@ function renderTable(data) {
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
                     </svg>
                 </button>`;
-
+        
         // Download (SEMUA ROLE)
         if (item.file_name) {
             html += `<button onclick="downloadFile(${item.id})" class="action-btn text-green-600 hover:text-green-700" title="Download">
@@ -1647,12 +1647,12 @@ function renderTable(data) {
                         </svg>
                     </button>`;
         }
-
+        
         html += `</div>
                 </td>
             </tr>`;
     });
-
+    
     document.getElementById('woBody').innerHTML = html;
     updateSummary(data);
 }
@@ -1670,18 +1670,18 @@ function getStatusBadge(status) {
 
 function updatePagination(pagination) {
     const pagingEl = document.getElementById('woPaging');
-
+    
     pagingEl.innerHTML = `
         <div class="pagination-info">
             Halaman ${pagination.current_page} dari ${pagination.last_page} (${pagination.total} data)
         </div>
         <div class="pagination-buttons">
-            <button ${pagination.current_page === 1 ? 'disabled' : ''}
+            <button ${pagination.current_page === 1 ? 'disabled' : ''} 
                 onclick="changePage(${pagination.current_page - 1})"
                 class="pagination-btn">
                 Prev
             </button>
-            <button ${pagination.current_page === pagination.last_page ? 'disabled' : ''}
+            <button ${pagination.current_page === pagination.last_page ? 'disabled' : ''} 
                 onclick="changePage(${pagination.current_page + 1})"
                 class="pagination-btn">
                 Next
@@ -1704,7 +1704,7 @@ function updateSummary(data) {
         rejected: data.filter(d => d.status === 'rejected').length,
         completed: data.filter(d => d.status === 'completed').length
     };
-
+    
     document.getElementById('totalWo').textContent = counts.total;
     document.getElementById('totalDraft').textContent = counts.draft;
     document.getElementById('totalSubmitted').textContent = counts.submitted;
@@ -1716,7 +1716,7 @@ function updateSummary(data) {
 function populateColumnFilters(data) {
     const statusOptions = [...new Set(data.map(item => item.status).filter(Boolean))];
     const statusSelect = document.querySelector('#woTable select[data-key="status"]');
-
+    
     if (statusSelect) {
         const currentValue = statusSelect.value;
         statusSelect.innerHTML = '<option value="">All</option>';
@@ -1733,14 +1733,14 @@ function populateColumnFilters(data) {
 // ============= FUNCTIONS TAB 2: PROGRESS =============
 function loadProgressData() {
     showProgressLoading();
-
+    
     const params = new URLSearchParams({
         page: progressPage,
         per_page: progressPerPage,
         search: document.getElementById('progressSearch').value,
         progress_status: document.getElementById('progressStatus').value
     });
-
+    
     fetch(`/workorder/progress-data?${params.toString()}`)
         .then(response => {
             if (!response.ok) {
@@ -1822,13 +1822,13 @@ function renderProgressTable(data) {
         `;
         return;
     }
-
+    
     let html = '';
     data.forEach((item, index) => {
         const progressStatus = item.progress_status || 'open';
         const progressBadge = getProgressBadge(progressStatus);
         const rowNumber = (progressPage - 1) * progressPerPage + index + 1;
-
+        
         html += '<tr class="hover:bg-gray-50">';
         html += `<td class="text-center font-medium">${rowNumber}</td>`;
         html += `<td class="font-mono">${item.nomor || '-'}</td>`;
@@ -1845,15 +1845,15 @@ function renderProgressTable(data) {
         html += `<td class="text-center">
             <div class="action-group">
                 ${renderProgressPhotoButton(item)}
-                <button onclick="openProgressModal(${item.id}, '${progressStatus}')"
-                        class="action-btn text-blue-600 hover:text-blue-700"
+                <button onclick="openProgressModal(${item.id}, '${progressStatus}')" 
+                        class="action-btn text-blue-600 hover:text-blue-700" 
                         title="Update Progress">
                     <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path>
                     </svg>
                 </button>
-                <button onclick="viewTimeline(${item.id})"
-                        class="action-btn text-purple-600 hover:text-purple-700"
+                <button onclick="viewTimeline(${item.id})" 
+                        class="action-btn text-purple-600 hover:text-purple-700" 
                         title="Lihat Timeline">
                     <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
@@ -1863,7 +1863,7 @@ function renderProgressTable(data) {
         </td>`;
         html += '</tr>';
     });
-
+    
     document.getElementById('progressBody').innerHTML = html;
 }
 
@@ -2211,18 +2211,18 @@ function getProgressBadge(status) {
 
 function updateProgressPagination(pagination) {
     const pagingEl = document.getElementById('progressPaging');
-
+    
     pagingEl.innerHTML = `
         <div class="pagination-info">
             Halaman ${pagination.current_page} dari ${pagination.last_page} (${pagination.total} data)
         </div>
         <div class="pagination-buttons">
-            <button ${pagination.current_page === 1 ? 'disabled' : ''}
+            <button ${pagination.current_page === 1 ? 'disabled' : ''} 
                 onclick="changeProgressPage(${pagination.current_page - 1})"
                 class="pagination-btn">
                 Prev
             </button>
-            <button ${pagination.current_page === pagination.last_page ? 'disabled' : ''}
+            <button ${pagination.current_page === pagination.last_page ? 'disabled' : ''} 
                 onclick="changeProgressPage(${pagination.current_page + 1})"
                 class="pagination-btn">
                 Next
@@ -2247,12 +2247,12 @@ function openProgressModal(id, currentStatus) {
     document.getElementById('progressId').value = id;
     document.getElementById('currentProgress').value = currentStatus;
     document.getElementById('progressNotes').value = '';
-
+    
     // Reset highlight
     document.querySelectorAll('#progressModal .progress-btn').forEach(btn => {
         btn.classList.remove('ring-2', 'ring-offset-2', 'ring-blue-500');
     });
-
+    
     // Highlight button sesuai status
     if (currentStatus === 'open') {
         document.getElementById('btnOpen').classList.add('ring-2', 'ring-offset-2', 'ring-blue-500');
@@ -2261,7 +2261,7 @@ function openProgressModal(id, currentStatus) {
     } else if (currentStatus === 'closed') {
         document.getElementById('btnClosed').classList.add('ring-2', 'ring-offset-2', 'ring-blue-500');
     }
-
+    
     document.getElementById('progressModal').classList.remove('hidden');
     document.getElementById('progressModal').classList.add('flex');
 }
@@ -2273,11 +2273,11 @@ function closeProgressModal() {
 
 function setProgress(status) {
     document.getElementById('currentProgress').value = status;
-
+    
     document.querySelectorAll('#progressModal .progress-btn').forEach(btn => {
         btn.classList.remove('ring-2', 'ring-offset-2', 'ring-blue-500');
     });
-
+    
     if (status === 'open') {
         document.getElementById('btnOpen').classList.add('ring-2', 'ring-offset-2', 'ring-blue-500');
     } else if (status === 'progress') {
@@ -2290,16 +2290,16 @@ function setProgress(status) {
 // Submit Progress Form
 document.getElementById('progressForm').onsubmit = async function(e) {
     e.preventDefault();
-
+    
     const id = document.getElementById('progressId').value;
     const status = document.getElementById('currentProgress').value;
     const notes = document.getElementById('progressNotes').value;
-
+    
     if (!status) {
         alert('Pilih status progress!');
         return;
     }
-
+    
     try {
         const response = await fetch(`/workorder/progress/${id}`, {
             method: 'POST',
@@ -2308,14 +2308,14 @@ document.getElementById('progressForm').onsubmit = async function(e) {
                 'Content-Type': 'application/json',
                 'Accept': 'application/json'
             },
-            body: JSON.stringify({
+            body: JSON.stringify({ 
                 progress_status: status,
-                progress_notes: notes
+                progress_notes: notes 
             })
         });
-
+        
         const result = await response.json();
-
+        
         if (result.success) {
             alert('Progress berhasil diupdate!');
             closeProgressModal();
@@ -2335,7 +2335,7 @@ async function viewTimeline(id) {
     try {
         const response = await fetch(`/workorder/timeline/${id}`);
         const result = await response.json();
-
+        
         if (result.success) {
             renderTimeline(result.data);
             document.getElementById('timelineModal').classList.remove('hidden');
@@ -2351,7 +2351,7 @@ async function viewTimeline(id) {
 
 function renderTimeline(data) {
     let html = '';
-
+    
     if (data.created_at) {
         html += `
             <div class="timeline-item">
@@ -2362,7 +2362,7 @@ function renderTimeline(data) {
             </div>
         `;
     }
-
+    
     if (data.submitted_at) {
         html += `
             <div class="timeline-item">
@@ -2373,7 +2373,7 @@ function renderTimeline(data) {
             </div>
         `;
     }
-
+    
     if (data.approved_at) {
         html += `
             <div class="timeline-item">
@@ -2384,7 +2384,7 @@ function renderTimeline(data) {
             </div>
         `;
     }
-
+    
     if (data.rejected_at) {
         html += `
             <div class="timeline-item">
@@ -2395,7 +2395,7 @@ function renderTimeline(data) {
             </div>
         `;
     }
-
+    
     if (data.open_at) {
         html += `
             <div class="timeline-item">
@@ -2406,7 +2406,7 @@ function renderTimeline(data) {
             </div>
         `;
     }
-
+    
     if (data.progress_at) {
         html += `
             <div class="timeline-item">
@@ -2417,7 +2417,7 @@ function renderTimeline(data) {
             </div>
         `;
     }
-
+    
     if (data.closed_at) {
         html += `
             <div class="timeline-item">
@@ -2428,7 +2428,7 @@ function renderTimeline(data) {
             </div>
         `;
     }
-
+    
     if (data.completed_at) {
         html += `
             <div class="timeline-item">
@@ -2439,11 +2439,11 @@ function renderTimeline(data) {
             </div>
         `;
     }
-
+    
     if (html === '') {
         html = '<p class="text-center text-gray-500 py-4">Belum ada timeline</p>';
     }
-
+    
     document.getElementById('timelineContent').innerHTML = html;
 }
 
@@ -2456,32 +2456,32 @@ function closeTimelineModal() {
 function initFileUpload() {
     const dropArea = document.getElementById('dropArea');
     const fileInput = document.getElementById('woFile');
-
+    
     ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
         dropArea.addEventListener(eventName, preventDefaults, false);
     });
-
+    
     function preventDefaults(e) {
         e.preventDefault();
         e.stopPropagation();
     }
-
+    
     ['dragenter', 'dragover'].forEach(eventName => {
         dropArea.addEventListener(eventName, highlight, false);
     });
-
+    
     ['dragleave', 'drop'].forEach(eventName => {
         dropArea.addEventListener(eventName, unhighlight, false);
     });
-
+    
     function highlight() {
         dropArea.classList.add('border-blue-500', 'bg-blue-50');
     }
-
+    
     function unhighlight() {
         dropArea.classList.remove('border-blue-500', 'bg-blue-50');
     }
-
+    
     dropArea.addEventListener('drop', handleDrop, false);
     dropArea.addEventListener('click', () => fileInput.click());
     fileInput.addEventListener('change', handleFiles);
@@ -2500,21 +2500,21 @@ function handleFiles(e) {
         const allowedTypes = ['application/pdf', 'image/jpeg', 'image/png', 'image/webp'];
         const allowedExtensions = ['pdf', 'jpg', 'jpeg', 'png', 'webp'];
         const extension = (file.name.split('.').pop() || '').toLowerCase();
-
+        
         if (!allowedTypes.includes(file.type) && !allowedExtensions.includes(extension)) {
             alert('Hanya file PDF atau gambar (JPG, PNG, WEBP) yang diperbolehkan!');
             return;
         }
-
+        
         if (file.size > 10 * 1024 * 1024) {
             alert('Ukuran file maksimal 10MB!');
             return;
         }
-
+        
         document.getElementById('fileText').textContent = file.name;
         document.getElementById('fileName').textContent = file.name;
         document.getElementById('fileInfo').classList.remove('hidden');
-
+        
         const dataTransfer = new DataTransfer();
         dataTransfer.items.add(file);
         document.getElementById('woFile').files = dataTransfer.files;
@@ -2747,7 +2747,7 @@ function viewDetail(item) {
     document.getElementById('viewCreated').textContent = item.created_at
         ? formatDateTimeWib(item.created_at)
         : '-';
-
+    
     document.getElementById('viewModal').classList.remove('hidden');
     document.getElementById('viewModal').classList.add('flex');
 }
@@ -2776,7 +2776,7 @@ function downloadFile(id) {
 // Form Submit
 document.getElementById('workOrderForm').onsubmit = async function(e) {
     e.preventDefault();
-
+    
     const nomorInput = document.getElementById('woNomor');
     if (!document.getElementById('woId').value && ['Membuat nomor...', 'Otomatis saat disimpan'].includes(nomorInput.value)) {
         nomorInput.value = '';
@@ -2787,7 +2787,7 @@ document.getElementById('workOrderForm').onsubmit = async function(e) {
     const originalText = submitBtn.textContent;
     submitBtn.textContent = 'Menyimpan...';
     submitBtn.disabled = true;
-
+    
     try {
         const response = await fetch('/workorder/store', {
             method: 'POST',
@@ -2797,9 +2797,9 @@ document.getElementById('workOrderForm').onsubmit = async function(e) {
             },
             body: formData
         });
-
+        
         const result = await response.json();
-
+        
         if (result.success) {
             alert('Work Order berhasil disimpan!');
             closeModal();
@@ -2826,7 +2826,7 @@ document.getElementById('workOrderForm').onsubmit = async function(e) {
 // Submit for Approval (USER ONLY)
 async function submitForApproval(id) {
     if (!confirm('Submit work order untuk approval?')) return;
-
+    
     try {
         const response = await fetch(`/workorder/submit/${id}`, {
             method: 'POST',
@@ -2835,9 +2835,9 @@ async function submitForApproval(id) {
                 'Accept': 'application/json'
             }
         });
-
+        
         const result = await response.json();
-
+        
         if (result.success) {
             alert('Work Order berhasil disubmit!');
             loadData();
@@ -2877,11 +2877,6 @@ document.getElementById('approveForm').onsubmit = async function(e) {
         return;
     }
 
-    if (!delegationNotes) {
-        alert('Catatan delegasi wajib diisi!');
-        return;
-    }
-
     try {
         const response = await fetch(`/workorder/approve/${id}`, {
             method: 'POST',
@@ -2892,9 +2887,9 @@ document.getElementById('approveForm').onsubmit = async function(e) {
             },
             body: JSON.stringify({ assigned_regu: assignedRegu, delegation_notes: delegationNotes })
         });
-
+        
         const result = await response.json();
-
+        
         if (result.success) {
             alert(result.message || 'Work Order berhasil diapprove!');
             closeApproveModal();
@@ -2912,15 +2907,15 @@ document.getElementById('approveForm').onsubmit = async function(e) {
 // Reject Work Order (APPROVAL ONLY)
 document.getElementById('rejectForm').onsubmit = async function(e) {
     e.preventDefault();
-
+    
     const id = document.getElementById('rejectId').value;
     const notes = document.getElementById('rejectionNotes').value;
-
+    
     if (!notes.trim()) {
         alert('Catatan penolakan harus diisi!');
         return;
     }
-
+    
     try {
         const response = await fetch(`/workorder/reject/${id}`, {
             method: 'POST',
@@ -2931,9 +2926,9 @@ document.getElementById('rejectForm').onsubmit = async function(e) {
             },
             body: JSON.stringify({ rejection_notes: notes })
         });
-
+        
         const result = await response.json();
-
+        
         if (result.success) {
             alert('Work Order ditolak!');
             closeRejectModal();
@@ -2951,7 +2946,7 @@ document.getElementById('rejectForm').onsubmit = async function(e) {
 // Delete Work Order (USER ONLY)
 async function deleteWorkOrder(id) {
     if (!confirm('Yakin ingin menghapus work order ini?')) return;
-
+    
     try {
         const response = await fetch(`/workorder/delete/${id}`, {
             method: 'DELETE',
@@ -2960,9 +2955,9 @@ async function deleteWorkOrder(id) {
                 'Accept': 'application/json'
             }
         });
-
+        
         const result = await response.json();
-
+        
         if (result.success) {
             alert('Work Order dihapus!');
             loadData();
@@ -2980,11 +2975,11 @@ async function deleteWorkOrder(id) {
 function resetFilters() {
     document.getElementById('woSearch').value = '';
     document.getElementById('woStatus').value = '';
-
+    
     document.querySelectorAll('#woTable .filter-input[data-key], #woTable .filter-select[data-key]').forEach(el => {
         el.value = '';
     });
-
+    
     filters = {};
     currentPage = 1;
     loadData();
