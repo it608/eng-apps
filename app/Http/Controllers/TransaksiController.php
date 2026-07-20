@@ -105,9 +105,9 @@ class TransaksiController extends Controller
                     ]);
                 }
 
-                if (Carbon::parse($request->tanggal_diperlukan)->startOfDay()->lt($tanggalPermintaan)) {
+                if (! Carbon::parse($request->tanggal_diperlukan)->startOfDay()->equalTo($tanggalPermintaan)) {
                     throw ValidationException::withMessages([
-                        'tanggal_diperlukan' => ['Tanggal diperlukan tidak boleh lebih awal dari tanggal PB backdate.'],
+                        'tanggal_diperlukan' => ['Tanggal diperlukan harus mengikuti tanggal PB backdate.'],
                     ]);
                 }
             }

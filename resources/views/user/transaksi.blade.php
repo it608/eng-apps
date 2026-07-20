@@ -1359,9 +1359,11 @@
                                 <input type="date"
                                        x-model="formData.tanggal_diperlukan"
                                        :min="formData.is_backdate && formData.tanggal_permintaan ? formData.tanggal_permintaan : tanggalHariIni"
+                                       :disabled="formData.is_backdate"
+                                       :class="formData.is_backdate ? 'bg-gray-100 text-gray-500 cursor-not-allowed' : 'bg-white'"
                                        class="w-full h-[38px] px-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 text-sm compact-input">
-                                <p class="mt-0.5 text-xs text-gray-500">
-                                    Pilih tanggal kapan barang diperlukan
+                                <p class="mt-0.5 text-xs text-gray-500"
+                                   x-text="formData.is_backdate ? 'Mengikuti Tanggal PB Backdate.' : 'Pilih tanggal kapan barang diperlukan'">
                                 </p>
                             </div>
                             
@@ -1402,9 +1404,13 @@
                                     </label>
                                     <input type="date"
                                            x-model="formData.tanggal_permintaan"
+                                           @change="syncBackdateRequiredDate"
                                            :min="minBackdateDate"
                                            :max="maxBackdateDate"
                                            class="w-full h-[38px] px-3 border border-amber-300 rounded-md focus:outline-none focus:ring-2 focus:ring-amber-500 text-sm compact-input bg-white">
+                                    <p class="mt-0.5 text-xs text-amber-700">
+                                        Pilihan tersedia hanya kemarin atau lusa.
+                                    </p>
                                 </div>
                                 <div>
                                     <label class="block text-xs font-medium text-gray-700 mb-1 compact-label">
@@ -3178,9 +3184,7 @@ function transaksiApp() {
         handleBackdateToggle() {
             if (this.formData.is_backdate) {
                 this.formData.tanggal_permintaan = this.maxBackdateDate || '';
-                if (this.formData.tanggal_diperlukan && this.formData.tanggal_diperlukan < this.formData.tanggal_permintaan) {
-                    this.formData.tanggal_diperlukan = this.formData.tanggal_permintaan;
-                }
+                this.syncBackdateRequiredDate();
                 return;
             }
 
@@ -3189,6 +3193,14 @@ function transaksiApp() {
             if (this.formData.tanggal_diperlukan && this.formData.tanggal_diperlukan < this.tanggalHariIni) {
                 this.formData.tanggal_diperlukan = this.getDefaultRequiredDate();
             }
+        },
+
+        syncBackdateRequiredDate() {
+            if (!this.formData.is_backdate || !this.formData.tanggal_permintaan) {
+                return;
+            }
+
+            this.formData.tanggal_diperlukan = this.formData.tanggal_permintaan;
         },
 
         formatDateForDisplay(dateString) {
@@ -3579,8 +3591,10 @@ function transaksiApp() {
                     return false;
                 }
 
-                if (this.formData.tanggal_diperlukan < this.formData.tanggal_permintaan) {
-                    alert('Tanggal diperlukan tidak boleh lebih awal dari tanggal PB backdate');
+                this.syncBackdateRequiredDate();
+
+                if (this.formData.tanggal_diperlukan !== this.formData.tanggal_permintaan) {
+                    alert('Tanggal diperlukan harus mengikuti tanggal PB backdate');
                     return false;
                 }
 
