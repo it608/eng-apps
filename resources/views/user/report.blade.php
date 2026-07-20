@@ -1,6 +1,6 @@
 @extends('layouts.admin')
 
-@section('title', 'Reports & Analytics - Engineering Apps')
+@section('title', 'Reports & Analytics - e-Request')
 
 
 
@@ -94,7 +94,7 @@
 
     <div class="mb-6">
             <h1 class="text-2xl font-semibold text-gray-800">Reports & Analytics</h1>
-            <p class="mt-1 text-sm text-gray-500">Rekap, audit, dan export data Engineering Apps</p>
+            <p class="mt-1 text-sm text-gray-500">Rekap, audit, dan export data e-Request</p>
         </div>
 
         {{-- Metric Row --}}

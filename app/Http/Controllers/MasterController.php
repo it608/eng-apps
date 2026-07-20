@@ -126,6 +126,81 @@ class MasterController extends Controller
 
     /**
      * ===============================
+     * TAMBAH MASTER MESIN VIA AJAX
+     * ===============================
+     */
+    public function storeMesin(Request $request)
+    {
+        if (!$this->canManageMesinMaster($request)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Anda tidak memiliki akses untuk menambah master mesin.',
+            ], 403);
+        }
+
+        try {
+            $validator = Validator::make($request->all(), [
+                'code' => 'required|string|max:50|unique:mtMesin,msnCode',
+                'name' => 'required|string|max:255',
+                'zona' => 'required|string|max:150',
+                'area' => 'required|string|max:150',
+            ]);
+
+            if ($validator->fails()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Validasi gagal',
+                    'errors' => $validator->errors(),
+                ], 422);
+            }
+
+            $zona = DB::table('mtZona')->where('znName', $request->zona)->first();
+            if (!$zona) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Zona tidak ditemukan: ' . $request->zona,
+                ], 404);
+            }
+
+            $area = DB::table('mtArea')->where('areaName', $request->area)->first();
+            if (!$area) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Area tidak ditemukan: ' . $request->area,
+                ], 404);
+            }
+
+            $id = DB::table('mtMesin')->insertGetId([
+                'msnCode' => trim($request->code),
+                'msnName' => trim($request->name),
+                'znID' => $zona->znID,
+                'areaID' => $area->areaID,
+            ]);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Master mesin berhasil ditambahkan',
+                'id' => $id,
+            ]);
+        } catch (\Illuminate\Database\QueryException $e) {
+            Log::error('Store mesin database error: ' . $e->getMessage());
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Gagal menyimpan master mesin. Pastikan kode mesin belum pernah dipakai.',
+            ], 500);
+        } catch (\Exception $e) {
+            Log::error('Store mesin error: ' . $e->getMessage());
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Terjadi kesalahan: ' . $e->getMessage(),
+            ], 500);
+        }
+    }
+
+    /**
+     * ===============================
      * UPDATE MASTER MESIN VIA AJAX
      * ===============================
      */
@@ -224,6 +299,17 @@ class MasterController extends Controller
                 'message' => 'Terjadi kesalahan: ' . $e->getMessage(),
             ], 500);
         }
+    }
+
+    private function canManageMesinMaster(Request $request): bool
+    {
+        $user = $request->user();
+
+        return $user && (
+            $user->role === 'admin' ||
+            $user->username === 'adm-engineering' ||
+            (int) $user->id === 2
+        );
     }
 
     /**
@@ -826,7 +912,7 @@ class MasterController extends Controller
     {
         return '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
             . '<Properties xmlns="http://schemas.openxmlformats.org/officeDocument/2006/extended-properties" xmlns:vt="http://schemas.openxmlformats.org/officeDocument/2006/docPropsVTypes">'
-            . '<Application>Engineering Apps</Application>'
+            . '<Application>e-Request</Application>'
             . '<TitlesOfParts><vt:vector size="1" baseType="lpstr"><vt:lpstr>' . htmlspecialchars($sheetName, ENT_QUOTES | ENT_XML1, 'UTF-8') . '</vt:lpstr></vt:vector></TitlesOfParts>'
             . '</Properties>';
     }
@@ -837,8 +923,8 @@ class MasterController extends Controller
 
         return '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
             . '<cp:coreProperties xmlns:cp="http://schemas.openxmlformats.org/package/2006/metadata/core-properties" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:dcterms="http://purl.org/dc/terms/" xmlns:dcmitype="http://purl.org/dc/dcmitype/" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">'
-            . '<dc:creator>Engineering Apps</dc:creator>'
-            . '<cp:lastModifiedBy>Engineering Apps</cp:lastModifiedBy>'
+            . '<dc:creator>e-Request</dc:creator>'
+            . '<cp:lastModifiedBy>e-Request</cp:lastModifiedBy>'
             . '<dcterms:created xsi:type="dcterms:W3CDTF">' . $created . '</dcterms:created>'
             . '<dcterms:modified xsi:type="dcterms:W3CDTF">' . $created . '</dcterms:modified>'
             . '</cp:coreProperties>';

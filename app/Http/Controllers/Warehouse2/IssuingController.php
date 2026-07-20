@@ -104,7 +104,7 @@ class IssuingController extends Controller
             Log::error('Warehouse2 Issuing data error: ' . $e->getMessage());
             return response()->json([
                 'success' => false,
-                'message' => 'Gagal mengambil data: ' . $e->getMessage()
+                'message' => 'Gagal mengambil data pengeluaran barang.'
             ], 500);
         }
     }
@@ -118,16 +118,18 @@ class IssuingController extends Controller
             // Generate issue number
             $issueNumber = $this->generateIssueNumber();
             
-            // Get items with stock information
+            // Pengeluaran hanya boleh dari barang yang sudah diterima dan masih punya stok area.
             $items = DB::table('warehouse2_items as i')
-                ->leftJoin('warehouse2_stock as s', 'i.id', '=', 's.item_id')
+                ->join('warehouse2_stock as s', 'i.id', '=', 's.item_id')
                 ->select(
                     'i.id',
                     'i.code',
                     'i.name',
                     'i.unit',
-                    DB::raw('COALESCE(s.quantity, 0) as stock')
+                    DB::raw('SUM(s.quantity) as stock')
                 )
+                ->groupBy('i.id', 'i.code', 'i.name', 'i.unit')
+                ->havingRaw('SUM(s.quantity) > 0')
                 ->orderBy('i.code')
                 ->get();
 
@@ -135,7 +137,7 @@ class IssuingController extends Controller
             
         } catch (\Exception $e) {
             Log::error('Warehouse2 Issuing create error: ' . $e->getMessage());
-            return back()->with('error', 'Gagal memuat form: ' . $e->getMessage());
+            return back()->with('error', 'Gagal memuat form pengeluaran barang.');
         }
     }
 
@@ -145,7 +147,12 @@ class IssuingController extends Controller
     public function store(Request $request)
     {
         try {
-            Log::info('Warehouse2 Issuing store request:', $request->all());
+            Log::info('Warehouse2 Issuing store request', [
+                'user_id' => Auth::id(),
+                'issue_date' => $request->input('issue_date'),
+                'department' => $request->input('department'),
+                'items_count' => count($request->input('items', [])),
+            ]);
 
             $validator = Validator::make($request->all(), [
                 'issue_number' => 'nullable|string|max:50',
@@ -201,17 +208,19 @@ class IssuingController extends Controller
                 // Update stock (kurangi stok)
                 $stock = DB::table('warehouse2_stock')
                     ->where('item_id', $item['item_id'])
+                    ->lockForUpdate()
                     ->first();
 
                 if ($stock) {
-                    if ($stock->quantity < $item['quantity']) {
+                    $quantity = (float) $item['quantity'];
+
+                    if ((float) $stock->quantity < $quantity) {
                         throw new \Exception("Stok tidak mencukupi untuk item ID: {$item['item_id']}");
                     }
                     
                     DB::table('warehouse2_stock')
                         ->where('item_id', $item['item_id'])
-                        ->update([
-                            'quantity' => DB::raw('quantity - ' . $item['quantity']),
+                        ->decrement('quantity', $quantity, [
                             'last_updated' => now(),
                             'updated_at' => now()
                         ]);
@@ -237,7 +246,7 @@ class IssuingController extends Controller
             
             return response()->json([
                 'success' => false,
-                'message' => 'Gagal menyimpan: ' . $e->getMessage()
+                'message' => 'Gagal menyimpan pengeluaran barang. Silakan coba lagi atau hubungi admin.'
             ], 500);
         }
     }
@@ -287,7 +296,7 @@ class IssuingController extends Controller
             Log::error('Warehouse2 Issuing show error: ' . $e->getMessage());
             return response()->json([
                 'success' => false,
-                'message' => 'Gagal mengambil detail: ' . $e->getMessage()
+                'message' => 'Gagal mengambil detail pengeluaran barang.'
             ], 500);
         }
     }
@@ -326,7 +335,7 @@ class IssuingController extends Controller
 
         } catch (\Exception $e) {
             Log::error('Warehouse2 Issuing print error: ' . $e->getMessage());
-            return back()->with('error', 'Gagal mencetak: ' . $e->getMessage());
+            return back()->with('error', 'Gagal mencetak pengeluaran barang.');
         }
     }
 

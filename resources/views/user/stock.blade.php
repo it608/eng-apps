@@ -1,6 +1,6 @@
 @extends('layouts.admin')
 
-@section('title', 'Stok Sparepart')
+@section('title', $pageTitle ?? 'Stok Sparepart')
 
 @push('styles')
 <style>
@@ -187,8 +187,8 @@
 
 @section('content')
 <div class="mb-6">
-    <h1 class="text-2xl font-semibold text-gray-800">Stok Sparepart</h1>
-    <p class="text-sm text-gray-500 mt-1">Monitoring stok sparepart Engineering</p>
+    <h1 class="text-2xl font-semibold text-gray-800">{{ $pageTitle ?? 'Stok Sparepart' }}</h1>
+    <p class="text-sm text-gray-500 mt-1">{{ $pageSubtitle ?? 'Monitoring stok sparepart Engineering' }}</p>
 </div>
 
 <!-- Summary Cards -->
@@ -196,7 +196,7 @@
     <div class="summary-card stat-card">
         <div class="label">Total Item</div>
         <div class="value text-gray-800" id="totalItems">0</div>
-        <div class="text-xs text-gray-500 mt-1">Unique sparepart</div>
+        <div class="text-xs text-gray-500 mt-1">Unique item</div>
     </div>
     
     <div class="summary-card stat-card">
@@ -233,7 +233,7 @@
 <!-- Main Card -->
 <div class="bg-white rounded-xl shadow-sm border p-6">
     
-    <!-- TABS: Hanya Semua Stok dan Mutasi Stok -->
+    <!-- TABS: Semua Stok dan Mutasi Stok -->
     <div class="mb-4 border-b border-gray-200 flex justify-between items-center">
         <ul class="flex -mb-px text-sm font-medium">
             <li class="mr-2">
@@ -260,11 +260,12 @@
         <!-- Filter Bar -->
         <div class="mb-4 flex flex-wrap gap-3 items-center">
             <div class="flex-1 min-w-[200px]">
-                <input id="stockSearch" class="border rounded-lg px-3 py-2 w-full" placeholder="Cari kode / nama sparepart...">
+                <input id="stockSearch" class="border rounded-lg px-3 py-2 w-full" placeholder="Cari kode / nama {{ $stockLabel ?? 'sparepart' }}...">
             </div>
             
             <select id="stockCategory" class="border rounded-lg px-3 py-2 w-full sm:w-[220px] sm:min-w-[220px]" name="category">
 <option value="">Semua Harga</option>
+<option value="zero">Harga Rp 0</option>
 <option value="under_10m">Harga &lt; Rp 10 Juta</option>
 <option value="above_10m">Harga ≥ Rp 10 Juta</option>
 </select>
@@ -298,7 +299,7 @@
                     <tr>
                         <th class="text-center w-12">No</th>
                         <th>Kode</th>
-                        <th>Nama Sparepart</th>
+                        <th>Nama Material</th>
                         <th class="text-center">Satuan</th>
                         <th class="text-center">Stok</th>
                         <th class="text-center">Min</th>
@@ -375,20 +376,90 @@
             </table>
         </div>
     </div>
+
+    <!-- ================= TAB 3: GOOD ISSUE ERP ================= -->
+    <div id="good-issue" class="tab-content hidden">
+        <div class="mb-4 rounded-lg border border-blue-100 bg-blue-50/60 p-4">
+            <div class="flex flex-wrap items-end gap-3">
+                <div>
+                    <label class="block text-xs font-semibold uppercase tracking-wide text-gray-500 mb-1">Dari Tanggal</label>
+                    <input type="date" id="giStartDate" class="border rounded-lg px-3 py-2 text-sm" value="{{ date('Y-m-01') }}">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold uppercase tracking-wide text-gray-500 mb-1">Sampai Tanggal</label>
+                    <input type="date" id="giEndDate" class="border rounded-lg px-3 py-2 text-sm" value="{{ date('Y-m-d') }}">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold uppercase tracking-wide text-gray-500 mb-1">Jenis Material</label>
+                    <select id="giMaterialType" class="border rounded-lg px-3 py-2 text-sm min-w-44">
+                        <option value="all">Semua Engineering</option>
+                        <option value="sparepart">Sparepart</option>
+                        <option value="non_sparepart">Non Sparepart</option>
+                    </select>
+                </div>
+                <div class="flex-1 min-w-72">
+                    <label class="block text-xs font-semibold uppercase tracking-wide text-gray-500 mb-1">Cari</label>
+                    <input type="text" id="giSearch" class="w-full border rounded-lg px-3 py-2 text-sm" placeholder="Cari no GI, kode, nama material, lokasi...">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold uppercase tracking-wide text-gray-500 mb-1">Per Halaman</label>
+                    <select id="giPerPage" class="border rounded-lg px-3 py-2 text-sm">
+                        <option value="20">20</option>
+                        <option value="50">50</option>
+                        <option value="100">100</option>
+                    </select>
+                </div>
+                <button onclick="loadGoodIssue(1)" class="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-semibold hover:bg-blue-700">
+                    Tampilkan
+                </button>
+                <button onclick="resetGoodIssueFilters()" class="px-4 py-2 bg-white border rounded-lg text-sm font-semibold hover:bg-gray-50">
+                    Reset
+                </button>
+            </div>
+            <p class="mt-2 text-xs text-gray-500">
+                Data dibaca dari ERP secara read-only. Scope default: material Engineering (sparepart dan non sparepart).
+            </p>
+        </div>
+
+        <div class="overflow-x-auto">
+            <table class="min-w-full table-bordered">
+                <thead class="bg-gray-50">
+                    <tr>
+                        <th>Tanggal</th>
+                        <th>No. GI</th>
+                        <th>Kode GL / Cost Center</th>
+                        <th>Ringkasan</th>
+                        <th>Detail Item</th>
+                        <th class="text-right">Total Nilai</th>
+                        <th>User ERP</th>
+                    </tr>
+                </thead>
+                <tbody id="goodIssueBody">
+                    <tr>
+                        <td colspan="7" class="text-center py-8 text-gray-500">
+                            Pilih periode untuk melihat Good Issue ERP
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <div id="goodIssuePaging" class="mt-4 flex justify-between text-sm"></div>
+    </div>
 </div>
 
-<!-- Modal Detail Sparepart -->
+<!-- Modal Detail Material -->
 <div id="detailModal" class="fixed inset-0 modal hidden items-center justify-center z-50">
     <div class="bg-white rounded-xl w-full max-w-3xl p-6 relative fade-in">
-        <h2 class="text-lg font-semibold mb-4" id="detailTitle">Detail Sparepart</h2>
+        <h2 class="text-lg font-semibold mb-4" id="detailTitle">Detail Material</h2>
         
         <div class="grid grid-cols-2 gap-4 mb-4">
             <div>
-                <label class="text-xs text-gray-500">Kode Sparepart</label>
+                <label class="text-xs text-gray-500">Kode Material</label>
                 <div id="detailCode" class="font-medium">-</div>
             </div>
             <div>
-                <label class="text-xs text-gray-500">Nama Sparepart</label>
+                <label class="text-xs text-gray-500">Nama Material</label>
                 <div id="detailName" class="font-medium">-</div>
             </div>
             <div>
@@ -425,7 +496,7 @@
             <button onclick="closeDetailModal()" class="px-4 py-2 bg-gray-200 rounded hover:bg-gray-300">Tutup</button>
         </div>
         
-        <button type="button" onclick="closeDetailModal()" aria-label="Tutup modal detail sparepart" title="Tutup"
+        <button type="button" onclick="closeDetailModal()" aria-label="Tutup modal detail material" title="Tutup"
             class="absolute top-3 right-3 inline-flex h-8 w-8 items-center justify-center rounded-full bg-white text-gray-400 shadow-sm ring-1 ring-gray-200 transition hover:bg-gray-50 hover:text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500">
             <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                 <path d="M6 6l12 12M18 6L6 18" />
@@ -436,11 +507,16 @@
 
 @push('scripts')
 <script>
+const stockBaseUrl = @json($stockBaseUrl ?? url('/stock'));
+const stockLabel = @json($stockLabel ?? 'sparepart');
 // State
 let currentPage = 1;
 let perPage = 20;
 let filteredData = [];
 let filters = {};
+let goodIssuePage = 1;
+let goodIssuePerPage = 20;
+let goodIssueLoaded = false;
 
 // Initialize on load
 document.addEventListener('DOMContentLoaded', function() {
@@ -473,6 +549,32 @@ function initEventListeners() {
         currentPage = 1;
         loadStockData();
     });
+
+    const giSearch = document.getElementById('giSearch');
+    if (giSearch) {
+        giSearch.addEventListener('input', debounce(function() {
+            if (goodIssueLoaded) {
+                loadGoodIssue(1);
+            }
+        }, 500));
+    }
+
+    const giPerPage = document.getElementById('giPerPage');
+    if (giPerPage) {
+        giPerPage.addEventListener('change', function() {
+            goodIssuePerPage = parseInt(this.value) || 20;
+            loadGoodIssue(1);
+        });
+    }
+
+    const giMaterialType = document.getElementById('giMaterialType');
+    if (giMaterialType) {
+        giMaterialType.addEventListener('change', function() {
+            if (goodIssueLoaded) {
+                loadGoodIssue(1);
+            }
+        });
+    }
     
     // Column filters
     document.querySelectorAll('.col-filter').forEach(el => {
@@ -519,7 +621,7 @@ function loadStockData() {
         params.append(`filter_${key}`, value);
     });
     
-    fetch(`/stock/data?${params.toString()}`)
+    fetch(`${stockBaseUrl}/data?${params.toString()}`)
         .then(response => response.json())
         .then(result => {
             if (result.success) {
@@ -783,7 +885,7 @@ function loadMovement() {
         </tr>
     `;
     
-    fetch(`/stock/movement?start_date=${startDate}&end_date=${endDate}`)
+    fetch(`${stockBaseUrl}/movement?start_date=${startDate}&end_date=${endDate}`)
         .then(response => response.json())
         .then(result => {
             if (result.success) {
@@ -838,17 +940,171 @@ function showMovementError(message) {
     `;
 }
 
+// Load Good Issue ERP data
+function loadGoodIssue(page = 1) {
+    const startDate = document.getElementById('giStartDate').value;
+    const endDate = document.getElementById('giEndDate').value;
+
+    if (!startDate || !endDate) {
+        alert('Pilih periode Good Issue terlebih dahulu');
+        return;
+    }
+
+    goodIssueLoaded = true;
+    goodIssuePage = page;
+    goodIssuePerPage = parseInt(document.getElementById('giPerPage').value) || 20;
+
+    const params = new URLSearchParams({
+        start_date: startDate,
+        end_date: endDate,
+        material_type: document.getElementById('giMaterialType').value || 'all',
+        search: document.getElementById('giSearch').value || '',
+        page: goodIssuePage,
+        per_page: goodIssuePerPage
+    });
+
+    document.getElementById('goodIssueBody').innerHTML = `
+        <tr>
+            <td colspan="7" class="text-center py-4">
+                <div class="spinner"></div>
+                <p class="text-sm text-gray-500 mt-2">Memuat data Good Issue ERP...</p>
+            </td>
+        </tr>
+    `;
+    document.getElementById('goodIssuePaging').innerHTML = '';
+
+    fetch(`${stockBaseUrl}/good-issue?${params.toString()}`)
+        .then(response => response.json())
+        .then(result => {
+            if (result.success) {
+                renderGoodIssue(result.data, result.pagination);
+            } else {
+                showGoodIssueError(result.message || 'Gagal memuat data Good Issue');
+            }
+        })
+        .catch(error => {
+            console.error('Error loading Good Issue:', error);
+            showGoodIssueError('Gagal memuat data Good Issue');
+        });
+}
+
+function renderGoodIssue(data, pagination) {
+    if (!Array.isArray(data) || data.length === 0) {
+        document.getElementById('goodIssueBody').innerHTML = `
+            <tr>
+                <td colspan="7" class="text-center py-8 text-gray-500">
+                    Tidak ada data Good Issue untuk filter ini
+                </td>
+            </tr>
+        `;
+        updateGoodIssuePagination(pagination);
+        return;
+    }
+
+    let html = '';
+    data.forEach(doc => {
+        const items = Array.isArray(doc.items) ? doc.items : [];
+        const itemRows = items.map(item => {
+            const jenis = item.jenis_material || '-';
+            const badgeClass = jenis === 'Sparepart' ? 'badge-info' : 'badge-warning';
+
+            return `
+                <div class="mb-2 rounded-lg border border-gray-200 bg-white p-2 last:mb-0">
+                    <div class="flex items-start justify-between gap-3">
+                        <div>
+                            <span class="badge ${badgeClass}">${escapeHtml(jenis)}</span>
+                            <span class="ml-2 font-mono text-xs text-gray-500">${escapeHtml(item.kode_material || '-')}</span>
+                        </div>
+                        <div class="whitespace-nowrap text-right text-sm font-semibold">${formatDecimal(Number(item.quantity || 0))} ${escapeHtml(item.satuan || '')}</div>
+                    </div>
+                    <div class="mt-1 text-sm font-medium text-gray-900">${escapeHtml(item.nama_material || '-')}</div>
+                    <div class="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-xs text-gray-500">
+                        <span>Lokasi: ${escapeHtml(item.lokasi || '-')}</span>
+                        <span>Nilai: ${formatRupiah(Number(item.nilai || 0))}</span>
+                    </div>
+                </div>
+            `;
+        }).join('');
+
+        html += '<tr class="hover:bg-gray-50 align-top">';
+        html += `<td class="p-2 whitespace-nowrap">${escapeHtml(doc.tanggal || '-')}</td>`;
+        html += `<td class="p-2 whitespace-nowrap font-semibold">${escapeHtml(doc.nomor_gi || '-')}<div class="text-xs font-normal text-gray-500">${items.length || doc.item_count || 0} item</div></td>`;
+        html += `<td class="p-2 whitespace-nowrap"><div class="font-semibold">${escapeHtml(doc.cost_centre || '-')}</div><div class="text-xs text-gray-500">Cost Center: ${escapeHtml(doc.kode_cost_center || '-')}</div><div class="text-xs text-gray-500">Kode GL: ${escapeHtml(doc.kode_gl || '-')}</div></td>`;
+        html += `<td class="p-2 whitespace-nowrap"><div class="text-xs text-gray-500">Total Qty</div><div class="font-semibold">${formatDecimal(Number(doc.total_qty || 0))}</div></td>`;
+        html += `<td class="p-2 min-w-[30rem]">${itemRows || '-'}</td>`;
+        html += `<td class="p-2 text-right whitespace-nowrap font-semibold">${formatRupiah(Number(doc.total_nilai || 0))}</td>`;
+        html += `<td class="p-2 whitespace-nowrap">${escapeHtml(doc.user_erp || '-')}</td>`;
+        html += '</tr>';
+    });
+
+    document.getElementById('goodIssueBody').innerHTML = html;
+    updateGoodIssuePagination(pagination);
+}
+
+function updateGoodIssuePagination(pagination) {
+    const paging = document.getElementById('goodIssuePaging');
+    if (!paging || !pagination) {
+        return;
+    }
+
+    const total = pagination.total || 0;
+    const current = pagination.current_page || 1;
+    const last = pagination.last_page || 1;
+    const from = total === 0 ? 0 : ((current - 1) * (pagination.per_page || goodIssuePerPage)) + 1;
+    const to = Math.min(current * (pagination.per_page || goodIssuePerPage), total);
+
+    paging.innerHTML = `
+        <div class="text-gray-600">Menampilkan ${from} - ${to} dari ${total} dokumen GI</div>
+        <div class="flex gap-2">
+            <button type="button" class="px-3 py-1 border rounded ${current <= 1 ? 'opacity-50 cursor-not-allowed' : 'hover:bg-gray-50'}"
+                ${current <= 1 ? 'disabled' : ''} onclick="loadGoodIssue(${current - 1})">Prev</button>
+            <span class="px-3 py-1 text-gray-600">Halaman ${current} dari ${last}</span>
+            <button type="button" class="px-3 py-1 border rounded ${current >= last ? 'opacity-50 cursor-not-allowed' : 'hover:bg-gray-50'}"
+                ${current >= last ? 'disabled' : ''} onclick="loadGoodIssue(${current + 1})">Next</button>
+        </div>
+    `;
+}
+
+function showGoodIssueError(message) {
+    document.getElementById('goodIssueBody').innerHTML = `
+        <tr>
+            <td colspan="7" class="text-center py-8 text-red-500">
+                <p>${escapeHtml(message)}</p>
+            </td>
+        </tr>
+    `;
+}
+
+function resetGoodIssueFilters() {
+    const today = new Date();
+    const firstDay = new Date(today.getFullYear(), today.getMonth(), 1);
+    const toDateInput = date => {
+        const year = date.getFullYear();
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const day = String(date.getDate()).padStart(2, '0');
+        return `${year}-${month}-${day}`;
+    };
+
+    document.getElementById('giStartDate').value = toDateInput(firstDay);
+    document.getElementById('giEndDate').value = toDateInput(today);
+    document.getElementById('giMaterialType').value = 'all';
+    document.getElementById('giSearch').value = '';
+    document.getElementById('giPerPage').value = '20';
+    goodIssuePerPage = 20;
+    loadGoodIssue(1);
+}
+
 // Detail modal
 function showDetail(item) {
     const detailModal = document.getElementById('detailModal');
     const itemCode = String(item?.code || '').trim();
 
     if (!itemCode) {
-        alert('Kode sparepart tidak valid.');
+        alert('Kode material tidak valid.');
         return;
     }
 
-    document.getElementById('detailTitle').textContent = 'Detail Sparepart: ' + itemCode;
+    document.getElementById('detailTitle').textContent = 'Detail Material: ' + itemCode;
     document.getElementById('detailCode').textContent = itemCode;
     document.getElementById('detailName').textContent = item?.name || '-';
     document.getElementById('detailUnit').textContent = item?.unit || '-';
@@ -880,7 +1136,7 @@ function showDetail(item) {
             const master = result.data?.master || null;
 
             if (master) {
-                document.getElementById('detailTitle').textContent = 'Detail Sparepart: ' + (master.code || itemCode);
+                document.getElementById('detailTitle').textContent = 'Detail Material: ' + (master.code || itemCode);
                 document.getElementById('detailCode').textContent = master.code || itemCode;
                 document.getElementById('detailName').textContent = master.name || item?.name || '-';
                 document.getElementById('detailUnit').textContent = master.unit || item?.unit || '-';
@@ -1027,7 +1283,7 @@ function exportData() {
         }
     });
     
-    window.location.href = `/stock/export?${params.toString()}`;
+    window.location.href = `${stockBaseUrl}/export?${params.toString()}`;
 }
 
 // Tab handling
@@ -1044,6 +1300,10 @@ document.querySelectorAll('.tab-btn').forEach(btn => {
             b.classList.remove('active');
         });
         this.classList.add('active');
+
+        if (tabId === 'good-issue' && !goodIssueLoaded) {
+            loadGoodIssue(1);
+        }
     });
 });
 

@@ -54,6 +54,21 @@
                 </div>
 
                 <div>
+                    <label for="username" class="mb-2 block text-sm font-semibold text-gray-700 dark:text-gray-200">Username Login</label>
+                    <input id="username"
+                           name="username"
+                           type="text"
+                           value="{{ old('username') }}"
+                           placeholder="contoh: eng.mgr"
+                           class="w-full rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-sm text-gray-700 placeholder-gray-400 shadow-sm transition focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-100 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200 dark:placeholder-gray-500 dark:focus:border-blue-400 dark:focus:ring-blue-900/40"
+                           required>
+                    <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">Dipakai untuk login web dan Android.</p>
+                    @error('username')
+                        <p class="mt-1 text-xs text-red-600 dark:text-red-400">{{ $message }}</p>
+                    @enderror
+                </div>
+
+                <div>
                     <label for="email" class="mb-2 block text-sm font-semibold text-gray-700 dark:text-gray-200">Email</label>
                     <input id="email"
                            name="email"
@@ -90,9 +105,26 @@
                         <option value="approval" @selected(old('role') === 'approval')>Approval Level 1</option>
                         <option value="approval2" @selected(old('role') === 'approval2')>Approval Level 2</option>
                         <option value="warehouse" @selected(old('role') === 'warehouse')>Warehouse</option>
+                        <option value="section_head" @selected(old('role') === 'section_head')>Section Head</option>
                         <option value="admin" @selected(old('role') === 'admin')>Admin</option>
                     </select>
                     @error('role')
+                        <p class="mt-1 text-xs text-red-600 dark:text-red-400">{{ $message }}</p>
+                    @enderror
+                </div>
+
+                <div>
+                    <label for="department_code" class="mb-2 block text-sm font-semibold text-gray-700 dark:text-gray-200">Departemen</label>
+                    <select id="department_code"
+                            name="department_code"
+                            class="w-full rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-sm text-gray-700 shadow-sm transition focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-100 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200 dark:focus:border-blue-400 dark:focus:ring-blue-900/40"
+                            required>
+                        <option value="">-- Pilih Departemen --</option>
+                        @foreach($departments as $code => $label)
+                            <option value="{{ $code }}" @selected(old('department_code') === $code)>{{ $label }}</option>
+                        @endforeach
+                    </select>
+                    @error('department_code')
                         <p class="mt-1 text-xs text-red-600 dark:text-red-400">{{ $message }}</p>
                     @enderror
                 </div>
@@ -100,7 +132,7 @@
 
             <div class="mt-6 rounded-lg border border-blue-100 bg-blue-50 px-4 py-3 text-sm text-blue-700 dark:border-blue-900/50 dark:bg-blue-900/20 dark:text-blue-300">
                 <i class="fas fa-circle-info mr-2"></i>
-                Pastikan role dipilih sesuai kebutuhan akses user.
+                Pastikan role dan departemen dipilih sesuai kebutuhan akses dan reporting budget.
             </div>
 
             <div class="mt-6 flex justify-end gap-3 border-t border-gray-200 pt-5 dark:border-gray-800">

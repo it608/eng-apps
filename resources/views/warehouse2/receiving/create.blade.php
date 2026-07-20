@@ -1,6 +1,6 @@
 @extends('layouts.admin')
 
-@section('title', 'Warehouse 2 - Terima Barang Baru')
+@section('title', 'Area Stock - Terima dari Gudang')
 
 @push('styles')
 <style>
@@ -20,16 +20,31 @@
     }
     
     .search-dropdown {
-        position: absolute;
-        z-index: 9999;
+        position: fixed;
+        z-index: 99999;
         background: white;
-        border: 1px solid #e2e8f0;
-        border-radius: 0.5rem;
-        box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
-        max-height: 16rem;
+        border: 1px solid #dbe3ef;
+        border-radius: 0.75rem;
+        box-shadow: 0 18px 45px -18px rgba(15, 23, 42, 0.45), 0 8px 18px -12px rgba(15, 23, 42, 0.25);
+        max-height: 18rem;
         overflow-y: auto;
     }
-    
+
+    .item-result {
+        padding: 0.75rem 0.875rem;
+        cursor: pointer;
+        border-bottom: 1px solid #eef2f7;
+        transition: background-color 0.15s ease, color 0.15s ease;
+    }
+
+    .item-result:last-child {
+        border-bottom: 0;
+    }
+
+    .item-result:hover {
+        background: #eff6ff;
+    }
+
     .spinner {
         border: 3px solid #f3f3f3;
         border-top: 3px solid #3b82f6;
@@ -84,8 +99,8 @@
 
 @section('content')
 <div class="mb-6">
-    <h1 class="text-2xl font-semibold text-gray-800">Warehouse 2 - Terima Barang Baru</h1>
-    <p class="text-sm text-gray-500 mt-1">Input penerimaan barang masuk</p>
+    <h1 class="text-2xl font-semibold text-gray-800">Terima Barang dari Gudang</h1>
+    <p class="text-sm text-gray-500 mt-1">Catat barang yang diterima area dari Gudang Utama</p>
 </div>
 
 <div class="bg-white rounded-xl shadow-sm border p-6">
@@ -112,8 +127,9 @@
             <div>
                 <label class="block text-sm font-medium mb-1">Supplier</label>
                 <input type="text" name="supplier" id="supplier"
-                       class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 text-sm compact-input"
-                       placeholder="Nama supplier" required>
+                       value="Internal" readonly
+                       class="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-50 text-gray-700 text-sm compact-input cursor-not-allowed"
+                       required>
             </div>
         </div>
         
@@ -135,15 +151,13 @@
             </button>
         </div>
         
-        <div class="overflow-x-auto border rounded-lg mb-4">
+        <div class="border rounded-lg mb-4">
             <table class="min-w-full">
                 <thead class="bg-gray-50">
                     <tr>
                         <th class="px-4 py-2 border-r text-left text-xs font-medium text-gray-700 uppercase w-12 table-header-compact">No</th>
                         <th class="px-4 py-2 border-r text-left text-xs font-medium text-gray-700 uppercase min-w-80 table-header-compact">Pilih Barang</th>
                         <th class="px-4 py-2 border-r text-left text-xs font-medium text-gray-700 uppercase w-32 table-header-compact">Jumlah</th>
-                        <th class="px-4 py-2 border-r text-left text-xs font-medium text-gray-700 uppercase w-40 table-header-compact">Harga Satuan</th>
-                        <th class="px-4 py-2 border-r text-left text-xs font-medium text-gray-700 uppercase w-40 table-header-compact">Total</th>
                         <th class="px-4 py-2 text-left text-xs font-medium text-gray-700 uppercase w-20 table-header-compact">Aksi</th>
                     </tr>
                 </thead>
@@ -152,8 +166,8 @@
                 </tbody>
                 <tfoot class="bg-gray-50">
                     <tr>
-                        <td colspan="4" class="px-4 py-2 text-right font-semibold">Total</td>
-                        <td class="px-4 py-2 text-right font-semibold" id="totalValue">Rp 0</td>
+                        <td colspan="2" class="px-4 py-2 text-right font-semibold">Total Qty</td>
+                        <td class="px-4 py-2 text-center font-semibold" id="totalQuantity">0</td>
                         <td></td>
                     </tr>
                 </tfoot>
@@ -197,6 +211,7 @@ if (!items || items.length === 0) {
 let itemRows = [];
 let nextRowId = 1;
 let searchTimeout = null;
+let activeSearchRowId = null;
 
 // ============== INITIALIZE ==============
 document.addEventListener('DOMContentLoaded', function() {
@@ -243,18 +258,15 @@ document.getElementById('receivingForm').addEventListener('submit', async functi
         itemRows.forEach(row => {
             const searchInput = document.getElementById(`row-${row.id}-search`);
             const quantityInput = document.getElementById(`row-${row.id}-quantity`);
-            const priceInput = document.getElementById(`row-${row.id}-price`);
             
             if (searchInput) searchInput.classList.remove('border-red-500');
             if (quantityInput) quantityInput.classList.remove('border-red-500');
-            if (priceInput) priceInput.classList.remove('border-red-500');
         });
         
         // Validasi setiap row
         itemRows.forEach((row, index) => {
             const searchInput = document.getElementById(`row-${row.id}-search`);
             const quantityInput = document.getElementById(`row-${row.id}-quantity`);
-            const priceInput = document.getElementById(`row-${row.id}-price`);
             
             // Cek apakah barang dipilih
             if (!row.itemId) {
@@ -268,13 +280,6 @@ document.getElementById('receivingForm').addEventListener('submit', async functi
                 hasErrors = true;
                 errorMessages.push(`Baris ${index + 1}: Jumlah harus diisi dan lebih dari 0`);
                 if (quantityInput) quantityInput.classList.add('border-red-500');
-            }
-            
-            // Cek price
-            if (row.price === undefined || row.price === null || row.price < 0) {
-                hasErrors = true;
-                errorMessages.push(`Baris ${index + 1}: Harga satuan harus diisi`);
-                if (priceInput) priceInput.classList.add('border-red-500');
             }
         });
     }
@@ -291,12 +296,11 @@ document.getElementById('receivingForm').addEventListener('submit', async functi
             // Pastikan data tipe nya benar
             const itemId = parseInt(row.itemId);
             const quantity = parseFloat(row.quantity) || 0;
-            const price = parseFloat(row.price) || 0;
             
             return {
                 item_id: itemId,
                 quantity: quantity,
-                unit_price: price
+                unit_price: 0
             };
         })
         .filter(item => {
@@ -304,9 +308,7 @@ document.getElementById('receivingForm').addEventListener('submit', async functi
             return !isNaN(item.item_id) && 
                    item.item_id > 0 && 
                    !isNaN(item.quantity) && 
-                   item.quantity > 0 &&
-                   !isNaN(item.unit_price) && 
-                   item.unit_price >= 0;
+                   item.quantity > 0;
         });
     
     console.log('VALID ITEMS:', validItems);
@@ -387,7 +389,6 @@ function addItem() {
                            onfocus="this.select()"
                            autocomplete="off">
                     <input type="hidden" id="row-${rowId}-itemId">
-                    <div id="row-${rowId}-results" class="hidden absolute z-50 bg-white border border-gray-300 rounded-lg shadow-xl max-h-48 overflow-y-auto w-full" style="width: calc(100% - 2px);"></div>
                 </div>
             </td>
             <td class="px-4 py-2 border-r">
@@ -397,14 +398,6 @@ function addItem() {
                        step="0.01" min="0.01"
                        oninput="calculateRowTotal(${rowId})">
             </td>
-            <td class="px-4 py-2 border-r">
-                <input type="number" 
-                       id="row-${rowId}-price"
-                       class="w-full px-3 py-1.5 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-primary-500 text-sm text-right compact-input"
-                       step="1" min="0"
-                       oninput="calculateRowTotal(${rowId})">
-            </td>
-            <td class="px-4 py-2 border-r text-right font-medium" id="row-${rowId}-total">Rp 0</td>
             <td class="px-4 py-2 text-center">
                 <button type="button" onclick="removeItem(${rowId})"
                         class="text-red-600 hover:text-red-800">
@@ -430,63 +423,77 @@ function addItem() {
 
 // ============== FUNGSI SEARCH BARANG ==============
 function searchItem(rowId, query) {
-    console.log(`Search item: row=${rowId}, query="${query}"`);
-    
-    const resultsDiv = document.getElementById(`row-${rowId}-results`);
-    
-    if (!resultsDiv) {
-        console.error(`Results div untuk row ${rowId} tidak ditemukan!`);
+    activeSearchRowId = rowId;
+    const resultsDiv = document.getElementById('searchDropdown');
+    const searchInput = document.getElementById(`row-${rowId}-search`);
+
+    if (!resultsDiv || !searchInput) {
         return;
     }
-    
-    // Clear previous timeout
+
     if (searchTimeout) {
         clearTimeout(searchTimeout);
     }
-    
+
     if (query.length < 2) {
-        resultsDiv.classList.add('hidden');
-        resultsDiv.innerHTML = '';
+        hideSearchDropdown();
         return;
     }
-    
-    // Add loading indicator
-    resultsDiv.innerHTML = '<div class="p-3 text-center"><div class="spinner" style="width: 20px; height: 20px;"></div><p class="text-xs mt-1">Mencari...</p></div>';
+
+    positionSearchDropdown(rowId);
+    resultsDiv.innerHTML = '<div class="p-4 text-center"><div class="spinner" style="width: 20px; height: 20px;"></div><p class="text-xs mt-1 text-gray-500">Mencari barang...</p></div>';
     resultsDiv.classList.remove('hidden');
-    
-    // Debounce search
+
     searchTimeout = setTimeout(() => {
-        // Filter items berdasarkan query
+        const keyword = query.toLowerCase();
         const results = items.filter(item => {
             if (!item || !item.code || !item.name) return false;
-            return item.code.toLowerCase().includes(query.toLowerCase()) ||
-                   item.name.toLowerCase().includes(query.toLowerCase());
-        }).slice(0, 10);
-        
-        console.log(`Ditemukan ${results.length} barang`);
-        
+            return item.code.toLowerCase().includes(keyword) ||
+                   item.name.toLowerCase().includes(keyword);
+        }).slice(0, 12);
+
         if (results.length === 0) {
-            resultsDiv.innerHTML = '<div class="p-3 text-gray-500 text-sm text-center">Tidak ada barang ditemukan</div>';
+            resultsDiv.innerHTML = '<div class="p-4 text-gray-500 text-sm text-center">Barang tidak ditemukan</div>';
+            positionSearchDropdown(rowId);
             return;
         }
-        
-        let html = '';
-        results.forEach(item => {
-            const stockDisplay = item.stock !== undefined ? item.stock : 0;
-            html += `
-                <div class="p-3 hover:bg-blue-50 cursor-pointer border-b last:border-b-0 transition-colors"
-                     onclick="selectItem(${rowId}, ${item.id}, '${item.code} - ${item.name}')">
-                    <div class="font-medium text-sm">${item.code} - ${item.name}</div>
-                    <div class="text-xs text-gray-500 mt-1">
-                        <span>Satuan: ${item.unit || '-'}</span> | 
-                        <span>Stok: ${stockDisplay}</span>
-                    </div>
-                </div>
+
+        resultsDiv.innerHTML = results.map(item => {
+            const stockDisplay = item.stock === null || item.stock === undefined ? 'Master Sparepart' : item.stock;
+            const safeText = encodeURIComponent(`${item.code} - ${item.name}`);
+            return `
+                <button type="button" class="item-result w-full text-left"
+                        onclick="selectItem(${rowId}, ${item.id}, decodeURIComponent('${safeText}'))">
+                    <div class="font-semibold text-sm text-gray-900 leading-snug">${item.code} - ${item.name}</div>
+                    <div class="text-xs text-gray-500 mt-1">Satuan: ${item.unit || '-'} | ${stockDisplay}</div>
+                </button>
             `;
-        });
-        
-        resultsDiv.innerHTML = html;
-    }, 300); // Delay 300ms untuk mengurangi beban
+        }).join('');
+        positionSearchDropdown(rowId);
+    }, 250);
+}
+
+function positionSearchDropdown(rowId) {
+    const resultsDiv = document.getElementById('searchDropdown');
+    const searchInput = document.getElementById(`row-${rowId}-search`);
+    if (!resultsDiv || !searchInput) return;
+
+    const rect = searchInput.getBoundingClientRect();
+    const viewportPadding = 16;
+    const availableWidth = window.innerWidth - (viewportPadding * 2);
+    const width = Math.min(Math.max(rect.width, 520), availableWidth);
+    const left = Math.min(Math.max(rect.left, viewportPadding), window.innerWidth - width - viewportPadding);
+
+    resultsDiv.style.width = `${width}px`;
+    resultsDiv.style.left = `${left}px`;
+    resultsDiv.style.top = `${rect.bottom + 6}px`;
+}
+
+function hideSearchDropdown() {
+    const resultsDiv = document.getElementById('searchDropdown');
+    if (!resultsDiv) return;
+    resultsDiv.classList.add('hidden');
+    resultsDiv.innerHTML = '';
 }
 
 // ============== FUNGSI PILIH BARANG ==============
@@ -495,7 +502,6 @@ function selectItem(rowId, itemId, displayText) {
     
     const searchInput = document.getElementById(`row-${rowId}-search`);
     const itemIdInput = document.getElementById(`row-${rowId}-itemId`);
-    const resultsDiv = document.getElementById(`row-${rowId}-results`);
     
     if (searchInput) {
         searchInput.value = displayText;
@@ -505,11 +511,7 @@ function selectItem(rowId, itemId, displayText) {
     if (itemIdInput) {
         itemIdInput.value = itemId;
     }
-    
-    if (resultsDiv) {
-        resultsDiv.classList.add('hidden');
-        resultsDiv.innerHTML = '';
-    }
+    hideSearchDropdown();
     
     const row = itemRows.find(r => r.id === rowId);
     if (row) {
@@ -544,27 +546,28 @@ function updateRowNumbers() {
 // ============== FUNGSI HITUNG TOTAL PER BARIS ==============
 function calculateRowTotal(rowId) {
     const quantity = parseFloat(document.getElementById(`row-${rowId}-quantity`).value) || 0;
-    const price = parseFloat(document.getElementById(`row-${rowId}-price`).value) || 0;
-    const total = quantity * price;
-    
-    document.getElementById(`row-${rowId}-total`).textContent = formatRupiah(total);
-    
     const row = itemRows.find(r => r.id === rowId);
     if (row) {
         row.quantity = quantity;
-        row.price = price;
     }
-    
+
     calculateGrandTotal();
 }
 
 // ============== FUNGSI HITUNG TOTAL SEMUA ==============
 function calculateGrandTotal() {
     const total = itemRows.reduce((sum, row) => {
-        return sum + (row.quantity * row.price);
+        return sum + (parseFloat(row.quantity) || 0);
     }, 0);
-    
-    document.getElementById('totalValue').textContent = formatRupiah(total);
+
+    document.getElementById('totalQuantity').textContent = formatNumber(total);
+}
+
+function formatNumber(value) {
+    return new Intl.NumberFormat('id-ID', {
+        minimumFractionDigits: 0,
+        maximumFractionDigits: 2
+    }).format(value || 0);
 }
 
 // ============== FUNGSI FORMAT RUPIAH ==============
@@ -583,9 +586,9 @@ function showFormError(messages) {
     if (!errorDiv) return;
     
     if (Array.isArray(messages)) {
-        errorDiv.innerHTML = messages.map(msg => `<div class="mb-1">• ${msg}</div>`).join('');
+        errorDiv.innerHTML = messages.map(msg => `<div class="mb-1">Â• ${msg}</div>`).join('');
     } else {
-        errorDiv.innerHTML = `<div>• ${messages}</div>`;
+        errorDiv.innerHTML = `<div>Â• ${messages}</div>`;
     }
     
     errorDiv.classList.remove('hidden');
@@ -605,12 +608,22 @@ function hideFormError() {
 
 // ============== HIDE SEARCH RESULTS WHEN CLICKING OUTSIDE ==============
 document.addEventListener('click', function(e) {
-    if (!e.target.closest('[id$="-search"]') && !e.target.closest('[id$="-results"]')) {
-        document.querySelectorAll('[id$="-results"]').forEach(el => {
-            el.classList.add('hidden');
-        });
+    if (!e.target.closest('[id$="-search"]') && !e.target.closest('#searchDropdown')) {
+        hideSearchDropdown();
     }
 });
+
+window.addEventListener('resize', function() {
+    if (activeSearchRowId && !document.getElementById('searchDropdown')?.classList.contains('hidden')) {
+        positionSearchDropdown(activeSearchRowId);
+    }
+});
+
+window.addEventListener('scroll', function() {
+    if (activeSearchRowId && !document.getElementById('searchDropdown')?.classList.contains('hidden')) {
+        positionSearchDropdown(activeSearchRowId);
+    }
+}, true);
 
 // ============== DEBUG AUTO - LOG SETIAP 10 DETIK ==============
 setInterval(function() {
@@ -619,7 +632,7 @@ setInterval(function() {
             id: row.id,
             itemId: row.itemId,
             quantity: row.quantity,
-            price: row.price
+            quantity: row.quantity
         })));
     }
 }, 10000);

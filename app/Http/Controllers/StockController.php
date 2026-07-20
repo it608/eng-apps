@@ -14,8 +14,16 @@ class StockController extends Controller
     /**
      * Halaman utama stok sparepart.
      */
-    public function index()
+    public function index(Request $request)
     {
+        $isNonSparepart = $this->isNonSparepartMode($request);
+        $pageTitle = $isNonSparepart ? 'Stock Non Sparepart' : 'Stok Sparepart';
+        $pageSubtitle = $isNonSparepart
+            ? 'Monitoring stok material non-sparepart Engineering'
+            : 'Monitoring stok sparepart Engineering';
+        $stockLabel = $isNonSparepart ? 'material non-sparepart' : 'sparepart';
+        $stockBaseUrl = $isNonSparepart ? url('/stock-non-sparepart') : url('/stock');
+
         try {
             $locations = Cache::remember('stock_locations', 300, function () {
                 return DB::connection('pgsql2')
@@ -30,12 +38,18 @@ class StockController extends Controller
             // Filter kategori sementara dinonaktifkan mengikuti source repo.
             $categories = [];
 
-            return view('user.stock', compact('locations', 'categories'));
+            return view('user.stock', compact('locations', 'categories', 'pageTitle', 'pageSubtitle', 'stockLabel', 'stockBaseUrl', 'isNonSparepart'));
         } catch (\Exception $e) {
             Log::error('Stock index error: ' . $e->getMessage());
 
-            return view('user.stock')->with('error', 'Gagal memuat data filter: ' . $e->getMessage());
+            return view('user.stock', compact('pageTitle', 'pageSubtitle', 'stockLabel', 'stockBaseUrl', 'isNonSparepart'))
+                ->with('error', 'Gagal memuat data filter: ' . $e->getMessage());
         }
+    }
+
+    public function goodIssueIndex()
+    {
+        return view('user.good-issue');
     }
 
     /**
@@ -56,8 +70,8 @@ class StockController extends Controller
                 'filter_name' => 'nullable|string|max:100',
                 'filter_unit' => 'nullable|string|max:20',
                 'filter_status' => 'nullable|string|max:20',
-                'category' => 'nullable|in:under_10m,above_10m',
-                'price_filter' => 'nullable|in:under_10m,above_10m',
+                'category' => 'nullable|in:zero,under_10m,above_10m',
+                'price_filter' => 'nullable|in:zero,under_10m,above_10m',
             ]);
 
             if ($validator->fails()) {
@@ -163,7 +177,7 @@ class StockController extends Controller
         $filterStatus = strtolower(trim((string) $request->get('filter_status', '')));
         $categoryFilter = strtolower(trim((string) $request->get('category', '')));
         $priceFilter = strtolower(trim((string) $request->get('price_filter', $categoryFilter)));
-        if (!in_array($priceFilter, ['under_10m', 'above_10m'], true)) {
+        if (!in_array($priceFilter, ['zero', 'under_10m', 'above_10m'], true)) {
             $priceFilter = '';
         }
         $effectiveStatus = $filterStatus !== '' ? $filterStatus : $status;
@@ -172,6 +186,7 @@ class StockController extends Controller
             $effectiveStatus = '';
         }
 
+        $sparepartScope = $this->stockMaterialSql('m', $this->isNonSparepartMode($request));
         $endQtyExpression = "(
             COALESCE(sa.menge, 0)
             + COALESCE(pur.pur_qty, 0)
@@ -190,7 +205,27 @@ class StockController extends Controller
                     THEN ROUND(COALESCE(pur.pur_amt, 0) / NULLIF(COALESCE(pur.pur_qty, 0), 0), 2)
                 WHEN COALESCE(sa.menge, 0) > 0
                     THEN ROUND(COALESCE(sa.dmbtr, 0) / NULLIF(COALESCE(sa.menge, 0), 0), 2)
+                WHEN COALESCE(lpp.latest_po_price, 0) > 0
+                    THEN COALESCE(lpp.latest_po_price, 0)
                 ELSE 0
+            END
+        )";
+        $bookValueExpression = "(
+            COALESCE(sa.dmbtr, 0)
+            + COALESCE(pur.pur_amt, 0)
+            + COALESCE(ret.ret_amt, 0)
+            + COALESCE(kpl.kpl_amt, 0)
+            - COALESCE(usea.use_amt, 0)
+            - COALESCE(nrb.nrb_amt, 0)
+            - COALESCE(kmn.kmn_amt, 0)
+            - COALESCE(tkl.tkl_amt, 0)
+            + COALESCE(tms.tms_amt, 0)
+            - COALESCE(los.los_amt, 0)
+        )";
+        $stockValueExpression = "(
+            CASE
+                WHEN ABS({$bookValueExpression}) > 0 THEN {$bookValueExpression}
+                ELSE ROUND({$endQtyExpression} * {$avgPriceExpression}, 2)
             END
         )";
         $sql = "
@@ -294,7 +329,42 @@ class StockController extends Controller
                     li.lsloc
                 FROM lokasi_item li
                 JOIN PUBLIC.tb_skb080_1mmara m ON li.matnr = m.id_items
-                WHERE m.mtart = 'YSPR'
+                WHERE {$sparepartScope}
+            ),
+            latest_po_price AS (
+                SELECT DISTINCT ON (ma.id_items)
+                    ma.id_items,
+                    TRIM(ma.code) AS code,
+                    (
+                        CASE
+                            WHEN COALESCE(dp.unit_price, 0) > 0
+                                THEN dp.unit_price
+                            WHEN COALESCE(dp.subtotal, 0) > 0
+                                AND COALESCE(NULLIF(dp.qty_aprv, 0), NULLIF(dp.qty_po, 0)) IS NOT NULL
+                                THEN ROUND(dp.subtotal / COALESCE(NULLIF(dp.qty_aprv, 0), NULLIF(dp.qty_po, 0)), 2)
+                            ELSE 0
+                        END
+                    ) AS latest_po_price,
+                    mp.po_date AS latest_po_date,
+                    mp.id_purch_ord AS latest_po_id
+                FROM PUBLIC.tb_skb002_1mpurch_ord mp
+                JOIN PUBLIC.tb_skb002_2dpurch_ord_items dp
+                    ON mp.id_purch_ord = dp.id_purch_ord
+                JOIN PUBLIC.tb_skb080_1mmara ma
+                    ON dp.id_items = ma.id_items
+                WHERE mp.po_date >= (CURRENT_DATE - INTERVAL '5 years')
+                  AND (
+                      COALESCE(dp.unit_price, 0) > 0
+                      OR (
+                          COALESCE(dp.subtotal, 0) > 0
+                          AND COALESCE(NULLIF(dp.qty_aprv, 0), NULLIF(dp.qty_po, 0)) IS NOT NULL
+                      )
+                  )
+                  AND {$this->stockMaterialSql('ma', $this->isNonSparepartMode($request))}
+                ORDER BY
+                    ma.id_items,
+                    mp.po_date DESC NULLS LAST,
+                    mp.id_purch_ord DESC
             )
             SELECT
                 ai.itemno,
@@ -326,23 +396,8 @@ class StockController extends Controller
                 usea.last_use_date,
                 pur.last_pur_date,
                 {$endQtyExpression} AS end_qty,
-                (
-                    COALESCE(sa.dmbtr, 0)
-                    + COALESCE(pur.pur_amt, 0)
-                    + COALESCE(ret.ret_amt, 0)
-                    + COALESCE(kpl.kpl_amt, 0)
-                    - COALESCE(usea.use_amt, 0)
-                    - COALESCE(nrb.nrb_amt, 0)
-                    - COALESCE(kmn.kmn_amt, 0)
-                    - COALESCE(tkl.tkl_amt, 0)
-                    + COALESCE(tms.tms_amt, 0)
-                    - COALESCE(los.los_amt, 0)
-                ) AS end_amt,
-                CASE
-                    WHEN COALESCE(pur.pur_qty, 0) > 0 THEN ROUND(COALESCE(pur.pur_amt, 0) / NULLIF(COALESCE(pur.pur_qty, 0), 0), 2)
-                    WHEN COALESCE(sa.menge, 0) > 0 THEN ROUND(COALESCE(sa.dmbtr, 0) / NULLIF(COALESCE(sa.menge, 0), 0), 2)
-                    ELSE 0
-                END AS avg_price
+                {$stockValueExpression} AS end_amt,
+                {$avgPriceExpression} AS avg_price
             FROM all_items ai
             LEFT JOIN stok_awal sa ON sa.matnr = ai.id_items AND sa.lsloc = ai.lsloc
             LEFT JOIN pur_agg pur ON pur.matnr = ai.id_items AND pur.lsloc = ai.lsloc
@@ -354,6 +409,7 @@ class StockController extends Controller
             LEFT JOIN tkl_agg tkl ON tkl.matnr = ai.id_items AND tkl.lsloc = ai.lsloc
             LEFT JOIN tms_agg tms ON tms.matnr = ai.id_items AND tms.lsloc = ai.lsloc
             LEFT JOIN los_agg los ON los.matnr = ai.id_items AND los.lsloc = ai.lsloc
+            LEFT JOIN latest_po_price lpp ON lpp.id_items = ai.id_items
             WHERE 1=1
         ";
 
@@ -385,8 +441,10 @@ class StockController extends Controller
             $sql .= " AND {$endQtyExpression} > 5";
         }
 
-                if ($priceFilter === 'under_10m') {
-            $sql .= " AND {$avgPriceExpression} < 10000000";
+        if ($priceFilter === 'zero') {
+            $sql .= " AND {$avgPriceExpression} <= 0";
+        } elseif ($priceFilter === 'under_10m') {
+            $sql .= " AND {$avgPriceExpression} > 0 AND {$avgPriceExpression} < 10000000";
         } elseif ($priceFilter === 'above_10m') {
             $sql .= " AND {$avgPriceExpression} >= 10000000";
         }
@@ -399,7 +457,7 @@ return $sql;
     private function getOptimizedSummary(Request $request): array
     {
         try {
-            $cacheKey = 'stock_summary_v3_' . md5(json_encode($request->only([
+            $cacheKey = 'stock_summary_v3_' . ($this->isNonSparepartMode($request) ? 'non_sparepart_' : 'sparepart_') . md5(json_encode($request->only([
                 'search',
                 'location',
                 'status',
@@ -407,6 +465,8 @@ return $sql;
                 'filter_name',
                 'filter_unit',
                 'filter_status',
+                'category',
+                'price_filter',
             ])));
 
             return Cache::remember($cacheKey, 300, function () use ($request) {
@@ -466,7 +526,8 @@ return $sql;
             }
 
             $sql = $this->buildOptimizedStockQuery($request) . ' ORDER BY code ASC';
-            $filename = 'stock_sparepart_' . date('Ymd_His') . '.xlsx';
+            $filenamePrefix = $this->isNonSparepartMode($request) ? 'stock_non_sparepart' : 'stock_sparepart';
+            $filename = $filenamePrefix . '_' . date('Ymd_His') . '.xlsx';
 
             $exportDir = storage_path('app/exports');
             if (!is_dir($exportDir)) {
@@ -515,6 +576,7 @@ return $sql;
                 ], 422);
             }
 
+            $sparepartScope = $this->stockMaterialSql('e', $this->isNonSparepartMode($request));
             $sql = "
                 SELECT
                     b.budat AS tanggal,
@@ -543,7 +605,7 @@ return $sql;
                 JOIN tb_skb008_2dmseg d ON d.idmse = b.idmse
                 JOIN tb_skb080_1mmara e ON e.id_items = d.matnr
                 WHERE b.budat BETWEEN ? AND ?
-                  AND e.mtart = 'YSPR'
+                  AND {$sparepartScope}
             ";
 
             $params = [$request->start_date, $request->end_date];
@@ -600,6 +662,392 @@ return $sql;
             return response()->json([
                 'success' => false,
                 'message' => 'Gagal mengambil data mutasi: ' . $e->getMessage(),
+                'data' => [],
+            ], 500);
+        }
+    }
+
+    /**
+     * Read-only view transaksi Good Issue ERP untuk kebutuhan Engineering.
+     */
+    public function getGoodIssue(Request $request)
+    {
+        try {
+            $validator = Validator::make($request->all(), [
+                'start_date' => 'required|date',
+                'end_date' => 'required|date|after_or_equal:start_date',
+                'material_type' => 'nullable|in:all,sparepart,non_sparepart',
+                'cost_center' => 'nullable|string|max:150',
+                'search' => 'nullable|string|max:120',
+                'page' => 'nullable|integer|min:1',
+                'per_page' => 'nullable|integer|min:10|max:100',
+            ]);
+
+            if ($validator->fails()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Parameter tidak valid',
+                    'errors' => $validator->errors(),
+                ], 422);
+            }
+
+            $page = max((int) $request->input('page', 1), 1);
+            $perPage = min(max((int) $request->input('per_page', 20), 10), 100);
+            $offset = ($page - 1) * $perPage;
+            $materialType = $request->input('material_type', 'all');
+            $search = trim((string) $request->input('search', ''));
+            $costCenter = trim((string) $request->input('cost_center', ''));
+
+            $scopeSql = match ($materialType) {
+                'sparepart' => $this->stockMaterialSql('e', false),
+                'non_sparepart' => $this->stockMaterialSql('e', true),
+                default => '1 = 1',
+            };
+
+            $params = [$request->start_date, $request->end_date];
+            $whereSql = "
+                b.budat BETWEEN ? AND ?
+                AND d.bwart = '201'
+                AND COALESCE(d.saknr, 0) <> 7755
+                AND {$scopeSql}
+                AND (
+                    UPPER(COALESCE(cc.name_costctr, '')) LIKE 'ENGINEERING%'
+                    OR UPPER(COALESCE(cc.desc_costctr, '')) LIKE 'ENGINEERING%'
+                    OR UPPER(COALESCE(cc.code_costctr, '')) LIKE 'ENGINEERING%'
+                )
+            ";
+
+            if ($search !== '') {
+                $whereSql .= "
+                    AND (
+                        CAST(b.mblnr AS TEXT) ILIKE ?
+                        OR TRIM(e.code) ILIKE ?
+                        OR e.item_name ILIKE ?
+                        OR d.lsloc ILIKE ?
+                        OR CAST(d.saknr AS TEXT) ILIKE ?
+                        OR CAST(COALESCE(NULLIF(d.kostl, 0), NULLIF(b.kostl, 0)) AS TEXT) ILIKE ?
+                        OR TRIM(COALESCE(cc.code_costctr, '')) ILIKE ?
+                        OR COALESCE(cc.name_costctr, '') ILIKE ?
+                        OR COALESCE(cc.desc_costctr, '') ILIKE ?
+                    )
+                ";
+                $keyword = '%' . $search . '%';
+                array_push($params, $keyword, $keyword, $keyword, $keyword, $keyword, $keyword, $keyword, $keyword, $keyword);
+            }
+
+            if ($costCenter !== '') {
+                $whereSql .= "
+                    AND (
+                        TRIM(COALESCE(cc.name_costctr, '')) ILIKE ?
+                        OR TRIM(COALESCE(cc.desc_costctr, '')) ILIKE ?
+                        OR TRIM(COALESCE(cc.code_costctr, '')) ILIKE ?
+                        OR CAST(COALESCE(NULLIF(d.kostl, 0), NULLIF(b.kostl, 0)) AS TEXT) ILIKE ?
+                    )
+                ";
+                $costCenterKeyword = '%' . $costCenter . '%';
+                array_push($params, $costCenterKeyword, $costCenterKeyword, $costCenterKeyword, $costCenterKeyword);
+            }
+
+            $summarySql = "
+                SELECT
+                    COUNT(DISTINCT b.mblnr) AS total_gi,
+                    COUNT(*) AS total_item,
+                    COALESCE(SUM(COALESCE(d.menge, 0)), 0) AS total_qty,
+                    COALESCE(SUM(COALESCE(d.wrbtr, 0)), 0) AS total_nilai,
+                    COUNT(DISTINCT COALESCE(
+                        NULLIF(TRIM(cc.name_costctr), ''),
+                        NULLIF(TRIM(cc.desc_costctr), ''),
+                        NULLIF(TRIM(cc.code_costctr), ''),
+                        CAST(COALESCE(NULLIF(d.kostl, 0), NULLIF(b.kostl, 0)) AS TEXT)
+                    )) AS total_cost_center
+                FROM tb_skb008_1mmseg b
+                JOIN tb_skb008_2dmseg d ON d.idmse = b.idmse
+                JOIN tb_skb080_1mmara e ON e.id_items = d.matnr
+                LEFT JOIN tb_skb051_1mcostctr cc
+                    ON cc.id_costctr = COALESCE(NULLIF(d.kostl, 0), NULLIF(b.kostl, 0))
+                WHERE {$whereSql}
+            ";
+            $summary = DB::connection('pgsql2')->selectOne($summarySql, $params);
+
+            $countSql = "
+                SELECT COUNT(*) AS total
+                FROM (
+                    SELECT b.mblnr
+                    FROM tb_skb008_1mmseg b
+                    JOIN tb_skb008_2dmseg d ON d.idmse = b.idmse
+                    JOIN tb_skb080_1mmara e ON e.id_items = d.matnr
+                    LEFT JOIN tb_skb051_1mcostctr cc
+                        ON cc.id_costctr = COALESCE(NULLIF(d.kostl, 0), NULLIF(b.kostl, 0))
+                    WHERE {$whereSql}
+                    GROUP BY b.mblnr
+                ) docs
+            ";
+            $total = (int) (DB::connection('pgsql2')->selectOne($countSql, $params)->total ?? 0);
+
+            $dataSql = "
+                WITH filtered AS (
+                    SELECT
+                        b.budat AS tanggal,
+                        b.mblnr AS nomor_gi,
+                        b.idmse AS gi_id,
+                        b.usnam AS user_erp,
+                        d.matnr AS material_id,
+                        TRIM(e.code) AS kode_material,
+                        e.item_name AS nama_material,
+                        CASE
+                            WHEN {$this->stockMaterialSql('e', false)} THEN 'Sparepart'
+                            WHEN {$this->stockMaterialSql('e', true)} THEN 'Non Sparepart'
+                            ELSE 'Material'
+                        END AS jenis_material,
+                        d.menge AS quantity,
+                        d.meins AS satuan,
+                        d.lsloc AS lokasi,
+                        CAST(d.saknr AS TEXT) AS kode_gl,
+                        COALESCE(
+                            NULLIF(TRIM(cc.code_costctr), ''),
+                            CAST(COALESCE(NULLIF(d.kostl, 0), NULLIF(b.kostl, 0)) AS TEXT),
+                            '-'
+                        ) AS kode_cost_center,
+                        COALESCE(
+                            NULLIF(TRIM(cc.name_costctr), ''),
+                            NULLIF(TRIM(cc.desc_costctr), ''),
+                            NULLIF(TRIM(cc.code_costctr), ''),
+                            CAST(COALESCE(NULLIF(d.kostl, 0), NULLIF(b.kostl, 0)) AS TEXT),
+                            '-'
+                        ) AS cost_centre,
+                        COALESCE(d.wrbtr, 0) AS nilai
+                    FROM tb_skb008_1mmseg b
+                    JOIN tb_skb008_2dmseg d ON d.idmse = b.idmse
+                    JOIN tb_skb080_1mmara e ON e.id_items = d.matnr
+                    LEFT JOIN tb_skb051_1mcostctr cc
+                        ON cc.id_costctr = COALESCE(NULLIF(d.kostl, 0), NULLIF(b.kostl, 0))
+                    WHERE {$whereSql}
+                ),
+                gi_docs AS (
+                    SELECT
+                        nomor_gi,
+                        MAX(tanggal) AS tanggal,
+                        MAX(gi_id) AS latest_id,
+                        MAX(user_erp) AS user_erp,
+                        COUNT(*) AS item_count,
+                        SUM(COALESCE(quantity, 0)) AS total_qty,
+                        SUM(COALESCE(nilai, 0)) AS total_nilai,
+                        STRING_AGG(DISTINCT NULLIF(kode_gl, ''), ', ') AS kode_gl,
+                        STRING_AGG(DISTINCT NULLIF(kode_cost_center, ''), ', ') AS kode_cost_center,
+                        STRING_AGG(DISTINCT NULLIF(cost_centre, ''), ', ') AS cost_centre
+                    FROM filtered
+                    GROUP BY nomor_gi
+                    ORDER BY MAX(tanggal) DESC, MAX(gi_id) DESC
+                    LIMIT {$perPage} OFFSET {$offset}
+                )
+                SELECT
+                    gd.tanggal AS doc_tanggal,
+                    gd.nomor_gi AS doc_nomor_gi,
+                    gd.user_erp AS doc_user_erp,
+                    gd.item_count,
+                    gd.total_qty,
+                    gd.total_nilai,
+                    gd.kode_gl AS doc_kode_gl,
+                    gd.kode_cost_center AS doc_kode_cost_center,
+                    gd.cost_centre AS doc_cost_centre,
+                    f.kode_material,
+                    f.nama_material,
+                    f.jenis_material,
+                    f.quantity,
+                    f.satuan,
+                    f.lokasi,
+                    f.kode_gl,
+                    f.kode_cost_center,
+                    f.cost_centre,
+                    f.nilai
+                FROM gi_docs gd
+                JOIN filtered f ON f.nomor_gi = gd.nomor_gi
+                ORDER BY gd.tanggal DESC, gd.latest_id DESC, f.kode_material ASC
+            ";
+
+            $items = DB::connection('pgsql2')->select($dataSql, $params);
+            $grouped = [];
+
+            foreach ($items as $item) {
+                $nomorGi = $this->cleanUtf8($item->doc_nomor_gi ?? '-');
+
+                if (!isset($grouped[$nomorGi])) {
+                    $grouped[$nomorGi] = [
+                        'tanggal' => $item->doc_tanggal ? date('Y-m-d', strtotime($item->doc_tanggal)) : '-',
+                        'nomor_gi' => $nomorGi,
+                        'item_count' => (int) ($item->item_count ?? 0),
+                        'total_qty' => (float) ($item->total_qty ?? 0),
+                        'total_nilai' => (float) ($item->total_nilai ?? 0),
+                        'kode_gl' => $this->cleanUtf8($item->doc_kode_gl ?? '-'),
+                        'kode_cost_center' => $this->cleanUtf8($item->doc_kode_cost_center ?? '-'),
+                        'cost_centre' => $this->cleanUtf8($item->doc_cost_centre ?? '-'),
+                        'user_erp' => $this->cleanUtf8($item->doc_user_erp ?? '-'),
+                        'items' => [],
+                    ];
+                }
+
+                $grouped[$nomorGi]['items'][] = [
+                    'kode_material' => $this->cleanUtf8($item->kode_material ?? '-'),
+                    'nama_material' => $this->cleanUtf8($item->nama_material ?? '-'),
+                    'jenis_material' => $this->cleanUtf8($item->jenis_material ?? '-'),
+                    'quantity' => (float) ($item->quantity ?? 0),
+                    'satuan' => $this->cleanUtf8($item->satuan ?? '-'),
+                    'lokasi' => $this->cleanUtf8($item->lokasi ?? '-'),
+                    'kode_gl' => $this->cleanUtf8($item->kode_gl ?? '-'),
+                    'kode_cost_center' => $this->cleanUtf8($item->kode_cost_center ?? '-'),
+                    'cost_centre' => $this->cleanUtf8($item->cost_centre ?? '-'),
+                    'nilai' => (float) ($item->nilai ?? 0),
+                ];
+            }
+
+            $formatted = array_values($grouped);
+
+            return response()->json([
+                'success' => true,
+                'summary' => [
+                    'total_gi' => (int) ($summary->total_gi ?? 0),
+                    'total_item' => (int) ($summary->total_item ?? 0),
+                    'total_qty' => (float) ($summary->total_qty ?? 0),
+                    'total_nilai' => (float) ($summary->total_nilai ?? 0),
+                    'total_cost_center' => (int) ($summary->total_cost_center ?? 0),
+                ],
+                'data' => $formatted,
+                'pagination' => [
+                    'current_page' => $page,
+                    'per_page' => $perPage,
+                    'total' => $total,
+                    'last_page' => (int) ceil($total / $perPage),
+                ],
+            ]);
+        } catch (\Exception $e) {
+            Log::error('Good Issue ERP view error: ' . $e->getMessage());
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Gagal mengambil data Good Issue ERP: ' . $e->getMessage(),
+                'data' => [],
+            ], 500);
+        }
+    }
+
+    /**
+     * Detail sparepart + histori transaksi 30 hari terakhir.
+     *
+     * Fix penting:
+     * - Kode sparepart dari PostgreSQL bisa punya trailing space.
+     * - id_items bertipe integer, jadi jangan dibandingkan dengan kode string seperti YSPR-00001.
+     * - Lokasi/keterangan tidak dipakai di modal detail agar query aman dari kolom PostgreSQL yang tidak tersedia.
+     */
+    private function getDetailLegacyBroken($id)
+    {
+        try {
+            $lookup = trim(urldecode((string) $id));
+
+            if ($lookup === '') {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Kode sparepart tidak valid',
+                ], 422);
+            }
+
+            $query = DB::connection('pgsql2')
+                ->table('tb_skb080_1mmara')
+                ->where(function ($q) use ($lookup) {
+                    $q->whereRaw('TRIM(code) = ?', [$lookup]);
+
+                    if (ctype_digit($lookup)) {
+                        $q->orWhere('id_items', (int) $lookup);
+                    }
+                });
+
+            $sparepart = $query->first();
+
+            if (!$sparepart) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Sparepart tidak ditemukan: ' . $lookup,
+                ], 404);
+            }
+
+            $itemId = (int) $sparepart->id_items;
+            $itemCode = trim((string) $sparepart->code);
+            $itemName = $this->cleanUtf8($sparepart->item_name ?? '-');
+
+            $priceSql = $this->latestPriceJoinSql('ma');
+            $stockSql = "
+                SELECT
+                    COALESCE(SUM(qty), 0) AS stock,
+                    MAX(trans_date) AS last_update
+                FROM (
+                    SELECT COALESCE(SUM(d.menge), 0) AS qty, MAX(b.budat) AS trans_date
+                    FROM tb_skb008_1mmseg b
+                    JOIN tb_skb008_2dmseg d ON d.idmse = b.idmse
+                FROM tb_skb008_1mmseg b
+                JOIN tb_skb008_2dmseg d ON d.idmse = b.idmse
+                JOIN tb_skb080_1mmara e ON e.id_items = d.matnr
+                WHERE {$whereSql}
+            ";
+            $total = (int) (DB::connection('pgsql2')->selectOne($countSql, $params)->total ?? 0);
+
+            $dataSql = "
+                SELECT
+                    b.budat AS tanggal,
+                    b.mblnr AS nomor_gi,
+                    d.matnr AS material_id,
+                    TRIM(e.code) AS kode_material,
+                    e.item_name AS nama_material,
+                    CASE
+                        WHEN {$this->stockMaterialSql('e', false)} THEN 'Sparepart'
+                        WHEN {$this->stockMaterialSql('e', true)} THEN 'Non Sparepart'
+                        ELSE 'Material'
+                    END AS jenis_material,
+                    d.menge AS quantity,
+                    d.meins AS satuan,
+                    d.lsloc AS lokasi,
+                    COALESCE(d.wrbtr, 0) AS nilai,
+                    b.usnam AS " . '"user"' . "
+                FROM tb_skb008_1mmseg b
+                JOIN tb_skb008_2dmseg d ON d.idmse = b.idmse
+                JOIN tb_skb080_1mmara e ON e.id_items = d.matnr
+                WHERE {$whereSql}
+                ORDER BY b.budat DESC, b.idmse DESC
+                LIMIT {$perPage} OFFSET {$offset}
+            ";
+
+            $items = DB::connection('pgsql2')->select($dataSql, $params);
+            $formatted = [];
+
+            foreach ($items as $item) {
+                $formatted[] = [
+                    'tanggal' => $item->tanggal ? date('Y-m-d', strtotime($item->tanggal)) : '-',
+                    'nomor_gi' => $this->cleanUtf8($item->nomor_gi ?? '-'),
+                    'kode_material' => $this->cleanUtf8($item->kode_material ?? '-'),
+                    'nama_material' => $this->cleanUtf8($item->nama_material ?? '-'),
+                    'jenis_material' => $this->cleanUtf8($item->jenis_material ?? '-'),
+                    'quantity' => (float) ($item->quantity ?? 0),
+                    'satuan' => $this->cleanUtf8($item->satuan ?? '-'),
+                    'lokasi' => $this->cleanUtf8($item->lokasi ?? '-'),
+                    'nilai' => (float) ($item->nilai ?? 0),
+                    'user_erp' => $this->cleanUtf8($item->user ?? '-'),
+                ];
+            }
+
+            return response()->json([
+                'success' => true,
+                'data' => $formatted,
+                'pagination' => [
+                    'current_page' => $page,
+                    'per_page' => $perPage,
+                    'total' => $total,
+                    'last_page' => (int) ceil($total / $perPage),
+                ],
+            ]);
+        } catch (\Exception $e) {
+            Log::error('Good Issue ERP view error: ' . $e->getMessage());
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Gagal mengambil data Good Issue ERP: ' . $e->getMessage(),
                 'data' => [],
             ], 500);
         }
@@ -786,6 +1234,7 @@ return $sql;
     public function getByLocation($location = null)
     {
         try {
+            $sparepartScope = $this->stockMaterialSql('e', $this->isNonSparepartMode(request()));
             $sql = "
                 SELECT
                     d.lsloc AS lokasi,
@@ -798,7 +1247,7 @@ return $sql;
                 FROM tb_skb008_2dmseg d
                 JOIN tb_skb080_1mmara e ON e.id_items = d.matnr
                 LEFT JOIN tb_skb008_1mmseg b ON b.idmse = d.idmse
-                WHERE e.mtart = 'YSPR'
+                WHERE {$sparepartScope}
             ";
 
             $params = [];
@@ -1253,6 +1702,54 @@ return $sql;
         }
 
         return trim($string);
+    }
+
+    private function sparepartMaterialPrefixes(): array
+    {
+        return ['YSPR'];
+    }
+
+    private function nonSparepartMaterialPrefixes(): array
+    {
+        return ['YPAC', 'YOPS', 'YOFS'];
+    }
+
+    private function stockMaterialSql(string $alias, bool $nonSparepart = false): string
+    {
+        $prefixes = $nonSparepart
+            ? $this->nonSparepartMaterialPrefixes()
+            : $this->sparepartMaterialPrefixes();
+
+        return $this->materialPrefixSql($alias, $prefixes);
+    }
+
+    private function engineeringMaterialSql(string $alias): string
+    {
+        return $this->materialPrefixSql($alias, array_merge(
+            $this->sparepartMaterialPrefixes(),
+            $this->nonSparepartMaterialPrefixes()
+        ));
+    }
+
+    private function sparepartMaterialSql(string $alias): string
+    {
+        return $this->stockMaterialSql($alias);
+    }
+
+    private function materialPrefixSql(string $alias, array $prefixes): string
+    {
+        $quoted = implode(', ', array_map(fn ($prefix) => "'" . str_replace("'", "''", $prefix) . "'", $prefixes));
+        $codePredicates = implode(' OR ', array_map(
+            fn ($prefix) => "UPPER(TRIM({$alias}.code)) LIKE '" . str_replace("'", "''", $prefix) . "%'",
+            $prefixes
+        ));
+
+        return "(UPPER(TRIM({$alias}.mtart)) IN ({$quoted}) OR {$codePredicates})";
+    }
+
+    private function isNonSparepartMode(Request $request): bool
+    {
+        return $request->routeIs('stock-non-sparepart.*') || $request->is('stock-non-sparepart*');
     }
 
     private function escapeSqlLike($value): string

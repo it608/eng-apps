@@ -2,9 +2,11 @@
 
 namespace App\Http\Controllers;
 
+use App\Services\FirebasePushService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Carbon\Carbon;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Validation\ValidationException;
 
 class TransaksiController extends Controller
@@ -31,7 +33,8 @@ class TransaksiController extends Controller
             // Return view untuk request biasa
             return view('user.transaksi', [
                 'nomorPB' => $this->generateNomorPB(),
-                'transaksi' => $transaksi
+                'transaksi' => $transaksi,
+                'sectionHeads' => $this->sectionHeads(),
             ]);
             
         } catch (\Exception $e) {
@@ -48,7 +51,8 @@ class TransaksiController extends Controller
             
             return view('user.transaksi', [
                 'nomorPB' => $this->generateNomorPB(),
-                'transaksi' => collect([])
+                'transaksi' => collect([]),
+                'sectionHeads' => $this->sectionHeads(),
             ]);
         }
     }
@@ -65,13 +69,16 @@ class TransaksiController extends Controller
                 'untuk' => 'required|string',
                 'untuk_id' => 'nullable|numeric',
                 'dari_gudang' => 'required|string',
-                'jenis_pekerjaan' => 'required|string|in:repair,maintenance,project,overhaul',
+                'jenis_pekerjaan' => 'required|string|in:repair,maintenance,utility,project,overhaul',
                 'tanggal_diperlukan' => 'required|date|after_or_equal:today',
+                'verification_section_head_id' => 'required|integer|exists:users,id',
+                'material_type' => 'nullable|string|in:sparepart,non_sparepart',
                 'barang' => 'required|array|min:1',
                 'barang.*.barang_id' => 'nullable|numeric',
                 'barang.*.nama_barang' => 'required|string|max:255',
                 'barang.*.jumlah' => 'required|numeric|min:0.01',
                 'barang.*.satuan' => 'required|string',
+                'barang.*.material_type' => 'nullable|string|in:sparepart,non_sparepart',
             ];
 
             // Tambah validasi khusus untuk mesin/bangunan
@@ -80,6 +87,20 @@ class TransaksiController extends Controller
             }
 
             $request->validate($rules);
+
+            $sectionHead = DB::table('users')
+                ->where('id', $request->verification_section_head_id)
+                ->where('role', 'section_head')
+                ->where(function ($query) {
+                    $query->whereNull('is_active')->orWhere('is_active', true);
+                })
+                ->first();
+
+            if (!$sectionHead) {
+                throw ValidationException::withMessages([
+                    'verification_section_head_id' => ['Pilih Section Head yang aktif untuk verifikasi PB.'],
+                ]);
+            }
 
             DB::beginTransaction();
 
@@ -91,7 +112,8 @@ class TransaksiController extends Controller
                     continue;
                 }
 
-                $unitPrice = $this->getBarangAveragePrice($item['barang_id'] ?? null, $item['nama_barang']);
+                $materialType = $this->normalizeMaterialType($item['material_type'] ?? $request->material_type ?? 'sparepart');
+                $unitPrice = $this->getBarangAveragePrice($item['barang_id'] ?? null, $item['nama_barang'], $materialType);
                 $jumlah = (float) $item['jumlah'];
                 $totalPrice = $unitPrice * $jumlah;
                 $isHighValue = $unitPrice >= self::HIGH_VALUE_THRESHOLD;
@@ -103,6 +125,7 @@ class TransaksiController extends Controller
                 $preparedDetails[] = [
                     'barang_id' => $item['barang_id'] ?? null,
                     'nama_barang' => $item['nama_barang'],
+                    'material_type' => $materialType,
                     'jumlah' => $jumlah,
                     'satuan' => $item['satuan'],
                     'unit_price' => $unitPrice,
@@ -128,14 +151,19 @@ class TransaksiController extends Controller
                 'dari_gudang' => $request->dari_gudang,
                 'tanggal_diperlukan' => $request->tanggal_diperlukan,
                 'jenis_pekerjaan' => $request->jenis_pekerjaan,
-                'status' => 'pending',
+                'status' => 'verification',
                 'approval_level_required' => $hasHighValueItem ? 2 : 1,
-                'approval_current_level' => 1,
+                'approval_current_level' => 0,
                 'has_high_value_item' => $hasHighValueItem,
                 'keterangan' => $request->keterangan,
                 'created_at' => now(),
                 'updated_at' => now(),
             ];
+
+            if (Schema::hasColumn('trBPB', 'verification_section_head_id')) {
+                $insertData['verification_section_head_id'] = $sectionHead->id;
+                $insertData['verification_status'] = 'pending';
+            }
 
             // Set field spesifik untuk backward compatibility
             if ($request->untuk === 'mesin') {
@@ -159,20 +187,41 @@ class TransaksiController extends Controller
 
             // Insert detail barang
             $details = [];
+            $detailColumns = Schema::getColumnListing('trBPBDetail');
+            $pbDetailForeignKey = collect($detailColumns)->first(fn ($column) => $column === 'trBPB_id')
+                ?: collect($detailColumns)->first(fn ($column) => strtolower($column) === 'trbpb_id');
+
+            if (!$pbDetailForeignKey) {
+                throw new \Exception('Kolom relasi detail PB tidak ditemukan');
+            }
+
             foreach ($preparedDetails as $item) {
-                $item['trbpb_id'] = $trbpbId;
+                $item[$pbDetailForeignKey] = $trbpbId;
                 $details[] = $item;
             }
 
             DB::table('trBPBDetail')->insert($details);
             DB::commit();
 
+            app(FirebasePushService::class)->sendToUserId(
+                (int) $sectionHead->id,
+                'PB Menunggu Verifikasi',
+                $request->nomor_pb . ' perlu diverifikasi sebelum masuk Approval L1.',
+                [
+                    'type' => 'PB',
+                    'target' => 'pb_verification',
+                    'record_id' => $trbpbId,
+                    'nomor' => $request->nomor_pb,
+                    'sound_type' => 'approval',
+                ]
+            );
+
             // AMBIL DATA TERBARU - URUTKAN DARI TERBARU
             $transaksiBaru = $this->getTransaksiData();
 
             return response()->json([
                 'success' => true,
-                'message' => 'Permintaan barang berhasil disimpan',
+                'message' => 'Permintaan barang berhasil dikirim ke Verifikasi Section Head',
                 'data' => $transaksiBaru
             ]);
             
@@ -202,7 +251,16 @@ class TransaksiController extends Controller
     {
         try {
             $transaksi = DB::table('trBPB')
-                ->where('id', $id)
+                ->leftJoin('users as verifier', 'trBPB.verification_section_head_id', '=', 'verifier.id')
+                ->leftJoin('users as verified_user', 'trBPB.verified_by', '=', 'verified_user.id')
+                ->where('trBPB.id', $id)
+                ->select(
+                    'trBPB.*',
+                    'verifier.name as verification_section_head_name',
+                    'verifier.username as verification_section_head_username',
+                    'verified_user.name as verified_by_name',
+                    'verified_user.username as verified_by_username'
+                )
                 ->first();
 
             if (!$transaksi) {
@@ -287,6 +345,238 @@ class TransaksiController extends Controller
     }
 
     /**
+     * Search work orders approved by Approval Level 1 for PB reference.
+     */
+    public function approvedWorkOrders(Request $request)
+    {
+        $search = trim((string) $request->get('q', ''));
+
+        if (strlen($search) < 2) {
+            return response()->json([
+                'success' => true,
+                'data' => [],
+            ]);
+        }
+
+        $items = DB::table('trWorkOrder')
+            ->select('id', 'nomor', 'judul', 'approved_at')
+            ->where('status', 'approved')
+            ->where(function ($query) use ($search) {
+                $query->where('nomor', 'LIKE', "%{$search}%")
+                    ->orWhere('judul', 'LIKE', "%{$search}%");
+            })
+            ->orderByDesc('approved_at')
+            ->orderByDesc('updated_at')
+            ->limit(10)
+            ->get();
+
+        return response()->json([
+            'success' => true,
+            'data' => $items,
+        ]);
+    }
+
+    public function verificationIndex(Request $request)
+    {
+        return view('user.pb-verification');
+    }
+
+    public function verificationData(Request $request)
+    {
+        $user = auth()->user();
+        $query = DB::table('trBPB')
+            ->leftJoin('trBPBDetail as d', function ($join) {
+                $join->on('trBPB.id', '=', 'd.trBPB_id')
+                    ->orOn('trBPB.id', '=', 'd.trbpb_id');
+            })
+            ->leftJoin('mtMesin', function ($join) {
+                $join->on(DB::raw('COALESCE(trBPB.untuk_id, trBPB.mesin_id)'), '=', 'mtMesin.msnID')
+                    ->where('trBPB.untuk', '=', 'mesin');
+            })
+            ->leftJoin('mtBangunan', function ($join) {
+                $join->on(DB::raw('COALESCE(trBPB.untuk_id, trBPB.bangunan_id)'), '=', 'mtBangunan.buildID')
+                    ->where('trBPB.untuk', '=', 'bangunan');
+            })
+            ->where('trBPB.status', 'verification')
+            ->where('trBPB.verification_status', 'pending')
+            ->where('trBPB.verification_section_head_id', $user->id)
+            ->select(
+                'trBPB.id',
+                'trBPB.nomor_pb',
+                'trBPB.tanggal_permintaan',
+                'trBPB.tanggal_diperlukan',
+                'trBPB.untuk',
+                'trBPB.jenis_pekerjaan',
+                'trBPB.created_at',
+                DB::raw("COALESCE(MAX(mtMesin.msnName), MAX(mtBangunan.buildName), trBPB.untuk) as tujuan_nama"),
+                DB::raw("COALESCE(MAX(mtMesin.msnCode), MAX(mtBangunan.buildCode), '') as tujuan_kode"),
+                DB::raw('COUNT(d.id) as jumlah_barang'),
+                DB::raw('COALESCE(SUM(d.total_price), 0) as total_value')
+            )
+            ->groupBy(
+                'trBPB.id',
+                'trBPB.nomor_pb',
+                'trBPB.tanggal_permintaan',
+                'trBPB.tanggal_diperlukan',
+                'trBPB.untuk',
+                'trBPB.jenis_pekerjaan',
+                'trBPB.created_at'
+            )
+            ->orderByDesc('trBPB.created_at')
+            ->get();
+
+        return response()->json(['success' => true, 'data' => $query]);
+    }
+
+    public function verificationHistoryData(Request $request)
+    {
+        $user = auth()->user();
+        $query = DB::table('trBPB')
+            ->leftJoin('trBPBDetail as d', function ($join) {
+                $join->on('trBPB.id', '=', 'd.trBPB_id')
+                    ->orOn('trBPB.id', '=', 'd.trbpb_id');
+            })
+            ->leftJoin('users as verifier', 'trBPB.verification_section_head_id', '=', 'verifier.id')
+            ->leftJoin('mtMesin', function ($join) {
+                $join->on(DB::raw('COALESCE(trBPB.untuk_id, trBPB.mesin_id)'), '=', 'mtMesin.msnID')
+                    ->where('trBPB.untuk', '=', 'mesin');
+            })
+            ->leftJoin('mtBangunan', function ($join) {
+                $join->on(DB::raw('COALESCE(trBPB.untuk_id, trBPB.bangunan_id)'), '=', 'mtBangunan.buildID')
+                    ->where('trBPB.untuk', '=', 'bangunan');
+            })
+            ->whereIn('trBPB.verification_status', ['verified', 'rejected'])
+            ->when(($user->role ?? '') === 'section_head', fn ($q) => $q->where('trBPB.verification_section_head_id', $user->id))
+            ->select(
+                'trBPB.id',
+                'trBPB.nomor_pb',
+                'trBPB.tanggal_permintaan',
+                'trBPB.tanggal_diperlukan',
+                'trBPB.untuk',
+                'trBPB.jenis_pekerjaan',
+                'trBPB.status',
+                'trBPB.verification_status',
+                'trBPB.verified_at',
+                'trBPB.rejected_at',
+                'trBPB.verification_notes',
+                'trBPB.created_at',
+                'verifier.name as verifier_name',
+                'verifier.username as verifier_username',
+                DB::raw("COALESCE(MAX(mtMesin.msnName), MAX(mtBangunan.buildName), trBPB.untuk) as tujuan_nama"),
+                DB::raw("COALESCE(MAX(mtMesin.msnCode), MAX(mtBangunan.buildCode), '') as tujuan_kode"),
+                DB::raw('COUNT(d.id) as jumlah_barang'),
+                DB::raw('COALESCE(SUM(d.total_price), 0) as total_value')
+            )
+            ->groupBy(
+                'trBPB.id',
+                'trBPB.nomor_pb',
+                'trBPB.tanggal_permintaan',
+                'trBPB.tanggal_diperlukan',
+                'trBPB.untuk',
+                'trBPB.jenis_pekerjaan',
+                'trBPB.status',
+                'trBPB.verification_status',
+                'trBPB.verified_at',
+                'trBPB.rejected_at',
+                'trBPB.verification_notes',
+                'trBPB.created_at',
+                'verifier.name',
+                'verifier.username'
+            )
+            ->orderByDesc(DB::raw('COALESCE(trBPB.verified_at, trBPB.rejected_at, trBPB.updated_at, trBPB.created_at)'))
+            ->limit((int) $request->query('limit', 100))
+            ->get();
+
+        return response()->json(['success' => true, 'data' => $query]);
+    }
+
+    public function verify(Request $request, int $id)
+    {
+        $request->validate([
+            'notes' => 'nullable|string|max:500',
+        ]);
+
+        DB::beginTransaction();
+        try {
+            $pb = DB::table('trBPB')->where('id', $id)->lockForUpdate()->first();
+            if (!$pb || $pb->status !== 'verification' || (int) $pb->verification_section_head_id !== auth()->id()) {
+                DB::rollBack();
+                return response()->json(['success' => false, 'message' => 'PB tidak tersedia untuk verifikasi user ini.'], 404);
+            }
+
+            DB::table('trBPB')->where('id', $id)->update([
+                'status' => 'pending',
+                'approval_current_level' => 1,
+                'verification_status' => 'verified',
+                'verified_by' => auth()->id(),
+                'verified_at' => now(),
+                'verification_notes' => $request->notes,
+                'updated_at' => now(),
+            ]);
+            DB::commit();
+
+            app(FirebasePushService::class)->sendToRole('approval', 'PB Menunggu Approval L1', ($pb->nomor_pb ?? 'PB') . ' sudah diverifikasi Section Head.', [
+                'type' => 'PB',
+                'target' => 'approval',
+                'record_id' => $id,
+                'nomor' => $pb->nomor_pb ?? '',
+                'level' => 1,
+            ]);
+
+            return response()->json(['success' => true, 'message' => 'PB berhasil diverifikasi dan dikirim ke Approval L1.']);
+        } catch (\Throwable $e) {
+            DB::rollBack();
+            \Log::error('PB verification error: ' . $e->getMessage());
+            return response()->json(['success' => false, 'message' => 'Gagal verifikasi PB.'], 500);
+        }
+    }
+
+    public function rejectVerification(Request $request, int $id)
+    {
+        $request->validate([
+            'alasan' => 'required|string|max:255',
+        ]);
+
+        DB::beginTransaction();
+        try {
+            $pb = DB::table('trBPB')->where('id', $id)->lockForUpdate()->first();
+            if (!$pb || $pb->status !== 'verification' || (int) $pb->verification_section_head_id !== auth()->id()) {
+                DB::rollBack();
+                return response()->json(['success' => false, 'message' => 'PB tidak tersedia untuk user ini.'], 404);
+            }
+
+            DB::table('trBPB')->where('id', $id)->update([
+                'status' => 'rejected',
+                'verification_status' => 'rejected',
+                'verification_notes' => $request->alasan,
+                'rejection_reason' => $request->alasan,
+                'rejected_at' => now(),
+                'rejected_by' => auth()->id(),
+                'updated_at' => now(),
+            ]);
+            DB::commit();
+
+            return response()->json(['success' => true, 'message' => 'PB berhasil ditolak di tahap verifikasi.']);
+        } catch (\Throwable $e) {
+            DB::rollBack();
+            \Log::error('PB verification reject error: ' . $e->getMessage());
+            return response()->json(['success' => false, 'message' => 'Gagal menolak PB.'], 500);
+        }
+    }
+
+    private function sectionHeads()
+    {
+        return DB::table('users')
+            ->select('id', 'name', 'username', 'department_code')
+            ->where('role', 'section_head')
+            ->where(function ($query) {
+                $query->whereNull('is_active')->orWhere('is_active', true);
+            })
+            ->orderBy('name')
+            ->get();
+    }
+
+    /**
      * Format: PB-ENG-YYYYMMDD-XXX (XXX = nomor urut 3 digit)
      */
     private function generateNomorPB()
@@ -314,7 +604,15 @@ class TransaksiController extends Controller
     private function getTransaksiData()
     {
         $query = DB::table('trBPB')
-            ->leftJoin('trBPBDetail', 'trBPB.id', '=', 'trBPBDetail.trBPB_id');
+            ->leftJoin('trBPBDetail', 'trBPB.id', '=', 'trBPBDetail.trBPB_id')
+            ->leftJoin('mtMesin', function ($join) {
+                $join->on(DB::raw('COALESCE(trBPB.untuk_id, trBPB.mesin_id)'), '=', 'mtMesin.msnID')
+                    ->where('trBPB.untuk', '=', 'mesin');
+            })
+            ->leftJoin('mtBangunan', function ($join) {
+                $join->on(DB::raw('COALESCE(trBPB.untuk_id, trBPB.bangunan_id)'), '=', 'mtBangunan.buildID')
+                    ->where('trBPB.untuk', '=', 'bangunan');
+            });
 
         $role = auth()->user()->role ?? null;
         $userId = auth()->id();
@@ -354,8 +652,13 @@ class TransaksiController extends Controller
         return $query
             ->select(
                 'trBPB.*',
+                DB::raw('MAX(mtMesin.msnName) as mesin_nama'),
+                DB::raw('MAX(mtMesin.msnCode) as mesin_kode'),
+                DB::raw('MAX(mtBangunan.buildName) as bangunan_nama'),
+                DB::raw('MAX(mtBangunan.buildCode) as bangunan_kode'),
                 DB::raw('COUNT(trBPBDetail.id) as jumlah_barang'),
-                DB::raw('COALESCE(SUM(trBPBDetail.jumlah), 0) as total_jumlah')
+                DB::raw('COALESCE(SUM(trBPBDetail.jumlah), 0) as total_jumlah'),
+                DB::raw('COALESCE(SUM(trBPBDetail.total_price), 0) as total_value')
             )
             ->groupBy('trBPB.id')
             ->orderBy('trBPB.created_at', 'desc')
@@ -363,19 +666,51 @@ class TransaksiController extends Controller
             ->get();
     }
 
-    private function getBarangAveragePrice($barangId, string $namaBarang): float
+    private function getBarangAveragePrice($barangId, string $namaBarang, string $materialType = 'sparepart'): float
     {
         try {
+            $materialScope = $this->materialSql('m', $materialType);
             $sql = "
                 WITH target_items AS (
-                    SELECT id_items
-                    FROM PUBLIC.tb_skb080_1mmara
-                    WHERE mtart = 'YSPR'
+                    SELECT id_items, code
+                    FROM PUBLIC.tb_skb080_1mmara m
+                    WHERE {$materialScope}
                       AND (
                           id_items = CAST(? AS bigint)
                           OR LOWER(TRIM(item_name)) = LOWER(TRIM(?))
-                      )
+                    )
+                    ORDER BY
+                        CASE WHEN id_items = CAST(? AS bigint) THEN 0 ELSE 1 END,
+                        id_items
                     LIMIT 1
+                ),
+                latest_po AS (
+                    SELECT DISTINCT ON (ma.id_items)
+                        ma.id_items,
+                        CASE
+                            WHEN COALESCE(dp.unit_price, 0) > 0
+                                THEN dp.unit_price
+                            WHEN COALESCE(dp.subtotal, 0) > 0
+                                AND COALESCE(NULLIF(dp.qty_aprv, 0), NULLIF(dp.qty_po, 0)) IS NOT NULL
+                                THEN ROUND(dp.subtotal / COALESCE(NULLIF(dp.qty_aprv, 0), NULLIF(dp.qty_po, 0)), 2)
+                            ELSE 0
+                        END AS harga_satuan
+                    FROM PUBLIC.tb_skb002_1mpurch_ord mp
+                    LEFT JOIN PUBLIC.tb_skb002_2dpurch_ord_items dp
+                        ON mp.id_purch_ord = dp.id_purch_ord
+                    LEFT JOIN PUBLIC.tb_skb080_1mmara ma
+                        ON dp.id_items = ma.id_items
+                    INNER JOIN target_items ti
+                        ON ti.id_items = ma.id_items
+                    WHERE mp.po_date >= (CURRENT_DATE - INTERVAL '5 years')
+                      AND (
+                          COALESCE(dp.unit_price, 0) > 0
+                          OR (
+                              COALESCE(dp.subtotal, 0) > 0
+                              AND COALESCE(NULLIF(dp.qty_aprv, 0), NULLIF(dp.qty_po, 0)) IS NOT NULL
+                          )
+                      )
+                    ORDER BY ma.id_items, mp.po_date DESC NULLS LAST, mp.id_purch_ord DESC
                 ),
                 pur AS (
                     SELECT matnr, SUM(menge) AS qty, SUM(wrbtr) AS amt
@@ -398,18 +733,20 @@ class TransaksiController extends Controller
                 )
                 SELECT
                     CASE
+                        WHEN COALESCE(latest_po.harga_satuan, 0) > 0 THEN latest_po.harga_satuan
                         WHEN COALESCE(pur.qty, 0) > 0 THEN ROUND(COALESCE(pur.amt, 0) / NULLIF(COALESCE(pur.qty, 0), 0), 2)
                         WHEN COALESCE(sa.qty, 0) > 0 THEN ROUND(COALESCE(sa.amt, 0) / NULLIF(COALESCE(sa.qty, 0), 0), 2)
                         ELSE 0
                     END AS avg_price
                 FROM target_items ti
+                LEFT JOIN latest_po ON latest_po.id_items = ti.id_items
                 LEFT JOIN pur ON pur.matnr = ti.id_items
                 LEFT JOIN sa ON sa.matnr = ti.id_items
                 LIMIT 1
             ";
 
             $safeBarangId = is_numeric($barangId) ? $barangId : 0;
-            $price = DB::connection('pgsql2')->selectOne($sql, [$safeBarangId, $namaBarang]);
+            $price = DB::connection('pgsql2')->selectOne($sql, [$safeBarangId, $namaBarang, $safeBarangId]);
 
             return (float) ($price->avg_price ?? 0);
         } catch (\Exception $e) {
@@ -420,6 +757,42 @@ class TransaksiController extends Controller
 
             return 0;
         }
+    }
+
+    private function sparepartMaterialPrefixes(): array
+    {
+        return ['YSPR'];
+    }
+
+    private function normalizeMaterialType(?string $value): string
+    {
+        return in_array($value, ['sparepart', 'non_sparepart'], true) ? $value : 'sparepart';
+    }
+
+    private function materialSql(string $alias, string $materialType = 'sparepart'): string
+    {
+        $prefixes = $this->sparepartMaterialPrefixes();
+        $quoted = implode(', ', array_map(fn ($prefix) => "'" . str_replace("'", "''", $prefix) . "'", $prefixes));
+        $codePredicates = implode(' OR ', array_map(
+            fn ($prefix) => "UPPER(TRIM({$alias}.code)) LIKE '" . str_replace("'", "''", $prefix) . "%'",
+            $prefixes
+        ));
+
+        if ($this->normalizeMaterialType($materialType) === 'non_sparepart') {
+            $notCodePredicates = implode(' AND ', array_map(
+                fn ($prefix) => "({$alias}.code IS NULL OR UPPER(TRIM({$alias}.code)) NOT LIKE '" . str_replace("'", "''", $prefix) . "%')",
+                $prefixes
+            ));
+
+            return "(({$alias}.mtart IS NULL OR UPPER(TRIM({$alias}.mtart)) NOT IN ({$quoted})) AND {$notCodePredicates})";
+        }
+
+        return "(UPPER(TRIM({$alias}.mtart)) IN ({$quoted}) OR {$codePredicates})";
+    }
+
+    private function sparepartMaterialSql(string $alias): string
+    {
+        return $this->materialSql($alias, 'sparepart');
     }
 
     /**

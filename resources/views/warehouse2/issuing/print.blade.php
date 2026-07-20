@@ -178,7 +178,7 @@
     <div class="header">
         <h1>BUKTI KELUAR BARANG</h1>
         <h3>(BKB)</h3>
-        <p>WAREHOUSE 2</p>
+        <p>AREA STOCK</p>
     </div>
 
     <div class="info">

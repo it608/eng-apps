@@ -1,6 +1,6 @@
-@extends('layouts.admin')
+ï»¿@extends('layouts.admin')
 
-@section('title', 'Warehouse 2 - Stock')
+@section('title', 'Area Stock - Stock')
 
 @push('styles')
 <style>
@@ -166,8 +166,8 @@
 
 @section('content')
 <div class="mb-6">
-    <h1 class="text-2xl font-semibold text-gray-800">Warehouse 2 - Stock Sparepart</h1>
-    <p class="text-sm text-gray-500 mt-1">Monitoring stok sparepart Warehouse 2</p>
+    <h1 class="text-2xl font-semibold text-gray-800">Stock Area</h1>
+    <p class="text-sm text-gray-500 mt-1">Monitoring stok sparepart di area pemakai</p>
 </div>
 
 <!-- Summary Cards -->
@@ -205,8 +205,15 @@
 
 <!-- Main Card -->
 <div class="bg-white rounded-xl shadow-sm border p-6">
+    <div class="mb-4 border-b border-gray-200">
+        <div class="flex gap-2">
+            <button class="tab-btn active" data-tab="stock-list">Stock Area</button>
+            <button class="tab-btn" data-tab="opname-history" onclick="loadOpnameHistory()">History Opname</button>
+        </div>
+    </div>
     
     <!-- Filter Bar -->
+    <div id="stock-list" class="tab-content">
     <div class="mb-4 flex flex-wrap gap-3 items-center">
         <div class="flex-1 min-w-[200px]">
             <input id="stockSearch" class="border rounded-lg px-3 py-2 w-full" placeholder="Cari kode / nama sparepart...">
@@ -259,8 +266,6 @@
                     <th>Kategori</th>
                     <th class="text-center">Satuan</th>
                     <th class="text-center">Stok</th>
-                    <th class="text-center">Min</th>
-                    <th class="text-center">Max</th>
                     <th class="text-center">Status</th>
                     <th>Lokasi</th>
                     <th class="text-center">Terakhir Update</th>
@@ -273,8 +278,6 @@
                     <th><input type="text" class="col-filter" data-key="category" placeholder="Filter..."></th>
                     <th><select class="col-filter" data-key="unit"><option value="">All</option></select></th>
                     <th></th>
-                    <th></th>
-                    <th></th>
                     <th><select class="col-filter" data-key="status"><option value="">All</option></select></th>
                     <th><input type="text" class="col-filter" data-key="location" placeholder="Filter..."></th>
                     <th></th>
@@ -283,7 +286,7 @@
             </thead>
             <tbody id="stockBody">
                 <tr>
-                    <td colspan="12" class="text-center py-8">
+                    <td colspan="10" class="text-center py-8">
                         <div class="spinner"></div>
                         <p class="text-sm text-gray-500 mt-2">Memuat data stok...</p>
                     </td>
@@ -294,84 +297,242 @@
 
     <!-- Pagination -->
     <div id="stockPaging" class="mt-4 flex justify-between text-sm"></div>
-</div>
+    </div>
+
+    <div id="opname-history" class="tab-content hidden">
+        <div class="mb-4 flex flex-wrap gap-3 items-center">
+            <div class="flex-1 min-w-[220px]">
+                <input id="opnameSearch" class="border rounded-lg px-3 py-2 w-full" placeholder="Cari nomor / nama opname / lokasi...">
+            </div>
+            <button onclick="loadOpnameHistory()" class="px-3 py-2 text-sm border rounded-lg hover:bg-gray-50 flex items-center gap-1">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+                </svg>
+                Refresh
+            </button>
+        </div>
+
+        <div class="overflow-x-auto">
+            <table class="min-w-full table-bordered">
+                <thead class="bg-gray-50">
+                    <tr>
+                        <th>No. Opname</th>
+                        <th>Nama Opname</th>
+                        <th>Tanggal</th>
+                        <th>Lokasi</th>
+                        <th class="text-center">Item</th>
+                        <th class="text-right">Total Selisih</th>
+                        <th>Status</th>
+                        <th>Dibuat Oleh</th>
+                        <th class="text-center">Aksi</th>
+                    </tr>
+                </thead>
+                <tbody id="opnameHistoryBody">
+                    <tr>
+                        <td colspan="9" class="text-center py-8 text-gray-500">Belum ada history stock opname</td>
+                    </tr>
+                </tbody>
+            </table>
+            </div>
+        </div>
+    </div>
 
 <!-- Modal Detail Item -->
-<div id="detailModal" class="fixed inset-0 modal hidden items-center justify-center z-50">
-    <div class="bg-white rounded-xl w-full max-w-4xl p-6 relative fade-in max-h-[80vh] overflow-y-auto">
-        <h2 class="text-lg font-semibold mb-4" id="detailTitle">Detail Item</h2>
+<div id="detailModal" class="fixed inset-0 modal hidden items-center justify-center z-50 px-4">
+    <div class="bg-white rounded-xl w-full max-w-5xl relative fade-in max-h-[86vh] overflow-hidden shadow-2xl border border-gray-200">
+        <div class="flex items-start justify-between gap-4 px-6 py-5 border-b border-gray-200 bg-gray-50">
+            <div>
+                <p class="text-xs font-semibold uppercase tracking-wide text-blue-600">Detail Stock Area</p>
+                <h2 class="text-xl font-semibold text-gray-900 mt-1" id="detailTitle">Detail Item</h2>
+                <p class="text-sm text-gray-500 mt-1">Ringkasan stok dan histori movement barang.</p>
+            </div>
+            <button onclick="closeDetailModal()" class="w-9 h-9 rounded-lg border border-gray-200 bg-white text-gray-500 hover:text-gray-800 hover:bg-gray-100 text-xl leading-none" aria-label="Tutup">&times;</button>
+        </div>
+
+        <div class="p-6 overflow-y-auto max-h-[calc(86vh-86px)]">
         
-        <div class="grid grid-cols-2 gap-4 mb-4">
-            <div>
-                <label class="text-xs text-gray-500">Kode</label>
-                <div id="detailCode" class="font-medium">-</div>
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-5">
+            <div class="lg:col-span-2 rounded-lg border border-gray-200 p-4">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label class="text-xs font-semibold uppercase text-gray-500">Kode</label>
+                        <div id="detailCode" class="mt-1 font-mono font-semibold text-gray-900">-</div>
+                    </div>
+                    <div>
+                        <label class="text-xs font-semibold uppercase text-gray-500">Nama Sparepart</label>
+                        <div id="detailName" class="mt-1 font-semibold text-gray-900">-</div>
+                    </div>
+                    <div>
+                        <label class="text-xs font-semibold uppercase text-gray-500">Kategori</label>
+                        <div id="detailCategory" class="mt-1 text-gray-800">-</div>
+                    </div>
+                    <div>
+                        <label class="text-xs font-semibold uppercase text-gray-500">Satuan</label>
+                        <div id="detailUnit" class="mt-1 text-gray-800">-</div>
+                    </div>
+                </div>
             </div>
-            <div>
-                <label class="text-xs text-gray-500">Nama</label>
-                <div id="detailName" class="font-medium">-</div>
-            </div>
-            <div>
-                <label class="text-xs text-gray-500">Kategori</label>
-                <div id="detailCategory" class="font-medium">-</div>
-            </div>
-            <div>
-                <label class="text-xs text-gray-500">Satuan</label>
-                <div id="detailUnit" class="font-medium">-</div>
-            </div>
-            <div>
-                <label class="text-xs text-gray-500">Stok</label>
-                <div id="detailStock" class="font-medium">-</div>
-            </div>
-            <div>
-                <label class="text-xs text-gray-500">Lokasi</label>
-                <div id="detailLocation" class="font-medium">-</div>
-            </div>
-            <div>
-                <label class="text-xs text-gray-500">Min Stok</label>
-                <div id="detailMinStock" class="font-medium">-</div>
-            </div>
-            <div>
-                <label class="text-xs text-gray-500">Max Stok</label>
-                <div id="detailMaxStock" class="font-medium">-</div>
+
+            <div class="rounded-lg border border-blue-100 bg-blue-50 p-4">
+                <label class="text-xs font-semibold uppercase text-blue-700">Stok Saat Ini</label>
+                <div class="flex items-end gap-2 mt-2">
+                    <div id="detailStock" class="text-3xl font-bold text-blue-700">-</div>
+                    <div id="detailUnitMirror" class="pb-1 text-sm font-medium text-blue-700">-</div>
+                </div>
+                <div class="mt-4">
+                    <label class="text-xs font-semibold uppercase text-blue-700">Lokasi</label>
+                    <div id="detailLocation" class="mt-1 inline-flex rounded-full bg-white px-3 py-1 text-sm font-semibold text-blue-700 border border-blue-100">-</div>
+                </div>
             </div>
         </div>
         
-        <h3 class="font-semibold text-sm mb-2">Histori Transaksi</h3>
-        <div class="overflow-x-auto max-h-60">
-            <table class="min-w-full text-sm border">
-                <thead class="bg-gray-50 sticky top-0">
+        <div class="rounded-lg border border-gray-200 overflow-hidden">
+            <div class="px-4 py-3 bg-gray-50 border-b border-gray-200">
+                <h3 class="font-semibold text-gray-900">Histori Movement Stock</h3>
+                <p class="text-xs text-gray-500 mt-0.5">Termasuk penerimaan, pengeluaran area, PB Fulfillment Stock Area, dan stock opname.</p>
+            </div>
+            <div class="overflow-x-auto max-h-72">
+            <table class="min-w-full text-sm">
+                <thead class="bg-white sticky top-0 border-b border-gray-200">
                     <tr>
-                        <th class="p-2 text-left">Tanggal</th>
-                        <th class="p-2 text-left">Dokumen</th>
-                        <th class="p-2 text-left">Tipe</th>
-                        <th class="p-2 text-right">Qty</th>
-                        <th class="p-2 text-left">Keterangan</th>
+                        <th class="px-4 py-3 text-left text-xs font-semibold uppercase text-gray-500">Tanggal</th>
+                        <th class="px-4 py-3 text-left text-xs font-semibold uppercase text-gray-500">Dokumen</th>
+                        <th class="px-4 py-3 text-left text-xs font-semibold uppercase text-gray-500">Tipe</th>
+                        <th class="px-4 py-3 text-right text-xs font-semibold uppercase text-gray-500">Qty</th>
+                        <th class="px-4 py-3 text-left text-xs font-semibold uppercase text-gray-500">Keterangan</th>
                     </tr>
                 </thead>
-                <tbody id="detailHistory">
+                <tbody id="detailHistory" class="divide-y divide-gray-100">
                     <tr>
-                        <td colspan="5" class="text-center py-4 text-gray-500">Memuat data...</td>
+                        <td colspan="5" class="text-center py-8 text-gray-500">Memuat data...</td>
                     </tr>
                 </tbody>
             </table>
         </div>
-        
-        <div class="flex justify-end mt-4">
-            <button onclick="closeDetailModal()" class="px-4 py-2 bg-gray-200 rounded hover:bg-gray-300">Tutup</button>
         </div>
         
-        <button onclick="closeDetailModal()" class="absolute top-2 right-2 text-gray-400 hover:text-gray-600 font-bold text-xl">×</button>
+        <div class="flex justify-end mt-5">
+            <button onclick="closeDetailModal()" class="px-4 py-2 text-sm font-medium bg-gray-100 border border-gray-200 rounded-lg hover:bg-gray-200">Tutup</button>
+        </div>
+        
+        </div>
+    </div>
+</div>
+
+<!-- Modal Stock Opname -->
+<div id="opnameModal" class="fixed inset-0 modal hidden items-center justify-center z-50">
+    <div class="bg-white rounded-xl w-full max-w-lg p-6 relative fade-in">
+        <h2 class="text-lg font-semibold mb-1">Stock Opname</h2>
+        <p class="text-sm text-gray-500 mb-5">Nomor akan dibuat otomatis dengan pola OPN-YYYYMMDD-XXX.</p>
+
+        <form id="opnameForm" onsubmit="submitStockOpname(event)">
+            <input type="hidden" id="opnameStockId">
+
+            <div class="grid grid-cols-2 gap-4 mb-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Tanggal Opname <span class="text-red-500">*</span></label>
+                    <input id="opnameDate" type="date" required
+                           class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-100">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Nama Opname <span class="text-red-500">*</span></label>
+                    <input id="opnameNameInput" type="text" required maxlength="150"
+                           placeholder="Stock Opname MAIN"
+                           class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-100">
+                </div>
+            </div>
+
+            <div class="grid grid-cols-2 gap-4 mb-4">
+                <div>
+                    <label class="text-xs text-gray-500">Kode</label>
+                    <div id="opnameCode" class="font-medium">-</div>
+                </div>
+                <div>
+                    <label class="text-xs text-gray-500">Lokasi</label>
+                    <div id="opnameLocation" class="font-medium">-</div>
+                </div>
+                <div class="col-span-2">
+                    <label class="text-xs text-gray-500">Nama Sparepart</label>
+                    <div id="opnameName" class="font-medium">-</div>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-2 gap-4 mb-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Stok Sistem</label>
+                    <input id="opnameSystemStock" type="number" class="w-full rounded-lg border border-gray-300 bg-gray-50 px-3 py-2 text-sm" readonly>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Stok Fisik <span class="text-red-500">*</span></label>
+                    <input id="opnamePhysicalStock" type="number" min="0" step="0.01" required
+                           oninput="updateOpnameDiff()"
+                           class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-100">
+                </div>
+            </div>
+
+            <div class="mb-4 rounded-lg border border-gray-100 bg-gray-50 px-3 py-2 text-sm">
+                Selisih: <span id="opnameDiff" class="font-semibold text-gray-900">0</span>
+            </div>
+
+            <div class="mb-5">
+                <label class="block text-sm font-medium text-gray-700 mb-1">Catatan</label>
+                <textarea id="opnameNotes" rows="3" maxlength="500"
+                          placeholder="Contoh: Stock opname bulanan / hasil cek fisik..."
+                          class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-100"></textarea>
+            </div>
+
+            <div class="flex justify-end gap-2">
+                <button type="button" onclick="closeOpnameModal()" class="px-4 py-2 rounded-lg border border-gray-300 text-sm hover:bg-gray-50">Batal</button>
+                <button type="submit" id="opnameSubmitBtn" class="px-4 py-2 rounded-lg bg-blue-600 text-sm font-semibold text-white hover:bg-blue-700">Simpan Opname</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Modal Detail Opname -->
+<div id="opnameDetailModal" class="fixed inset-0 modal hidden items-center justify-center z-50">
+    <div class="bg-white rounded-xl w-full max-w-4xl p-6 relative fade-in max-h-[80vh] overflow-y-auto">
+        <h2 class="text-lg font-semibold mb-1" id="opnameDetailTitle">Detail Stock Opname</h2>
+        <p class="text-sm text-gray-500 mb-5" id="opnameDetailSubtitle">-</p>
+
+        <div class="overflow-x-auto">
+            <table class="min-w-full table-bordered">
+                <thead class="bg-gray-50">
+                    <tr>
+                        <th>Kode</th>
+                        <th>Nama Sparepart</th>
+                        <th>Satuan</th>
+                        <th class="text-right">Stok Sistem</th>
+                        <th class="text-right">Stok Fisik</th>
+                        <th class="text-right">Selisih</th>
+                        <th>Catatan</th>
+                    </tr>
+                </thead>
+                <tbody id="opnameDetailBody">
+                    <tr>
+                        <td colspan="7" class="text-center py-8 text-gray-500">Memuat detail...</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <div class="flex justify-end mt-4">
+            <button onclick="closeOpnameDetailModal()" class="px-4 py-2 bg-gray-200 rounded hover:bg-gray-300">Tutup</button>
+        </div>
+
     </div>
 </div>
 @endsection
 
 @push('scripts')
+@php($canManageAreaStock = in_array(auth()->user()->role ?? null, ['warehouse', 'admin'], true))
 <script>
 // State
 let currentPage = 1;
 let perPage = 20;
 let filteredData = [];
 let filters = {};
+const canManageAreaStock = @json($canManageAreaStock);
 
 // Initialize on load
 document.addEventListener('DOMContentLoaded', function() {
@@ -418,6 +579,13 @@ function initEventListeners() {
             loadStockData();
         });
     });
+
+    const opnameSearch = document.getElementById('opnameSearch');
+    if (opnameSearch) {
+        opnameSearch.addEventListener('input', debounce(function() {
+            loadOpnameHistory();
+        }, 400));
+    }
 }
 
 function debounce(func, wait) {
@@ -470,7 +638,7 @@ function loadStockData() {
 function showLoading() {
     document.getElementById('stockBody').innerHTML = `
         <tr>
-            <td colspan="12" class="text-center py-8">
+            <td colspan="10" class="text-center py-8">
                 <div class="spinner"></div>
                 <p class="text-sm text-gray-500 mt-2">Memuat data stok...</p>
             </td>
@@ -481,7 +649,7 @@ function showLoading() {
 function showError(message) {
     document.getElementById('stockBody').innerHTML = `
         <tr>
-            <td colspan="12" class="text-center py-8 text-red-500">
+            <td colspan="10" class="text-center py-8 text-red-500">
                 <svg class="w-12 h-12 mx-auto mb-2 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
                 </svg>
@@ -498,7 +666,7 @@ function renderStockTable() {
     if (!filteredData || filteredData.length === 0) {
         document.getElementById('stockBody').innerHTML = `
             <tr>
-                <td colspan="12" class="text-center py-8 text-gray-500">
+                <td colspan="10" class="text-center py-8 text-gray-500">
                     Tidak ada data stok
                 </td>
             </tr>
@@ -524,13 +692,16 @@ function renderStockTable() {
                         <div class="progress-fill ${progressClass}" style="width: ${stockPercentage}%"></div>
                     </div>
                  </td>`;
-        html += `<td class="text-center">${formatNumber(item.min_stock)}</td>`;
-        html += `<td class="text-center">${formatNumber(item.max_stock)}</td>`;
         html += `<td class="text-center">${statusBadge}</td>`;
         html += `<td>${item.location || '-'}</td>`;
-        html += `<td class="text-center">${item.last_update || '-'}</td>`;
+        html += `<td class="text-center">${item.last_updated || item.last_update || '-'}</td>`;
         html += `<td class="text-center">
-                    <button onclick='showDetail(${JSON.stringify(item)})' class="text-blue-600 hover:text-blue-800 mx-1" title="Detail">
+                    ${canManageAreaStock ? `<button onclick='openOpnameModal(${JSON.stringify(item).replace(/'/g, "\\'")})' class="text-emerald-600 hover:text-emerald-800 mx-1" title="Stock Opname">
+                        <svg class="w-4 h-4 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6M9 8h6M7 4h10a2 2 0 012 2v12a2 2 0 01-2 2H7a2 2 0 01-2-2V6a2 2 0 012-2z"></path>
+                        </svg>
+                    </button>` : ''}
+                    <button onclick='showDetail(${JSON.stringify(item).replace(/'/g, "\\'")})' class="text-blue-600 hover:text-blue-800 mx-1" title="Detail">
                         <svg class="w-4 h-4 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
@@ -561,6 +732,15 @@ function formatNumber(angka) {
         minimumFractionDigits: 0,
         maximumFractionDigits: 2
     }).format(angka);
+}
+
+function escapeHtml(value) {
+    return String(value ?? '-')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
 }
 
 function getStatusBadge(status) {
@@ -666,19 +846,24 @@ function showDetail(item) {
     document.getElementById('detailCategory').textContent = item.category || '-';
     document.getElementById('detailUnit').textContent = item.unit;
     document.getElementById('detailStock').textContent = formatNumber(item.stock);
+    document.getElementById('detailUnitMirror').textContent = item.unit || '-';
     document.getElementById('detailLocation').textContent = item.location || '-';
-    document.getElementById('detailMinStock').textContent = formatNumber(item.min_stock);
-    document.getElementById('detailMaxStock').textContent = formatNumber(item.max_stock);
-    
+    document.getElementById('detailHistory').innerHTML = '<tr><td colspan="5" class="text-center py-8 text-gray-500">Memuat histori movement...</td></tr>';
+
     // Load history
     fetch(`/warehouse2/stock/${item.id}`)
         .then(response => response.json())
         .then(result => {
             if (result.success) {
-                renderDetailHistory(result.data.history);
+                renderDetailHistory(result.data.history || []);
+            } else {
+                renderDetailHistory([]);
             }
         })
-        .catch(error => console.error('Error loading history:', error));
+        .catch(error => {
+            console.error('Error loading history:', error);
+            document.getElementById('detailHistory').innerHTML = '<tr><td colspan="5" class="text-center py-8 text-red-500">Gagal memuat histori movement.</td></tr>';
+        });
     
     document.getElementById('detailModal').classList.remove('hidden');
     document.getElementById('detailModal').classList.add('flex');
@@ -686,22 +871,32 @@ function showDetail(item) {
 
 function renderDetailHistory(history) {
     const historyBody = document.getElementById('detailHistory');
-    
+
     if (!history || history.length === 0) {
-        historyBody.innerHTML = '<tr><td colspan="5" class="text-center py-4 text-gray-500">Tidak ada histori transaksi</td></tr>';
+        historyBody.innerHTML = '<tr><td colspan="5" class="text-center py-8 text-gray-500">Belum ada histori movement untuk item ini.</td></tr>';
         return;
     }
-    
+
     let html = '';
     history.forEach(item => {
-        const typeBadge = item.type === 'TERIMA' ? 'bg-green-100 text-green-700' : 'bg-blue-100 text-blue-700';
-        
-        html += '<tr>';
-        html += `<td class="p-2">${item.date}</td>`;
-        html += `<td class="p-2">${item.document}</td>`;
-        html += `<td class="p-2"><span class="px-2 py-1 text-xs rounded-full ${typeBadge}">${item.type}</span></td>`;
-        html += `<td class="p-2 text-right">${formatNumber(item.quantity)}</td>`;
-        html += `<td class="p-2">${item.notes || item.purpose || '-'}</td>`;
+        const type = String(item.type || '').toUpperCase();
+        const badgeMap = {
+            TERIMA: 'bg-green-100 text-green-700 border-green-200',
+            KELUAR: 'bg-red-100 text-red-700 border-red-200',
+            OPNAME: 'bg-blue-100 text-blue-700 border-blue-200'
+        };
+        const typeBadge = badgeMap[type] || 'bg-gray-100 text-gray-700 border-gray-200';
+        const rawQty = parseFloat(item.quantity || 0);
+        const signedQty = type === 'KELUAR' ? -Math.abs(rawQty) : rawQty;
+        const qtyClass = signedQty < 0 ? 'text-red-600' : signedQty > 0 ? 'text-green-600' : 'text-gray-700';
+        const qtyPrefix = signedQty > 0 ? '+' : '';
+
+        html += '<tr class="hover:bg-gray-50">';
+        html += `<td class="px-4 py-3 text-gray-700 whitespace-nowrap">${escapeHtml(item.date)}</td>`;
+        html += `<td class="px-4 py-3 font-mono text-xs text-gray-900">${escapeHtml(item.document)}</td>`;
+        html += `<td class="px-4 py-3"><span class="px-2.5 py-1 text-xs font-semibold rounded-full border ${typeBadge}">${escapeHtml(type || '-')}</span></td>`;
+        html += `<td class="px-4 py-3 text-right font-semibold ${qtyClass}">${qtyPrefix}${formatNumber(signedQty)}</td>`;
+        html += `<td class="px-4 py-3 text-gray-600">${escapeHtml(item.notes || item.purpose || '-')}</td>`;
         html += '</tr>';
     });
     
@@ -711,6 +906,178 @@ function renderDetailHistory(history) {
 function closeDetailModal() {
     document.getElementById('detailModal').classList.add('hidden');
     document.getElementById('detailModal').classList.remove('flex');
+}
+
+function openOpnameModal(item) {
+    const today = new Date().toISOString().slice(0, 10);
+
+    document.getElementById('opnameStockId').value = item.id;
+    document.getElementById('opnameDate').value = today;
+    document.getElementById('opnameNameInput').value = `Stock Opname ${item.location || 'Area'} ${today}`;
+    document.getElementById('opnameCode').textContent = item.code || '-';
+    document.getElementById('opnameName').textContent = item.name || '-';
+    document.getElementById('opnameLocation').textContent = item.location || '-';
+    document.getElementById('opnameSystemStock').value = item.stock ?? 0;
+    document.getElementById('opnamePhysicalStock').value = item.stock ?? 0;
+    document.getElementById('opnameNotes').value = '';
+    updateOpnameDiff();
+    document.getElementById('opnameModal').classList.remove('hidden');
+    document.getElementById('opnameModal').classList.add('flex');
+}
+
+function closeOpnameModal() {
+    document.getElementById('opnameModal').classList.add('hidden');
+    document.getElementById('opnameModal').classList.remove('flex');
+}
+
+function updateOpnameDiff() {
+    const systemStock = parseFloat(document.getElementById('opnameSystemStock').value || 0);
+    const physicalStock = parseFloat(document.getElementById('opnamePhysicalStock').value || 0);
+    const diff = physicalStock - systemStock;
+    const diffEl = document.getElementById('opnameDiff');
+    diffEl.textContent = formatNumber(diff);
+    diffEl.className = 'font-semibold ' + (diff > 0 ? 'text-green-600' : diff < 0 ? 'text-red-600' : 'text-gray-900');
+}
+
+function submitStockOpname(event) {
+    event.preventDefault();
+
+    const stockId = document.getElementById('opnameStockId').value;
+    const quantity = document.getElementById('opnamePhysicalStock').value;
+    const opnameName = document.getElementById('opnameNameInput').value;
+    const opnameDate = document.getElementById('opnameDate').value;
+    const notes = document.getElementById('opnameNotes').value;
+    const submitBtn = document.getElementById('opnameSubmitBtn');
+    const originalText = submitBtn.textContent;
+
+    submitBtn.disabled = true;
+    submitBtn.textContent = 'Menyimpan...';
+
+    fetch('/warehouse2/stock/opname', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json',
+            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content || '{{ csrf_token() }}'
+        },
+        body: JSON.stringify({
+            stock_id: stockId,
+            opname_name: opnameName,
+            opname_date: opnameDate,
+            physical_quantity: quantity,
+            notes
+        })
+    })
+        .then(response => response.json())
+        .then(result => {
+            if (!result.success) {
+                throw new Error(result.message || 'Gagal menyimpan stock opname');
+            }
+
+            closeOpnameModal();
+            loadStockData();
+            loadOpnameHistory();
+            alert(`Stock opname berhasil diposting: ${result.data?.opname_number || ''}`);
+        })
+        .catch(error => {
+            alert(error.message);
+        })
+        .finally(() => {
+            submitBtn.disabled = false;
+            submitBtn.textContent = originalText;
+        });
+}
+
+function loadOpnameHistory() {
+    const search = document.getElementById('opnameSearch')?.value || '';
+    const params = new URLSearchParams({ search });
+    const body = document.getElementById('opnameHistoryBody');
+
+    if (!body) return;
+
+    body.innerHTML = '<tr><td colspan="9" class="text-center py-8 text-gray-500">Memuat history opname...</td></tr>';
+
+    fetch(`/warehouse2/stock/opname-data?${params.toString()}`)
+        .then(response => response.json())
+        .then(result => {
+            if (!result.success) {
+                throw new Error(result.message || 'Gagal memuat history opname');
+            }
+
+            renderOpnameHistory(result.data || []);
+        })
+        .catch(error => {
+            body.innerHTML = `<tr><td colspan="9" class="text-center py-8 text-red-500">${error.message}</td></tr>`;
+        });
+}
+
+function renderOpnameHistory(items) {
+    const body = document.getElementById('opnameHistoryBody');
+
+    if (!items || items.length === 0) {
+        body.innerHTML = '<tr><td colspan="9" class="text-center py-8 text-gray-500">Belum ada history stock opname</td></tr>';
+        return;
+    }
+
+    body.innerHTML = items.map(item => `
+        <tr class="hover:bg-gray-50">
+            <td class="font-mono font-semibold">${item.opname_number}</td>
+            <td>${item.opname_name || '-'}</td>
+            <td>${item.opname_date || '-'}</td>
+            <td>${item.location || '-'}</td>
+            <td class="text-center">${formatNumber(item.total_items || 0)}</td>
+            <td class="text-right font-semibold ${parseFloat(item.total_difference || 0) < 0 ? 'text-red-600' : parseFloat(item.total_difference || 0) > 0 ? 'text-green-600' : 'text-gray-900'}">${formatNumber(item.total_difference || 0)}</td>
+            <td><span class="badge badge-success">${item.status || 'posted'}</span></td>
+            <td>${item.created_by_name || '-'}</td>
+            <td class="text-center">
+                <button onclick="showOpnameDetail(${item.id})" class="text-blue-600 hover:text-blue-800" title="Detail Opname">
+                    <svg class="w-4 h-4 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
+                    </svg>
+                </button>
+            </td>
+        </tr>
+    `).join('');
+}
+
+function showOpnameDetail(id) {
+    document.getElementById('opnameDetailBody').innerHTML = '<tr><td colspan="7" class="text-center py-8 text-gray-500">Memuat detail...</td></tr>';
+
+    fetch(`/warehouse2/stock/opname/${id}`)
+        .then(response => response.json())
+        .then(result => {
+            if (!result.success) {
+                throw new Error(result.message || 'Gagal memuat detail opname');
+            }
+
+            const header = result.data.header;
+            const details = result.data.details || [];
+
+            document.getElementById('opnameDetailTitle').textContent = header.opname_number;
+            document.getElementById('opnameDetailSubtitle').textContent = `${header.opname_name || '-'} | ${header.opname_date || '-'} | ${header.location || '-'}`;
+            document.getElementById('opnameDetailBody').innerHTML = details.map(row => `
+                <tr>
+                    <td class="font-mono">${row.item_code || '-'}</td>
+                    <td>${row.item_name || '-'}</td>
+                    <td>${row.unit || '-'}</td>
+                    <td class="text-right">${formatNumber(row.system_quantity || 0)}</td>
+                    <td class="text-right">${formatNumber(row.physical_quantity || 0)}</td>
+                    <td class="text-right font-semibold ${parseFloat(row.difference_quantity || 0) < 0 ? 'text-red-600' : parseFloat(row.difference_quantity || 0) > 0 ? 'text-green-600' : 'text-gray-900'}">${formatNumber(row.difference_quantity || 0)}</td>
+                    <td>${row.notes || '-'}</td>
+                </tr>
+            `).join('') || '<tr><td colspan="7" class="text-center py-8 text-gray-500">Detail kosong</td></tr>';
+            document.getElementById('opnameDetailModal').classList.remove('hidden');
+            document.getElementById('opnameDetailModal').classList.add('flex');
+        })
+        .catch(error => {
+            alert(error.message);
+        });
+}
+
+function closeOpnameDetailModal() {
+    document.getElementById('opnameDetailModal').classList.add('hidden');
+    document.getElementById('opnameDetailModal').classList.remove('flex');
 }
 
 // Tab handling
@@ -734,6 +1101,12 @@ document.querySelectorAll('.tab-btn').forEach(btn => {
 window.addEventListener('click', function(e) {
     if (e.target.id === 'detailModal') {
         closeDetailModal();
+    }
+    if (e.target.id === 'opnameModal') {
+        closeOpnameModal();
+    }
+    if (e.target.id === 'opnameDetailModal') {
+        closeOpnameDetailModal();
     }
 });
 </script>

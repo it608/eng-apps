@@ -1,6 +1,6 @@
 @extends('layouts.admin')
 
-@section('title', 'Warehouse 2 - Keluar Barang Baru')
+@section('title', 'Area Stock - Pengeluaran Barang')
 
 @push('styles')
 <style>
@@ -20,16 +20,31 @@
     }
     
     .search-dropdown {
-        position: absolute;
-        z-index: 9999;
+        position: fixed;
+        z-index: 99999;
         background: white;
-        border: 1px solid #e2e8f0;
-        border-radius: 0.5rem;
-        box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
-        max-height: 16rem;
+        border: 1px solid #dbe3ef;
+        border-radius: 0.75rem;
+        box-shadow: 0 18px 45px -18px rgba(15, 23, 42, 0.45), 0 8px 18px -12px rgba(15, 23, 42, 0.25);
+        max-height: 18rem;
         overflow-y: auto;
     }
-    
+
+    .item-result {
+        padding: 0.75rem 0.875rem;
+        cursor: pointer;
+        border-bottom: 1px solid #eef2f7;
+        transition: background-color 0.15s ease;
+    }
+
+    .item-result:last-child {
+        border-bottom: 0;
+    }
+
+    .item-result:hover {
+        background: #eff6ff;
+    }
+
     .spinner {
         border: 3px solid #f3f3f3;
         border-top: 3px solid #3b82f6;
@@ -49,8 +64,8 @@
 
 @section('content')
 <div class="mb-6">
-    <h1 class="text-2xl font-semibold text-gray-800">Warehouse 2 - Keluar Barang Baru</h1>
-    <p class="text-sm text-gray-500 mt-1">Input pengeluaran barang</p>
+    <h1 class="text-2xl font-semibold text-gray-800">Area Stock - Pengeluaran Barang</h1>
+    <p class="text-sm text-gray-500 mt-1">Catat barang yang dikeluarkan dari stock area</p>
 </div>
 
 <div class="bg-white rounded-xl shadow-sm border p-6">
@@ -107,7 +122,7 @@
             </button>
         </div>
         
-        <div class="overflow-x-auto border rounded-lg mb-4">
+        <div class="border rounded-lg mb-4">
             <table class="min-w-full">
                 <thead class="bg-gray-50">
                     <tr>
@@ -153,6 +168,7 @@
 const items = @json($items);
 let itemRows = [];
 let nextRowId = 1;
+let activeSearchRowId = null;
 
 document.getElementById('issuingForm').addEventListener('submit', async function(e) {
     e.preventDefault();
@@ -164,7 +180,7 @@ document.getElementById('issuingForm').addEventListener('submit', async function
         notes: document.getElementById('notes').value,
         items: itemRows.map(row => ({
             item_id: row.itemId,
-            quantity: parseFloat(row.quantity),
+            quantity: parseQuantity(row.quantity),
             notes: row.notes
         })).filter(item => item.item_id && item.quantity > 0)
     };
@@ -221,15 +237,17 @@ function addItem() {
                            oninput="searchItem(${rowId}, this.value)"
                            onfocus="this.select()">
                     <input type="hidden" id="row-${rowId}-itemId">
-                    <div id="row-${rowId}-results" class="hidden absolute z-50 bg-white border border-gray-300 rounded-lg shadow-xl max-h-48 overflow-y-auto w-full"></div>
                 </div>
             </td>
             <td class="px-4 py-2 border-r">
-                <input type="number" 
-                       id="row-${rowId}-quantity"
-                       class="w-full px-3 py-1.5 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-primary-500 text-sm text-center compact-input"
-                       step="0.01" min="0"
-                       oninput="updateTotal()">
+                <input type="text"
+	                       id="row-${rowId}-quantity"
+	                       class="w-full px-3 py-1.5 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-primary-500 text-sm text-center compact-input"
+	                       inputmode="decimal"
+                           autocomplete="off"
+                           placeholder="0"
+	                       oninput="updateTotal()"
+                           onblur="this.value = formatInputNumber(this.value)">
             </td>
             <td class="px-4 py-2 border-r">
                 <input type="text" 
@@ -274,43 +292,73 @@ function updateRowNumbers() {
 }
 
 function searchItem(rowId, query) {
-    const resultsDiv = document.getElementById(`row-${rowId}-results`);
-    
+    activeSearchRowId = rowId;
+    const resultsDiv = document.getElementById('searchDropdown');
+    const searchInput = document.getElementById(`row-${rowId}-search`);
+
+    if (!resultsDiv || !searchInput) return;
+
     if (query.length < 2) {
-        resultsDiv.classList.add('hidden');
+        hideSearchDropdown();
         return;
     }
-    
-    const results = items.filter(item => 
-        item.code.toLowerCase().includes(query.toLowerCase()) ||
-        item.name.toLowerCase().includes(query.toLowerCase())
-    ).slice(0, 10);
-    
+
+    const keyword = query.toLowerCase();
+    const results = items.filter(item =>
+        item.code.toLowerCase().includes(keyword) ||
+        item.name.toLowerCase().includes(keyword)
+    ).slice(0, 12);
+
+    positionSearchDropdown(rowId);
+
     if (results.length === 0) {
-        resultsDiv.innerHTML = '<div class="p-2 text-gray-500 text-sm">Tidak ditemukan</div>';
+        resultsDiv.innerHTML = '<div class="p-4 text-gray-500 text-sm text-center">Barang tidak ditemukan atau stok area kosong</div>';
         resultsDiv.classList.remove('hidden');
         return;
     }
-    
-    let html = '';
-    results.forEach(item => {
-        html += `
-            <div class="p-2 hover:bg-blue-50 cursor-pointer border-b last:border-b-0"
-                 onclick="selectItem(${rowId}, ${item.id}, '${item.code} - ${item.name}', ${item.stock})">
-                <div class="font-medium text-sm">${item.code} - ${item.name}</div>
-                <div class="text-xs text-gray-500">Satuan: ${item.unit} | Stok: ${formatNumber(item.stock)}</div>
-            </div>
+
+    resultsDiv.innerHTML = results.map(item => {
+        const safeText = encodeURIComponent(`${item.code} - ${item.name}`);
+        const stock = Number(item.stock || 0);
+        return `
+            <button type="button" class="item-result w-full text-left"
+                    onclick="selectItem(${rowId}, ${item.id}, decodeURIComponent('${safeText}'), ${stock})">
+                <div class="font-semibold text-sm text-gray-900 leading-snug">${item.code} - ${item.name}</div>
+                <div class="text-xs text-gray-500 mt-1">Satuan: ${item.unit || '-'} | Stok area: ${formatNumber(stock)}</div>
+            </button>
         `;
-    });
-    
-    resultsDiv.innerHTML = html;
+    }).join('');
     resultsDiv.classList.remove('hidden');
+    positionSearchDropdown(rowId);
+}
+
+function positionSearchDropdown(rowId) {
+    const resultsDiv = document.getElementById('searchDropdown');
+    const searchInput = document.getElementById(`row-${rowId}-search`);
+    if (!resultsDiv || !searchInput) return;
+
+    const rect = searchInput.getBoundingClientRect();
+    const viewportPadding = 16;
+    const availableWidth = window.innerWidth - (viewportPadding * 2);
+    const width = Math.min(Math.max(rect.width, 520), availableWidth);
+    const left = Math.min(Math.max(rect.left, viewportPadding), window.innerWidth - width - viewportPadding);
+
+    resultsDiv.style.width = `${width}px`;
+    resultsDiv.style.left = `${left}px`;
+    resultsDiv.style.top = `${rect.bottom + 6}px`;
+}
+
+function hideSearchDropdown() {
+    const resultsDiv = document.getElementById('searchDropdown');
+    if (!resultsDiv) return;
+    resultsDiv.classList.add('hidden');
+    resultsDiv.innerHTML = '';
 }
 
 function selectItem(rowId, itemId, displayText, stock) {
     document.getElementById(`row-${rowId}-search`).value = displayText;
     document.getElementById(`row-${rowId}-itemId`).value = itemId;
-    document.getElementById(`row-${rowId}-results`).classList.add('hidden');
+    hideSearchDropdown();
     
     const row = itemRows.find(r => r.id === rowId);
     if (row) {
@@ -320,22 +368,22 @@ function selectItem(rowId, itemId, displayText, stock) {
     
     // Validate quantity later
     const qtyInput = document.getElementById(`row-${rowId}-quantity`);
-    qtyInput.max = stock;
-    qtyInput.setAttribute('max', stock);
+    qtyInput.dataset.max = stock;
 }
 
 function updateTotal() {
     let total = 0;
     
     itemRows.forEach(row => {
-        const qty = parseFloat(document.getElementById(`row-${row.id}-quantity`).value) || 0;
+        const qtyInput = document.getElementById(`row-${row.id}-quantity`);
+        const qty = parseQuantity(qtyInput.value);
         row.quantity = qty;
         total += qty;
-        
+
         // Validate against stock
         if (row.maxStock && qty > row.maxStock) {
             alert(`Stok tidak mencukupi. Maksimal ${formatNumber(row.maxStock)}`);
-            document.getElementById(`row-${row.id}-quantity`).value = row.maxStock;
+            qtyInput.value = formatInputNumber(row.maxStock);
             row.quantity = row.maxStock;
             total = total - qty + row.maxStock;
         }
@@ -351,14 +399,58 @@ function formatNumber(angka) {
     }).format(angka);
 }
 
+function parseQuantity(value) {
+    if (typeof value === 'number') return value;
+
+    const rawValue = String(value || '')
+        .trim()
+        .replace(/\s/g, '');
+
+    let normalized = rawValue;
+    const hasDot = normalized.includes('.');
+    const hasComma = normalized.includes(',');
+
+    if (hasDot && hasComma) {
+        const decimalSeparator = normalized.lastIndexOf(',') > normalized.lastIndexOf('.') ? ',' : '.';
+        const thousandSeparator = decimalSeparator === ',' ? '.' : ',';
+        normalized = normalized
+            .replace(new RegExp(`\\${thousandSeparator}`, 'g'), '')
+            .replace(decimalSeparator, '.');
+    } else if (hasDot) {
+        normalized = normalized.replace(/\./g, '');
+    } else if (hasComma) {
+        const commaParts = normalized.split(',');
+        normalized = commaParts.length === 2 && commaParts[1].length === 3
+            ? normalized.replace(/,/g, '')
+            : normalized.replace(',', '.');
+    }
+
+    const quantity = parseFloat(normalized);
+    return Number.isFinite(quantity) ? quantity : 0;
+}
+
+function formatInputNumber(value) {
+    return formatNumber(parseQuantity(value));
+}
+
 // Hide search results when clicking outside
 document.addEventListener('click', function(e) {
-    if (!e.target.closest('[id$="-search"]') && !e.target.closest('[id$="-results"]')) {
-        document.querySelectorAll('[id$="-results"]').forEach(el => {
-            el.classList.add('hidden');
-        });
+    if (!e.target.closest('[id$="-search"]') && !e.target.closest('#searchDropdown')) {
+        hideSearchDropdown();
     }
 });
+
+window.addEventListener('resize', function() {
+    if (activeSearchRowId && !document.getElementById('searchDropdown')?.classList.contains('hidden')) {
+        positionSearchDropdown(activeSearchRowId);
+    }
+});
+
+window.addEventListener('scroll', function() {
+    if (activeSearchRowId && !document.getElementById('searchDropdown')?.classList.contains('hidden')) {
+        positionSearchDropdown(activeSearchRowId);
+    }
+}, true);
 
 // Add first row by default
 addItem();

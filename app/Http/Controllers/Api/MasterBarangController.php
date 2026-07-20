@@ -10,7 +10,11 @@ class MasterBarangController extends Controller
 {
     public function index(Request $request)
     {
-        $search = $request->search;
+        $validated = $request->validate([
+            'search' => 'nullable|string|max:100',
+        ]);
+
+        $search = $validated['search'] ?? null;
 
         $query = PgItem::select(
                 'id_items',

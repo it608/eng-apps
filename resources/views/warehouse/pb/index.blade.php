@@ -80,6 +80,9 @@
                                 <div class="mt-1 text-xs text-emerald-700" x-show="pb.erp_gi_number">
                                     GI ERP: <span class="font-medium" x-text="pb.erp_gi_number"></span>
                                 </div>
+                                <div class="mt-1 text-xs text-teal-700" x-show="pb.stock_area_doc_numbers">
+                                    Stock Area: <span class="font-medium" x-text="pb.stock_area_doc_numbers"></span>
+                                </div>
                             </td>
                             <td class="px-6 py-4">
                                 <div x-text="formatDate(pb.tanggal_permintaan)"></div>
@@ -163,39 +166,53 @@
                     </div>
 
                     <div class="mb-5 rounded-lg border border-emerald-100 bg-emerald-50/50 p-4">
-                        <label for="erpGiNumber" class="block text-xs font-semibold uppercase tracking-wider text-emerald-700">
-                            No. Good Issue ERP
-                        </label>
-                        <div class="mt-2 flex flex-col gap-3 sm:flex-row">
-                            <input id="erpGiNumber"
-                                   x-model="erpGiNumber"
-                                   type="text"
-                                   :readonly="hasErpReference()"
-                                   placeholder="Contoh: GI-2026-000123"
-                                   :class="hasErpReference() ? 'border-gray-200 bg-gray-100 text-gray-700 cursor-not-allowed' : 'border-emerald-200 bg-white focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100'"
-                                   class="w-full rounded-lg border px-3 py-2.5 text-sm focus:outline-none">
-                            <button type="button"
-                                    @click="saveErpReference()"
-                                    :disabled="hasErpReference()"
-                                    :class="hasErpReference() ? 'bg-gray-200 text-gray-500 cursor-not-allowed' : 'bg-emerald-600 text-white hover:bg-emerald-700'"
-                                    class="inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-sm font-semibold">
-                                <i :class="hasErpReference() ? 'fas fa-lock text-xs' : 'fas fa-save text-xs'"></i>
-                                <span x-text="hasErpReference() ? 'Ref Tersimpan' : 'Simpan Ref'"></span>
-                            </button>
-                        </div>
+                        <div class="text-xs font-semibold uppercase tracking-wider text-emerald-700">Referensi Good Issue ERP</div>
+                        <div class="mt-2 rounded-lg border border-emerald-100 bg-white px-3 py-2 text-sm font-medium text-gray-800"
+                             x-text="selected?.header?.erp_gi_number || 'Belum ada referensi GI ERP'"></div>
                         <p class="mt-2 text-xs text-emerald-700">
-                            Diisi dari nomor dokumen Good Issue ERP setelah barang dikeluarkan dari gudang.
+                            Jika satu PB dikeluarkan bertahap di ERP, isi nomor GI saat checklist item. Ringkasan di atas otomatis berisi semua nomor GI unik dari item.
                         </p>
+                    </div>
+
+                    <div class="mb-5 rounded-lg border border-blue-100 bg-blue-50/60 p-4">
+                        <div class="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
+                            <div>
+                                <div class="text-xs font-semibold uppercase tracking-wider text-blue-700">Checklist Massal</div>
+                                <p class="mt-1 text-xs text-blue-700">Pakai ini jika beberapa item punya nomor Good Issue ERP yang sama.</p>
+                            </div>
+                            <div class="flex flex-col gap-2 sm:flex-row sm:items-center">
+                                <input x-model="bulkGiNumber"
+                                       type="text"
+                                       placeholder="Contoh: GI-2026-000123"
+                                       class="w-full rounded-lg border border-blue-200 bg-white px-3 py-2.5 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-100 sm:w-72">
+                                <button type="button"
+                                        @click="bulkCheckSelected()"
+                                        :disabled="selectedItemIds.length === 0 || !bulkGiNumber.trim()"
+                                        :class="selectedItemIds.length === 0 || !bulkGiNumber.trim() ? 'cursor-not-allowed bg-gray-200 text-gray-500' : 'bg-blue-600 text-white hover:bg-blue-700'"
+                                        class="inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-sm font-semibold">
+                                    <i class="fas fa-check-double text-xs"></i>
+                                    <span>Checklist Terpilih</span>
+                                    <span class="rounded bg-white/20 px-1.5 py-0.5 text-xs" x-text="selectedItemIds.length"></span>
+                                </button>
+                            </div>
+                        </div>
                     </div>
 
                     <div class="overflow-x-auto rounded-lg border border-gray-200">
                         <table class="min-w-full divide-y divide-gray-200 text-sm">
                             <thead class="bg-gray-50">
                                 <tr class="text-left text-xs font-bold uppercase tracking-wider text-gray-600">
+                                    <th class="px-4 py-3 text-center">
+                                        <input type="checkbox"
+                                               class="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                                               :checked="pendingItems().length > 0 && selectedItemIds.length === pendingItems().length"
+                                               @change="toggleAllPending($event.target.checked)">
+                                    </th>
                                     <th class="px-4 py-3">Barang</th>
                                     <th class="px-4 py-3 text-right">Qty</th>
                                     <th class="px-4 py-3 text-right">Harga Rata-rata</th>
                                     <th class="px-4 py-3">Status</th>
+                                    <th class="px-4 py-3">Metode / Ref</th>
                                     <th class="px-4 py-3">Catatan</th>
                                     <th class="px-4 py-3 text-center">Aksi</th>
                                 </tr>
@@ -203,9 +220,19 @@
                             <tbody class="divide-y divide-gray-200 bg-white">
                                 <template x-for="item in selected?.detail || []" :key="item.id">
                                     <tr>
+                                        <td class="px-4 py-3 text-center">
+                                            <input type="checkbox"
+                                                   class="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                                                   :disabled="item.fulfillment_status !== 'pending'"
+                                                   :checked="isSelected(item)"
+                                                   @change="toggleItemSelection(item, $event.target.checked)">
+                                        </td>
                                         <td class="px-4 py-3">
                                             <div class="font-semibold text-gray-900" x-text="item.nama_barang"></div>
                                             <div class="text-xs text-gray-500" x-text="item.keterangan || '-'"></div>
+                                            <div class="mt-1 inline-flex rounded-full px-2 py-0.5 text-[11px] font-semibold"
+                                                 :class="(item.material_type || 'sparepart') === 'non_sparepart' ? 'bg-violet-50 text-violet-700' : 'bg-blue-50 text-blue-700'"
+                                                 x-text="materialTypeLabel(item.material_type)"></div>
                                         </td>
                                         <td class="px-4 py-3 text-right">
                                             <div class="font-mono font-semibold" x-text="formatNumber(item.jumlah)"></div>
@@ -232,11 +259,30 @@
                                                 Oleh <span x-text="item.fulfilled_by_name"></span>
                                             </div>
                                         </td>
+                                        <td class="px-4 py-3">
+                                            <div class="inline-flex rounded-full px-2 py-0.5 text-[11px] font-semibold"
+                                                 :class="item.fulfillment_source === 'stock_area' ? 'bg-teal-50 text-teal-700' : 'bg-emerald-50 text-emerald-700'"
+                                                 x-text="fulfillmentSourceLabel(item)"></div>
+                                            <div class="mt-1 text-xs font-semibold"
+                                                 :class="item.fulfillment_source === 'stock_area' ? 'text-teal-700' : 'text-emerald-700'"
+                                                 x-text="item.stock_area_doc_number || item.erp_gi_number || '-'"></div>
+                                            <a x-show="item.stock_area_doc_number"
+                                               :href="`/warehouse/pb/stock-receipt/${item.stock_area_doc_number}`"
+                                               target="_blank"
+                                               class="mt-1 inline-flex items-center gap-1 text-[11px] font-semibold text-blue-600 hover:text-blue-700">
+                                                <i class="fas fa-print"></i>
+                                                Print tanda terima
+                                            </a>
+                                            <div class="mt-1 text-[11px] text-gray-400" x-show="item.erp_gi_recorded_at" x-text="formatDate(item.erp_gi_recorded_at)"></div>
+                                        </td>
                                         <td class="px-4 py-3 text-gray-600" x-text="item.fulfillment_note || '-'"></td>
                                         <td class="px-4 py-3">
-                                            <div class="flex items-center justify-center gap-2">
-                                                <button type="button" @click="checkItem(item)" class="inline-flex h-8 w-8 items-center justify-center rounded-lg text-green-600 hover:bg-green-50" title="Ceklis">
+                                            <div x-show="item.fulfillment_status === 'pending'" class="flex items-center justify-center gap-2">
+                                                <button type="button" @click="checkItem(item)" class="inline-flex h-8 w-8 items-center justify-center rounded-lg text-green-600 hover:bg-green-50" title="Fulfill dari ERP">
                                                     <i class="fas fa-check"></i>
+                                                </button>
+                                                <button type="button" @click="openStockPicker(item)" class="inline-flex h-8 w-8 items-center justify-center rounded-lg text-teal-600 hover:bg-teal-50" title="Fulfill dari Stock Area">
+                                                    <i class="fas fa-box-open"></i>
                                                 </button>
                                                 <button type="button" @click="askNote(item, 'hold')" class="inline-flex h-8 w-8 items-center justify-center rounded-lg text-purple-600 hover:bg-purple-50" title="Hold">
                                                     <i class="fas fa-pause"></i>
@@ -245,12 +291,84 @@
                                                     <i class="fas fa-times"></i>
                                                 </button>
                                             </div>
+                                            <div x-show="item.fulfillment_status !== 'pending'" class="text-center text-xs font-semibold text-gray-400">
+                                                Selesai diproses
+                                            </div>
                                         </td>
                                     </tr>
                                 </template>
                             </tbody>
                         </table>
                     </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div x-show="showStockPicker" x-cloak class="fixed inset-0 z-[10000] flex items-center justify-center px-4">
+        <div class="fixed inset-0 bg-gray-900/40" @click="closeStockPicker()"></div>
+        <div class="relative w-full max-w-3xl overflow-hidden rounded-xl bg-white shadow-2xl">
+            <div class="flex items-start justify-between border-b border-gray-200 px-5 py-4">
+                <div>
+                    <h3 class="text-base font-bold text-gray-900">Pilih Stock Area</h3>
+                    <p class="mt-1 text-sm text-gray-500" x-text="stockTargetItem?.nama_barang || '-'"></p>
+                </div>
+                <button type="button" @click="closeStockPicker()" class="rounded-lg p-2 text-gray-400 hover:bg-gray-100 hover:text-gray-600">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="p-5">
+                <div class="flex gap-2">
+                    <input x-model.debounce.350ms="stockSearch"
+                           @input="loadStockOptions()"
+                           type="text"
+                           placeholder="Cari kode / nama stock area..."
+                           class="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm focus:border-teal-500 focus:outline-none focus:ring-2 focus:ring-teal-100">
+                    <button type="button"
+                            @click="loadStockOptions()"
+                            class="rounded-lg border border-teal-100 bg-teal-50 px-4 py-2.5 text-sm font-semibold text-teal-700 hover:bg-teal-100">
+                        Search
+                    </button>
+                </div>
+
+                <div class="mt-4 max-h-80 overflow-y-auto rounded-lg border border-gray-200">
+                    <table class="min-w-full divide-y divide-gray-200 text-sm">
+                        <thead class="bg-gray-50 text-xs uppercase tracking-wider text-gray-600">
+                            <tr>
+                                <th class="px-4 py-3 text-left">Kode</th>
+                                <th class="px-4 py-3 text-left">Barang</th>
+                                <th class="px-4 py-3 text-right">Stock</th>
+                                <th class="px-4 py-3 text-left">Lokasi</th>
+                                <th class="px-4 py-3 text-center">Aksi</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-gray-200 bg-white">
+                            <template x-for="stock in stockOptions" :key="stock.id">
+                                <tr>
+                                    <td class="px-4 py-3 font-mono" x-text="stock.code || '-'"></td>
+                                    <td class="px-4 py-3">
+                                        <div class="font-semibold text-gray-900" x-text="stock.name"></div>
+                                        <div class="text-xs text-gray-500" x-text="stock.unit || '-'"></div>
+                                    </td>
+                                    <td class="px-4 py-3 text-right font-mono font-semibold" x-text="formatNumber(stock.quantity)"></td>
+                                    <td class="px-4 py-3" x-text="stock.location || '-'"></td>
+                                    <td class="px-4 py-3 text-center">
+                                        <button type="button"
+                                                @click="fulfillFromStockArea(stock)"
+                                                class="rounded-lg bg-teal-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-teal-700">
+                                            Pilih
+                                        </button>
+                                    </td>
+                                </tr>
+                            </template>
+                            <tr x-show="!stockOptionsLoading && stockOptions.length === 0">
+                                <td colspan="5" class="px-4 py-8 text-center text-gray-500">Tidak ada stock area ditemukan</td>
+                            </tr>
+                            <tr x-show="stockOptionsLoading">
+                                <td colspan="5" class="px-4 py-8 text-center text-gray-500">Memuat stock area...</td>
+                            </tr>
+                        </tbody>
+                    </table>
                 </div>
             </div>
         </div>
@@ -267,6 +385,13 @@ function warehousePbApp() {
         detailLoading: false,
         search: '',
         erpGiNumber: '',
+        bulkGiNumber: '',
+        selectedItemIds: [],
+        showStockPicker: false,
+        stockTargetItem: null,
+        stockOptions: [],
+        stockOptionsLoading: false,
+        stockSearch: '',
         summary: { total: 0, pending: 0, hold: 0, rejected: 0 },
 
         init() {
@@ -361,6 +486,8 @@ function warehousePbApp() {
                 }
                 this.selected = result.data;
                 this.erpGiNumber = result.data.header.erp_gi_number || '';
+                this.bulkGiNumber = '';
+                this.selectedItemIds = [];
                 this.detailLoading = false;
             } catch (error) {
                 console.error(error);
@@ -374,6 +501,9 @@ function warehousePbApp() {
             this.showModal = false;
             this.selected = null;
             this.erpGiNumber = '';
+            this.bulkGiNumber = '';
+            this.selectedItemIds = [];
+            this.closeStockPicker();
             this.detailLoading = false;
             this.loadData();
         },
@@ -423,17 +553,130 @@ function warehousePbApp() {
         },
 
         async checkItem(item) {
-            if (!this.erpGiNumber.trim()) {
-                const giNumber = prompt('Masukkan No. Good Issue ERP terlebih dahulu:', '');
-                if (giNumber === null || !giNumber.trim()) return;
-                this.erpGiNumber = giNumber.trim();
-                await this.saveErpReference();
-            }
+            const currentRef = String(item.erp_gi_number || this.erpGiNumber || '').trim();
+            const giNumber = prompt('Masukkan No. Good Issue ERP untuk item ini:', currentRef);
+            if (giNumber === null || !giNumber.trim()) return;
 
-            this.updateItem(item, 'checked');
+            this.updateItem(item, 'checked', item.fulfillment_note || '', giNumber.trim());
         },
 
-        async updateItem(item, status, note = '') {
+        async openStockPicker(item) {
+            this.stockTargetItem = item;
+            this.stockSearch = item.nama_barang || '';
+            this.stockOptions = [];
+            this.showStockPicker = true;
+            await this.loadStockOptions();
+        },
+
+        closeStockPicker() {
+            this.showStockPicker = false;
+            this.stockTargetItem = null;
+            this.stockOptions = [];
+            this.stockOptionsLoading = false;
+            this.stockSearch = '';
+        },
+
+        async loadStockOptions() {
+            if (!this.selected?.header?.id || !this.stockTargetItem?.id) return;
+            this.stockOptionsLoading = true;
+            try {
+                const params = new URLSearchParams();
+                if (this.stockSearch) params.set('search', this.stockSearch);
+                const response = await fetch(`/warehouse/pb/${this.selected.header.id}/items/${this.stockTargetItem.id}/stock-options?${params.toString()}`, {
+                    headers: { 'Accept': 'application/json' }
+                });
+                const result = await response.json();
+                this.stockOptions = result.success ? (result.data || []) : [];
+            } catch (error) {
+                console.error(error);
+                this.stockOptions = [];
+            } finally {
+                this.stockOptionsLoading = false;
+            }
+        },
+
+        async fulfillFromStockArea(stock) {
+            if (!this.stockTargetItem) return;
+            const required = this.formatNumber(this.stockTargetItem.jumlah);
+            if (!confirm(`Keluarkan ${required} ${this.stockTargetItem.satuan || ''} dari Stock Area ${stock.location || '-'}?`)) return;
+
+            const result = await this.updateItemRequest(
+                this.stockTargetItem,
+                'checked',
+                this.stockTargetItem.fulfillment_note || '',
+                '',
+                'stock_area',
+                stock.id
+            );
+
+            if (!result.success) {
+                alert(result.message || 'Gagal fulfill dari Stock Area');
+                return;
+            }
+
+            const receiptNumber = result.data?.receipt_number;
+            this.closeStockPicker();
+            await this.openDetail(this.selected.header.id);
+            await this.loadData();
+
+            if (receiptNumber && confirm(`Tanda terima ${receiptNumber} berhasil dibuat. Buka dokumen sekarang?`)) {
+                window.open(`/warehouse/pb/stock-receipt/${receiptNumber}`, '_blank');
+            }
+        },
+
+        pendingItems() {
+            return (this.selected?.detail || []).filter(item => item.fulfillment_status === 'pending');
+        },
+
+        isSelected(item) {
+            return this.selectedItemIds.includes(item.id);
+        },
+
+        toggleItemSelection(item, checked) {
+            if (item.fulfillment_status !== 'pending') return;
+            if (checked) {
+                if (!this.selectedItemIds.includes(item.id)) this.selectedItemIds.push(item.id);
+                return;
+            }
+            this.selectedItemIds = this.selectedItemIds.filter(id => id !== item.id);
+        },
+
+        toggleAllPending(checked) {
+            this.selectedItemIds = checked
+                ? this.pendingItems().map(item => item.id)
+                : [];
+        },
+
+        async bulkCheckSelected() {
+            const giNumber = String(this.bulkGiNumber || '').trim();
+            if (!giNumber) {
+                alert('No. Good Issue ERP wajib diisi.');
+                return;
+            }
+
+            const selectedItems = (this.selected?.detail || []).filter(item => this.selectedItemIds.includes(item.id));
+            if (selectedItems.length === 0) {
+                alert('Pilih item yang akan diceklis.');
+                return;
+            }
+
+            if (!confirm(`Checklist ${selectedItems.length} item dengan No. GI ERP ${giNumber}?`)) return;
+
+            for (const item of selectedItems) {
+                const result = await this.updateItemRequest(item, 'checked', item.fulfillment_note || '', giNumber);
+                if (!result.success) {
+                    alert(result.message || `Gagal update item ${item.nama_barang}`);
+                    break;
+                }
+            }
+
+            this.selectedItemIds = [];
+            this.bulkGiNumber = '';
+            await this.openDetail(this.selected.header.id);
+            await this.loadData();
+        },
+
+        async updateItemRequest(item, status, note = '', erpGiNumber = '', fulfillmentSource = 'erp', stockAreaStockId = null) {
             const response = await fetch(`/warehouse/pb/${this.selected.header.id}/items/${item.id}`, {
                 method: 'POST',
                 headers: {
@@ -442,9 +685,20 @@ function warehousePbApp() {
                     'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'),
                     'X-Requested-With': 'XMLHttpRequest'
                 },
-                body: JSON.stringify({ status, note })
+                body: JSON.stringify({
+                    status,
+                    note,
+                    erp_gi_number: erpGiNumber,
+                    fulfillment_source: fulfillmentSource,
+                    stock_area_stock_id: stockAreaStockId
+                })
             });
-            const result = await response.json();
+
+            return response.json();
+        },
+
+        async updateItem(item, status, note = '', erpGiNumber = '') {
+            const result = await this.updateItemRequest(item, status, note, erpGiNumber);
             if (!result.success) {
                 alert(result.message || 'Gagal update item');
                 return;
@@ -471,6 +725,16 @@ function warehousePbApp() {
                 rejected: 'bg-red-50 text-red-700'
             };
             return classes[status] || classes.pending;
+        },
+
+        fulfillmentSourceLabel(item) {
+            if (item.fulfillment_source === 'stock_area') return 'Stock Area';
+            if (item.fulfillment_source === 'erp') return 'ERP';
+            return '-';
+        },
+
+        materialTypeLabel(value) {
+            return value === 'non_sparepart' ? 'Non Sparepart' : 'Sparepart';
         },
 
         formatDate(value) {

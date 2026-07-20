@@ -102,7 +102,7 @@ class ReceivingController extends Controller
             Log::error('Warehouse2 Receiving data error: ' . $e->getMessage());
             return response()->json([
                 'success' => false,
-                'message' => 'Gagal mengambil data: ' . $e->getMessage()
+                'message' => 'Gagal mengambil data penerimaan barang.'
             ], 500);
         }
     }
@@ -116,18 +116,7 @@ class ReceivingController extends Controller
             // Generate receipt number
             $receiptNumber = $this->generateReceiptNumber();
             
-            // Get items with stock information using JOIN
-            $items = DB::table('warehouse2_items as i')
-                ->leftJoin('warehouse2_stock as s', 'i.id', '=', 's.item_id')
-                ->select(
-                    'i.id',
-                    'i.code',
-                    'i.name',
-                    'i.unit',
-                    DB::raw('COALESCE(s.quantity, 0) as stock')
-                )
-                ->orderBy('i.code')
-                ->get();
+            $items = $this->getMasterSparepartItems();
 
             // DEBUG: Cek apakah data items ada
             if ($items->isEmpty()) {
@@ -140,7 +129,7 @@ class ReceivingController extends Controller
             
         } catch (\Exception $e) {
             Log::error('Warehouse2 Receiving create error: ' . $e->getMessage());
-            return back()->with('error', 'Gagal memuat form: ' . $e->getMessage());
+            return back()->with('error', 'Gagal memuat form penerimaan barang.');
         }
     }
 
@@ -150,8 +139,12 @@ class ReceivingController extends Controller
     public function store(Request $request)
     {
         try {
-            // Log request data untuk debug
-            Log::info('Warehouse2 Receiving store request:', $request->all());
+            Log::info('Warehouse2 Receiving store request', [
+                'user_id' => Auth::id(),
+                'receipt_date' => $request->input('receipt_date'),
+                'supplier' => $request->input('supplier'),
+                'items_count' => count($request->input('items', [])),
+            ]);
 
             $validator = Validator::make($request->all(), [
                 'receipt_number' => 'nullable|string|max:50',
@@ -159,9 +152,9 @@ class ReceivingController extends Controller
                 'supplier' => 'required|string|max:255',
                 'notes' => 'nullable|string',
                 'items' => 'required|array|min:1',
-                'items.*.item_id' => 'required|integer|exists:warehouse2_items,id',
+                'items.*.item_id' => 'required|integer',
                 'items.*.quantity' => 'required|numeric|min:0.01',
-                'items.*.unit_price' => 'required|numeric|min:0',
+                'items.*.unit_price' => 'nullable|numeric|min:0',
             ]);
 
             if ($validator->fails()) {
@@ -190,13 +183,15 @@ class ReceivingController extends Controller
 
             // Create receiving details and update stock
             foreach ($request->items as $index => $item) {
+                $areaItemId = $this->ensureAreaStockItem((int) $item['item_id']);
+
                 // Insert detail
                 DB::table('warehouse2_receiving_detail')->insert([
                     'receiving_id' => $receivingId,
-                    'item_id' => $item['item_id'],
+                    'item_id' => $areaItemId,
                     'quantity' => $item['quantity'],
-                    'unit_price' => $item['unit_price'],
-                    'total_price' => $item['quantity'] * $item['unit_price'],
+                    'unit_price' => $item['unit_price'] ?? 0,
+                    'total_price' => $item['quantity'] * ($item['unit_price'] ?? 0),
                     'created_at' => now(),
                     'updated_at' => now()
                 ]);
@@ -205,12 +200,12 @@ class ReceivingController extends Controller
 
                 // Update stock
                 $stock = DB::table('warehouse2_stock')
-                    ->where('item_id', $item['item_id'])
+                    ->where('item_id', $areaItemId)
                     ->first();
 
                 if ($stock) {
                     DB::table('warehouse2_stock')
-                        ->where('item_id', $item['item_id'])
+                        ->where('item_id', $areaItemId)
                         ->update([
                             'quantity' => DB::raw('quantity + ' . $item['quantity']),
                             'last_updated' => now(),
@@ -220,7 +215,7 @@ class ReceivingController extends Controller
                     Log::info("Stock updated for item_id: {$item['item_id']}, added: {$item['quantity']}");
                 } else {
                     DB::table('warehouse2_stock')->insert([
-                        'item_id' => $item['item_id'],
+                        'item_id' => $areaItemId,
                         'quantity' => $item['quantity'],
                         'location' => 'MAIN',
                         'last_updated' => now(),
@@ -244,11 +239,10 @@ class ReceivingController extends Controller
         } catch (\Exception $e) {
             DB::rollBack();
             Log::error('Warehouse2 Receiving store error: ' . $e->getMessage());
-            Log::error('Stack trace: ' . $e->getTraceAsString());
             
             return response()->json([
                 'success' => false,
-                'message' => 'Gagal menyimpan: ' . $e->getMessage()
+                'message' => 'Gagal menyimpan penerimaan barang. Silakan coba lagi atau hubungi admin.'
             ], 500);
         }
     }
@@ -298,7 +292,7 @@ class ReceivingController extends Controller
             Log::error('Warehouse2 Receiving show error: ' . $e->getMessage());
             return response()->json([
                 'success' => false,
-                'message' => 'Gagal mengambil detail: ' . $e->getMessage()
+                'message' => 'Gagal mengambil detail penerimaan barang.'
             ], 500);
         }
     }
@@ -337,7 +331,7 @@ class ReceivingController extends Controller
 
         } catch (\Exception $e) {
             Log::error('Warehouse2 Receiving print error: ' . $e->getMessage());
-            return back()->with('error', 'Gagal mencetak: ' . $e->getMessage());
+            return back()->with('error', 'Gagal mencetak penerimaan barang.');
         }
     }
 
@@ -383,7 +377,7 @@ class ReceivingController extends Controller
 
         } catch (\Exception $e) {
             Log::error('Warehouse2 Receiving download PDF error: ' . $e->getMessage());
-            return back()->with('error', 'Gagal download PDF: ' . $e->getMessage());
+            return back()->with('error', 'Gagal download PDF penerimaan barang.');
         }
     }
 
@@ -409,5 +403,94 @@ class ReceivingController extends Controller
         }
 
         return "WH2-RCV-{$year}{$month}-{$newNumber}";
+    }
+
+    private function getMasterSparepartItems()
+    {
+        return DB::connection('pgsql2')
+            ->table('tb_skb080_1mmara')
+            ->select(
+                'id_items as id',
+                'code',
+                'item_name as name',
+                'meins as unit',
+                'mtart as category'
+            )
+            ->where('mtart', 'YSPR')
+            ->orderBy('code')
+            ->limit(5000)
+            ->get()
+            ->map(function ($item) {
+                return [
+                    'id' => (int) $item->id,
+                    'code' => $this->cleanText($item->code ?? ''),
+                    'name' => $this->cleanText($item->name ?? ''),
+                    'unit' => $this->cleanText($item->unit ?? 'PCS'),
+                    'category' => $this->cleanText($item->category ?? 'YSPR'),
+                    'stock' => null,
+                ];
+            })
+            ->values();
+    }
+
+    private function ensureAreaStockItem(int $masterItemId): int
+    {
+        $master = DB::connection('pgsql2')
+            ->table('tb_skb080_1mmara')
+            ->select('id_items', 'code', 'item_name', 'meins', 'mtart')
+            ->where('id_items', $masterItemId)
+            ->where('mtart', 'YSPR')
+            ->first();
+
+        if (!$master) {
+            throw new \Exception('Sparepart master tidak ditemukan atau bukan tipe YSPR.');
+        }
+
+        $code = $this->cleanText($master->code ?? '');
+
+        if ($code === '') {
+            throw new \Exception('Kode sparepart master tidak valid.');
+        }
+
+        $payload = [
+            'name' => $this->cleanText($master->item_name ?? ''),
+            'category' => $this->cleanText($master->mtart ?? 'YSPR'),
+            'unit' => $this->cleanText($master->meins ?? 'PCS') ?: 'PCS',
+            'updated_at' => now(),
+        ];
+
+        $existing = DB::table('warehouse2_items')
+            ->where('code', $code)
+            ->first();
+
+        if ($existing) {
+            DB::table('warehouse2_items')
+                ->where('id', $existing->id)
+                ->update($payload);
+
+            return (int) $existing->id;
+        }
+
+        $payload['code'] = $code;
+        $payload['min_stock'] = 0;
+        $payload['max_stock'] = 0;
+        $payload['created_at'] = now();
+
+        return (int) DB::table('warehouse2_items')->insertGetId($payload);
+    }
+
+    private function cleanText($value): string
+    {
+        $text = trim((string) $value);
+
+        if ($text === '') {
+            return '';
+        }
+
+        if (!mb_check_encoding($text, 'UTF-8')) {
+            $text = mb_convert_encoding($text, 'UTF-8', 'UTF-8');
+        }
+
+        return preg_replace('/\s+/', ' ', $text);
     }
 }

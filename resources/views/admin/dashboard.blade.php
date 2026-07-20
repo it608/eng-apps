@@ -24,9 +24,172 @@
     };
 
     $formatNumber = fn ($value) => number_format((float) $value, 0, ',', '.');
+    $isAdminDashboard = auth()->user()?->role === 'admin';
 @endphp
 
 <div class="space-y-6">
+    @if(($dashboardMode ?? 'engineering') === 'warehouse')
+    <div class="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+        <div>
+            <h1 class="text-2xl font-semibold text-gray-900">Warehouse Dashboard</h1>
+            <p class="mt-1 text-sm text-gray-500">Monitoring second app untuk fulfillment PB dan pencatatan referensi ERP.</p>
+        </div>
+
+        <div class="flex flex-wrap items-center gap-2">
+            <a href="{{ route('warehouse.pb.index') }}"
+               class="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-blue-700">
+                <span>PB Fulfillment</span>
+            </a>
+            <a href="{{ route('stock.index') }}"
+               class="inline-flex items-center gap-2 rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-50">
+                <span>Stock Sparepart</span>
+            </a>
+        </div>
+    </div>
+
+    <div class="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
+        <div class="flex items-center justify-between border-b border-gray-100 pb-4">
+            <div>
+                <h2 class="text-lg font-semibold text-gray-900">Fulfillment Overview</h2>
+                <p class="text-sm text-gray-500">PB yang sudah disetujui dan siap diproses oleh gudang.</p>
+            </div>
+            <div class="text-xs text-gray-400">Updated {{ $lastUpdated }}</div>
+        </div>
+
+        <div class="mt-5 grid gap-5 md:grid-cols-4">
+            <div>
+                <div class="text-xs font-semibold uppercase tracking-wide text-gray-400">PB Siap Proses</div>
+                <div class="mt-1 text-2xl font-semibold text-gray-900">{{ $formatNumber($warehouseSummary['pb_ready'] ?? 0) }}</div>
+                <div class="text-xs text-gray-400">Approved / in progress / completed</div>
+            </div>
+            <div>
+                <div class="text-xs font-semibold uppercase tracking-wide text-gray-400">Menunggu Gudang</div>
+                <div class="mt-1 text-2xl font-semibold text-yellow-600">{{ $formatNumber($warehouseSummary['pb_waiting'] ?? 0) }}</div>
+                <div class="text-xs text-gray-400">Masih ada item pending</div>
+            </div>
+            <div>
+                <div class="text-xs font-semibold uppercase tracking-wide text-gray-400">Item Sudah Dicek</div>
+                <div class="mt-1 text-2xl font-semibold text-green-600">{{ $formatNumber($warehouseSummary['items_checked'] ?? 0) }}</div>
+                <div class="text-xs text-gray-400">Fulfillment checked</div>
+            </div>
+            <div>
+                <div class="text-xs font-semibold uppercase tracking-wide text-gray-400">Hold / Reject</div>
+                <div class="mt-1 text-2xl font-semibold text-red-600">{{ $formatNumber(($warehouseSummary['items_hold'] ?? 0) + ($warehouseSummary['items_rejected'] ?? 0)) }}</div>
+                <div class="text-xs text-gray-400">Butuh follow up</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="grid gap-5 xl:grid-cols-3">
+        <div class="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm xl:col-span-1">
+            <h2 class="text-lg font-semibold text-gray-900">Trend Fulfillment PB</h2>
+            <p class="text-sm text-gray-500">PB approved, selesai fulfillment, dan referensi ERP tercatat.</p>
+            <div class="mt-5 flex h-36 items-end justify-between gap-3">
+                @foreach(($warehouseTrend['items'] ?? []) as $month)
+                    @php
+                        $maxTrend = max((int) ($warehouseTrend['max'] ?? 1), 1);
+                        $approvedHeight = max(($month['approved'] / $maxTrend) * 100, $month['approved'] > 0 ? 8 : 0);
+                        $completedHeight = max(($month['completed'] / $maxTrend) * 100, $month['completed'] > 0 ? 8 : 0);
+                        $erpHeight = max(($month['erp_recorded'] / $maxTrend) * 100, $month['erp_recorded'] > 0 ? 8 : 0);
+                    @endphp
+                    <div class="flex min-w-0 flex-1 flex-col items-center gap-2">
+                        <div class="flex h-24 w-full items-end justify-center gap-1">
+                            <div class="w-2 rounded-t bg-blue-500" style="height: {{ $approvedHeight }}%"></div>
+                            <div class="w-2 rounded-t bg-green-500" style="height: {{ $completedHeight }}%"></div>
+                            <div class="w-2 rounded-t bg-violet-500" style="height: {{ $erpHeight }}%"></div>
+                        </div>
+                        <div class="truncate text-[11px] font-medium text-gray-500">{{ $month['label'] }}</div>
+                    </div>
+                @endforeach
+            </div>
+            <div class="mt-4 flex flex-wrap gap-3 text-[11px] text-gray-500">
+                <span class="inline-flex items-center gap-1"><span class="h-2 w-2 rounded-sm bg-blue-500"></span>Approved</span>
+                <span class="inline-flex items-center gap-1"><span class="h-2 w-2 rounded-sm bg-green-500"></span>Fulfilled</span>
+                <span class="inline-flex items-center gap-1"><span class="h-2 w-2 rounded-sm bg-violet-500"></span>ERP Ref</span>
+            </div>
+        </div>
+
+        <div class="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
+            <h2 class="text-lg font-semibold text-gray-900">Pencatatan ERP</h2>
+            <p class="text-sm text-gray-500">Kontrol nomor Good Issue ERP untuk PB yang diproses di gudang.</p>
+            <div class="mt-5 grid grid-cols-2 gap-4">
+                <div class="rounded-xl border border-gray-100 p-4">
+                    <div class="text-xs font-semibold uppercase tracking-wide text-gray-400">Sudah Dicatat</div>
+                    <div class="mt-1 text-xl font-semibold text-green-600">{{ $formatNumber($warehouseSummary['erp_recorded'] ?? 0) }}</div>
+                </div>
+                <div class="rounded-xl border border-gray-100 p-4">
+                    <div class="text-xs font-semibold uppercase tracking-wide text-gray-400">Belum Ada Ref</div>
+                    <div class="mt-1 text-xl font-semibold text-yellow-600">{{ $formatNumber($warehouseSummary['erp_missing'] ?? 0) }}</div>
+                </div>
+            </div>
+            <p class="mt-4 text-xs leading-5 text-gray-500">Receiving dan issuing tetap dilakukan di ERP. Di sini hanya dicatat referensinya agar PB di e-Request punya jejak fulfillment.</p>
+            <a href="{{ route('warehouse.pb.index') }}" class="mt-4 inline-flex text-sm font-medium text-blue-600 hover:text-blue-700">Cek PB fulfillment</a>
+        </div>
+
+        <div class="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
+            <h2 class="text-lg font-semibold text-gray-900">Item Fulfillment</h2>
+            <p class="text-sm text-gray-500">Status detail item dari PB approved.</p>
+            <div class="mt-5 space-y-3 text-sm">
+                <div class="flex items-center justify-between"><span class="text-gray-500">Pending</span><span class="font-semibold text-yellow-600">{{ $formatNumber($warehouseSummary['items_pending'] ?? 0) }}</span></div>
+                <div class="flex items-center justify-between"><span class="text-gray-500">Checked</span><span class="font-semibold text-green-600">{{ $formatNumber($warehouseSummary['items_checked'] ?? 0) }}</span></div>
+                <div class="flex items-center justify-between"><span class="text-gray-500">Hold</span><span class="font-semibold text-orange-600">{{ $formatNumber($warehouseSummary['items_hold'] ?? 0) }}</span></div>
+                <div class="flex items-center justify-between"><span class="text-gray-500">Rejected</span><span class="font-semibold text-red-600">{{ $formatNumber($warehouseSummary['items_rejected'] ?? 0) }}</span></div>
+            </div>
+        </div>
+    </div>
+
+    <div class="rounded-2xl border border-gray-200 bg-white shadow-sm">
+        <div class="flex items-center justify-between border-b border-gray-100 px-5 py-4">
+            <div>
+                <h2 class="text-lg font-semibold text-gray-900">PB Menunggu Fulfillment</h2>
+                <p class="text-sm text-gray-500">Daftar PB approved terbaru yang menjadi pekerjaan gudang.</p>
+            </div>
+            <a href="{{ route('warehouse.pb.index') }}" class="text-sm font-medium text-blue-600 hover:text-blue-700">View all</a>
+        </div>
+
+        <div class="overflow-x-auto">
+            <table class="min-w-full divide-y divide-gray-100 text-sm">
+                <thead class="bg-gray-50">
+                    <tr class="text-left text-xs font-semibold uppercase tracking-wide text-gray-500">
+                        <th class="px-5 py-3">No. PB</th>
+                        <th class="px-5 py-3">Diperlukan</th>
+                        <th class="px-5 py-3">Tujuan</th>
+                        <th class="px-5 py-3">Item</th>
+                        <th class="px-5 py-3">Status Gudang</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-100">
+                    @forelse($warehouseRecentPb as $pb)
+                        <tr class="hover:bg-gray-50">
+                            <td class="px-5 py-4">
+                                <div class="font-semibold text-gray-900">{{ $pb->nomor_pb }}</div>
+                                <div class="text-xs text-gray-400">{{ $formatDate($pb->tanggal_permintaan) }}</div>
+                            </td>
+                            <td class="px-5 py-4 text-gray-700">{{ $formatDate($pb->tanggal_diperlukan) }}</td>
+                            <td class="px-5 py-4">
+                                <div class="capitalize text-gray-900">{{ $pb->untuk ?: '-' }}</div>
+                                <div class="text-xs text-gray-400">{{ $pb->dari_gudang ?: '-' }}</div>
+                            </td>
+                            <td class="px-5 py-4">
+                                <div class="font-medium text-gray-900">{{ $formatNumber($pb->total_items) }} item</div>
+                                <div class="text-xs text-gray-400">Pending {{ $formatNumber($pb->pending_items) }} · Checked {{ $formatNumber($pb->checked_items) }}</div>
+                            </td>
+                            <td class="px-5 py-4">
+                                <span class="inline-flex rounded-full border px-2 py-1 text-xs font-medium {{ ((int) $pb->pending_items > 0) ? 'border-yellow-100 bg-yellow-50 text-yellow-700' : 'border-green-100 bg-green-50 text-green-700' }}">
+                                    {{ ((int) $pb->pending_items > 0) ? 'Menunggu Proses' : 'Sudah Dicek' }}
+                                </span>
+                            </td>
+                        </tr>
+                    @empty
+                        <tr>
+                            <td colspan="5" class="px-5 py-10 text-center text-gray-500">Belum ada PB yang perlu diproses gudang.</td>
+                        </tr>
+                    @endforelse
+                </tbody>
+            </table>
+        </div>
+    </div>
+    @else
     {{-- Header --}}
     <div class="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
         <div>
@@ -46,43 +209,124 @@
         </div>
     </div>
 
-    {{-- Plain metric row, aligned with Stock Sparepart style --}}
-    <div class="grid grid-cols-2 gap-5 md:grid-cols-3 xl:grid-cols-6">
-        <div>
-            <div class="text-sm font-medium text-gray-900">Total PB</div>
-            <div class="mt-1 text-xl font-semibold text-gray-900">{{ $formatNumber($summary['pb_total']) }}</div>
-            <div class="text-xs text-gray-400">Permintaan barang</div>
-        </div>
-        <div>
-            <div class="text-sm font-medium text-gray-900">PB Pending</div>
-            <div class="mt-1 text-xl font-semibold text-yellow-600">{{ $formatNumber($summary['pb_pending']) }}</div>
-            <div class="text-xs text-gray-400">Menunggu proses</div>
-        </div>
-        <div>
-            <div class="text-sm font-medium text-gray-900">Total WO</div>
-            <div class="mt-1 text-xl font-semibold text-gray-900">{{ $formatNumber($summary['wo_total']) }}</div>
-            <div class="text-xs text-gray-400">Semua work order</div>
-        </div>
-        <div>
-            <div class="text-sm font-medium text-gray-900">WO Open</div>
-            <div class="mt-1 text-xl font-semibold text-blue-600">{{ $formatNumber($summary['wo_open_progress']) }}</div>
-            <div class="text-xs text-gray-400">Open / progress</div>
-        </div>
-        <div>
-            <div class="text-sm font-medium text-gray-900">Data Change</div>
-            <div class="mt-1 text-xl font-semibold text-green-600">{{ $formatNumber($summary['audit_today']) }}</div>
-            <div class="text-xs text-gray-400">Aktivitas hari ini</div>
-        </div>
-        <div>
-            <div class="text-sm font-medium text-gray-900">Need Attention</div>
-            <div class="mt-1 text-xl font-semibold text-red-600">{{ $formatNumber($health['need_attention']) }}</div>
-            <div class="text-xs text-gray-400">Rejected / high risk</div>
+    {{-- Operational scorecard --}}
+    <div class="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
+        <form method="GET" action="{{ route('dashboard') }}"
+              class="mb-5 flex flex-col gap-4 rounded-xl border border-blue-100 bg-blue-50/45 px-4 py-4 lg:flex-row lg:items-end lg:justify-between">
+            <div>
+                <div class="text-sm font-semibold text-gray-900">Filter Periode PB & WO</div>
+                <div class="mt-1 text-xs text-gray-500">
+                    Data ditampilkan untuk {{ $dashboardPeriod['label'] ?? 'Year to Date' }}.
+                </div>
+            </div>
+
+            <div class="flex flex-col gap-3 sm:flex-row sm:items-end">
+                <div>
+                    <label for="period_mode" class="mb-1 block text-xs font-semibold uppercase tracking-wide text-gray-500">Mode</label>
+                    <select id="period_mode"
+                            name="period_mode"
+                            onchange="document.getElementById('periodMonthWrap').classList.toggle('hidden', this.value !== 'month')"
+                            class="h-10 rounded-lg border border-gray-300 bg-white px-3 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-100">
+                        <option value="ytd" @selected(($dashboardPeriod['mode'] ?? 'ytd') === 'ytd')>Year to Date</option>
+                        <option value="month" @selected(($dashboardPeriod['mode'] ?? 'ytd') === 'month')>Per Bulan</option>
+                    </select>
+                </div>
+                <div id="periodMonthWrap" class="{{ ($dashboardPeriod['mode'] ?? 'ytd') === 'month' ? '' : 'hidden' }}">
+                    <label for="period_month" class="mb-1 block text-xs font-semibold uppercase tracking-wide text-gray-500">Bulan</label>
+                    <select id="period_month"
+                            name="period_month"
+                            class="h-10 rounded-lg border border-gray-300 bg-white px-3 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-100">
+                        @for($monthIndex = 1; $monthIndex <= 12; $monthIndex++)
+                            @php
+                                $monthValue = now()->format('Y') . '-' . str_pad((string) $monthIndex, 2, '0', STR_PAD_LEFT);
+                                $monthLabel = \Carbon\Carbon::create(now()->year, $monthIndex, 1)->translatedFormat('F');
+                            @endphp
+                            <option value="{{ $monthValue }}" @selected(($dashboardPeriod['month'] ?? now()->format('Y-m')) === $monthValue)>
+                                {{ $monthLabel }}
+                            </option>
+                        @endfor
+                    </select>
+                </div>
+                <button type="submit"
+                        class="inline-flex h-10 items-center justify-center rounded-lg bg-blue-600 px-4 text-sm font-semibold text-white transition hover:bg-blue-700">
+                    Terapkan
+                </button>
+            </div>
+        </form>
+
+        <div class="grid gap-6 xl:grid-cols-[1fr_auto_1fr]">
+            <div>
+                <div class="mb-4 flex items-center justify-between">
+                    <div>
+                        <h2 class="text-base font-semibold text-gray-900">Permintaan Barang</h2>
+                        <p class="text-xs text-gray-400">Status PB yang sedang berjalan.</p>
+                    </div>
+                    <a href="{{ route('transaksi.index') }}" class="text-xs font-medium text-blue-600 hover:text-blue-700">Review PB</a>
+                </div>
+                <div class="grid grid-cols-2 gap-5 sm:grid-cols-4">
+                    <div>
+                        <div class="text-xs font-semibold uppercase tracking-wide text-gray-400">Total</div>
+                        <div class="mt-1 text-xl font-semibold text-gray-900">{{ $formatNumber($summary['pb_total']) }}</div>
+                        <div class="text-xs text-gray-400">Semua PB</div>
+                    </div>
+                    <div>
+                        <div class="text-xs font-semibold uppercase tracking-wide text-gray-400">Pending</div>
+                        <div class="mt-1 text-xl font-semibold text-yellow-600">{{ $formatNumber($summary['pb_pending']) }}</div>
+                        <div class="text-xs text-gray-400">Menunggu proses</div>
+                    </div>
+                    <div>
+                        <div class="text-xs font-semibold uppercase tracking-wide text-gray-400">Approved</div>
+                        <div class="mt-1 text-xl font-semibold text-green-600">{{ $formatNumber($summary['pb_approved']) }}</div>
+                        <div class="text-xs text-gray-400">Disetujui</div>
+                    </div>
+                    <div>
+                        <div class="text-xs font-semibold uppercase tracking-wide text-gray-400">Rejected</div>
+                        <div class="mt-1 text-xl font-semibold text-red-600">{{ $formatNumber($summary['pb_rejected']) }}</div>
+                        <div class="text-xs text-gray-400">Ditolak</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="hidden w-px bg-gray-200 xl:block"></div>
+            <div class="h-px bg-gray-200 xl:hidden"></div>
+
+            <div>
+                <div class="mb-4 flex items-center justify-between">
+                    <div>
+                        <h2 class="text-base font-semibold text-gray-900">Work Order</h2>
+                        <p class="text-xs text-gray-400">Status WO dan progres pekerjaan.</p>
+                    </div>
+                    <a href="{{ route('workorder.index') }}" class="text-xs font-medium text-blue-600 hover:text-blue-700">Review WO</a>
+                </div>
+                <div class="grid grid-cols-2 gap-5 sm:grid-cols-4">
+                    <div>
+                        <div class="text-xs font-semibold uppercase tracking-wide text-gray-400">Total</div>
+                        <div class="mt-1 text-xl font-semibold text-gray-900">{{ $formatNumber($summary['wo_total']) }}</div>
+                        <div class="text-xs text-gray-400">Semua WO</div>
+                    </div>
+                    <div>
+                        <div class="text-xs font-semibold uppercase tracking-wide text-gray-400">Open</div>
+                        <div class="mt-1 text-xl font-semibold text-blue-600">{{ $formatNumber($summary['wo_open_progress']) }}</div>
+                        <div class="text-xs text-gray-400">Open / progress</div>
+                    </div>
+                    <div>
+                        <div class="text-xs font-semibold uppercase tracking-wide text-gray-400">Submitted</div>
+                        <div class="mt-1 text-xl font-semibold text-yellow-600">{{ $formatNumber($summary['wo_submitted']) }}</div>
+                        <div class="text-xs text-gray-400">Menunggu approval</div>
+                    </div>
+                    <div>
+                        <div class="text-xs font-semibold uppercase tracking-wide text-gray-400">Completed</div>
+                        <div class="mt-1 text-xl font-semibold text-green-600">{{ $formatNumber($summary['wo_completed']) }}</div>
+                        <div class="text-xs text-gray-400">Selesai</div>
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
 
     {{-- Health cards --}}
-    <div class="grid gap-4 xl:grid-cols-3">
-        <div class="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm xl:col-span-2">
+    <div>
+        <div class="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
             <div class="flex items-center justify-between border-b border-gray-100 pb-4">
                 <div>
                     <h2 class="text-lg font-semibold text-gray-900">Operational Health</h2>
@@ -156,7 +400,7 @@
             </div>
         </div>
 
-        <div class="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
+        <div class="hidden rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
             <h2 class="text-lg font-semibold text-gray-900">Quick Access</h2>
             <p class="text-sm text-gray-500">Shortcut modul yang sering dipakai.</p>
 
@@ -202,13 +446,13 @@
                 @endphp
                 <div class="rounded-xl border border-gray-100 p-3">
                     <div class="flex h-28 items-end justify-center gap-2">
-                        <div class="w-5 rounded-t bg-blue-500" style="height: {{ $pbHeight }}%"></div>
-                        <div class="w-5 rounded-t bg-green-500" style="height: {{ $woHeight }}%"></div>
+                        <div class="w-5 rounded-t bg-green-500" style="height: {{ $pbHeight }}%"></div>
+                        <div class="w-5 rounded-t bg-blue-500" style="height: {{ $woHeight }}%"></div>
                     </div>
                     <div class="mt-3 text-center text-xs font-medium text-gray-700">{{ $month['label'] }}</div>
                     <div class="mt-1 flex justify-center gap-3 text-[11px] text-gray-400">
-                        <span>PB {{ $formatNumber($month['pb']) }}</span>
-                        <span>WO {{ $formatNumber($month['wo']) }}</span>
+                        <span class="text-green-600">PB {{ $formatNumber($month['pb']) }}</span>
+                        <span class="text-blue-600">WO {{ $formatNumber($month['wo']) }}</span>
                     </div>
                 </div>
             @endforeach
@@ -313,6 +557,7 @@
     </div>
 
     {{-- Audit snapshot --}}
+    @if($isAdminDashboard)
     <div class="rounded-2xl border border-gray-200 bg-white shadow-sm">
         <div class="flex items-center justify-between border-b border-gray-100 px-5 py-4">
             <div>
@@ -345,5 +590,7 @@
             @endforelse
         </div>
     </div>
+    @endif
+    @endif
 </div>
 @endsection

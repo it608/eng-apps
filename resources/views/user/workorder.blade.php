@@ -75,50 +75,50 @@
         justify-content: center;
         min-width: 85px;
     }
-    
+
     .badge-draft {
         background-color: #f3f4f6;
         color: #1f2937;
         border: 1px solid #e5e7eb;
     }
-    
+
     .badge-submitted {
         background-color: #dbeafe;
         color: #1e40af;
         border: 1px solid #bfdbfe;
     }
-    
+
     .badge-approved {
         background-color: #dcfce7;
         color: #166534;
         border: 1px solid #bbf7d0;
     }
-    
+
     .badge-rejected {
         background-color: #fee2e2;
         color: #991b1b;
         border: 1px solid #fecaca;
     }
-    
+
     .badge-completed {
         background-color: #f3e8ff;
         color: #6b21a5;
         border: 1px solid #e9d5ff;
     }
-    
+
     /* Progress badges */
     .badge-open {
         background-color: #fef3c7;
         color: #92400e;
         border: 1px solid #fde68a;
     }
-    
+
     .badge-progress {
         background-color: #dbeafe;
         color: #1e40af;
         border: 1px solid #bfdbfe;
     }
-    
+
     .badge-closed {
         background-color: #dcfce7;
         color: #166534;
@@ -327,7 +327,7 @@
         width: 100%;
         border-collapse: collapse;
     }
-    
+
     .data-table th {
         background-color: #f9fafb;
         padding: 0.75rem 1rem;
@@ -339,18 +339,18 @@
         border-bottom: 1px solid #e5e7eb;
         white-space: nowrap;
     }
-    
+
     .data-table td {
         padding: 0.75rem 1rem;
         font-size: 0.875rem;
         color: #1f2937;
         border-bottom: 1px solid #e5e7eb;
     }
-    
+
     .data-table tbody tr:hover {
         background-color: #f9fafb;
     }
-    
+
     .data-table tbody tr:last-child td {
         border-bottom: none;
     }
@@ -365,13 +365,13 @@
         background-color: white;
         transition: all 0.2s;
     }
-    
+
     .filter-input:focus {
         outline: none;
         border-color: #3b82f6;
         box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
     }
-    
+
     .filter-select {
         padding: 0.5rem 2rem 0.5rem 0.75rem;
         font-size: 0.75rem;
@@ -395,7 +395,7 @@
         border-radius: 0.5rem;
         border: 1px solid #e5e7eb;
     }
-    
+
     .search-input {
         flex: 1;
         padding: 0.25rem 0.5rem;
@@ -403,11 +403,11 @@
         font-size: 0.875rem;
         background: transparent;
     }
-    
+
     .search-input:focus {
         outline: none;
     }
-    
+
     .search-icon {
         padding: 0.25rem;
         color: #9ca3af;
@@ -419,7 +419,7 @@
         gap: 0.25rem;
         justify-content: center;
     }
-    
+
     .action-btn {
         padding: 0.375rem;
         border-radius: 0.375rem;
@@ -428,13 +428,13 @@
         background: transparent;
         border: 1px solid transparent;
     }
-    
+
     .action-btn:hover {
         background-color: #f3f4f6;
         border-color: #e5e7eb;
         color: #374151;
     }
-    
+
     .action-btn svg {
         width: 1.125rem;
         height: 1.125rem;
@@ -449,45 +449,45 @@
         transition: all 0.2s;
         border: 1px solid transparent;
     }
-    
+
     .progress-btn.open {
         background-color: #fef3c7;
         color: #92400e;
         border-color: #fde68a;
     }
-    
+
     .progress-btn.open:hover {
         background-color: #fde68a;
     }
-    
+
     .progress-btn.open.selected {
         ring: 2px solid #f59e0b;
     }
-    
+
     .progress-btn.progress {
         background-color: #dbeafe;
         color: #1e40af;
         border-color: #bfdbfe;
     }
-    
+
     .progress-btn.progress:hover {
         background-color: #bfdbfe;
     }
-    
+
     .progress-btn.progress.selected {
         ring: 2px solid #3b82f6;
     }
-    
+
     .progress-btn.closed {
         background-color: #dcfce7;
         color: #166534;
         border-color: #bbf7d0;
     }
-    
+
     .progress-btn.closed:hover {
         background-color: #bbf7d0;
     }
-    
+
     .progress-btn.closed.selected {
         ring: 2px solid #10b981;
     }
@@ -502,16 +502,16 @@
         border-top: 1px solid #e5e7eb;
         font-size: 0.875rem;
     }
-    
+
     .pagination-info {
         color: #6b7280;
     }
-    
+
     .pagination-buttons {
         display: flex;
         gap: 0.25rem;
     }
-    
+
     .pagination-btn {
         padding: 0.375rem 0.75rem;
         border: 1px solid #e5e7eb;
@@ -521,19 +521,19 @@
         font-size: 0.75rem;
         transition: all 0.2s;
     }
-    
+
     .pagination-btn:hover:not(:disabled) {
         background-color: #f9fafb;
         border-color: #9ca3af;
     }
-    
+
     .pagination-btn:disabled {
         opacity: 0.5;
         cursor: not-allowed;
     }
 
     /* Avatar */
-    .user-avatar {
+    .wo-user-avatar {
         width: 28px;
         height: 28px;
         border-radius: 9999px;
@@ -547,22 +547,22 @@
         margin-right: 0.5rem;
     }
 
-    .user-info {
+    .wo-user-info {
         display: flex;
         align-items: center;
     }
 
-    .user-details {
+    .wo-user-details {
         line-height: 1.3;
     }
 
-    .user-name {
+    .wo-user-name {
         font-size: 0.875rem;
         font-weight: 500;
         color: #111827;
     }
 
-    .user-email {
+    .wo-user-email {
         font-size: 0.7rem;
         color: #6b7280;
     }
@@ -601,18 +601,18 @@
         position: relative;
         padding: 1rem 0 1rem 2rem;
     }
-    
+
     .timeline-item {
         position: relative;
         padding-bottom: 1.5rem;
         border-left: 2px solid #e5e7eb;
         padding-left: 1.5rem;
     }
-    
+
     .timeline-item:last-child {
         border-left-color: transparent;
     }
-    
+
     .timeline-dot {
         position: absolute;
         left: -0.5625rem;
@@ -623,20 +623,20 @@
         border: 2px solid white;
         box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
     }
-    
+
     .timeline-date {
         font-size: 0.7rem;
         color: #6b7280;
         margin-bottom: 0.25rem;
     }
-    
+
     .timeline-title {
         font-size: 0.875rem;
         font-weight: 600;
         color: #111827;
         margin-bottom: 0.25rem;
     }
-    
+
     .timeline-description {
         font-size: 0.75rem;
         color: #4b5563;
@@ -652,7 +652,7 @@
         transition: all 0.2s;
         background-color: #f9fafb;
     }
-    
+
     .upload-area:hover {
         border-color: #3b82f6;
         background-color: #eff6ff;
@@ -678,11 +678,11 @@
     .ring-2 {
         box-shadow: 0 0 0 2px currentColor;
     }
-    
+
     .ring-offset-2 {
         box-shadow: 0 0 0 2px white, 0 0 0 4px currentColor;
     }
-    
+
     .ring-blue-500 {
         --tw-ring-color: #3b82f6;
     }
@@ -692,16 +692,16 @@
         .stat-value {
             font-size: 1.5rem;
         }
-        
+
         .data-table {
             font-size: 0.75rem;
         }
-        
+
         .data-table th,
         .data-table td {
             padding: 0.5rem;
         }
-        
+
         .badge {
             min-width: 70px;
             font-size: 0.65rem;
@@ -775,6 +775,8 @@
 <script>
     window.userRole = '{{ auth()->user()->role }}';
     window.isApproval = {{ auth()->user()->role === 'approval' ? 'true' : 'false' }};
+    window.isSectionHead = {{ auth()->user()->role === 'section_head' ? 'true' : 'false' }};
+    window.pelaksanaOptions = @json($pelaksanaOptions ?? []);
 </script>
 
 
@@ -830,17 +832,20 @@
     </div>
 
     <!-- Main Content -->
+    @php($isSectionHead = auth()->user()->role === 'section_head')
     <div class="bg-white rounded-xl shadow-sm border p-6">
         <!-- Tab Navigation -->
         <div class="mb-4 border-b border-gray-200 flex justify-between items-center">
             <div class="flex -mb-px text-sm font-medium">
+                    @unless($isSectionHead)
                     <button class="tab-btn active" data-tab="list-wo">
                         <svg class="w-4 h-4 inline mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"></path>
                         </svg>
                         Daftar Work Order
                     </button>
-                    <button class="tab-btn" data-tab="progress-wo">
+                    @endunless
+                    <button class="tab-btn {{ $isSectionHead ? 'active' : '' }}" data-tab="progress-wo">
                         <svg class="w-4 h-4 inline mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"></path>
                         </svg>
@@ -848,7 +853,7 @@
                     </button>
                 </div>
 
-                @if(auth()->user()->role !== 'approval')
+                @if(!in_array(auth()->user()->role, ['approval', 'section_head'], true))
                 <button onclick="openCreateModal()" class="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition flex items-center gap-2">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
@@ -860,7 +865,7 @@
 
         <div>
             {{-- ================= TAB 1: DAFTAR WORK ORDER ================= --}}
-            <div id="list-wo" class="tab-content">
+            <div id="list-wo" class="tab-content {{ $isSectionHead ? 'hidden' : '' }}">
                 <!-- Filter Bar -->
                 <div class="flex flex-wrap gap-3 mb-4">
                     <div class="flex-1 min-w-[250px]">
@@ -871,7 +876,7 @@
                             <input type="text" id="woSearch" class="search-input" placeholder="Cari nomor / judul WO...">
                         </div>
                     </div>
-                    
+
                     <select id="woStatus" class="filter-select w-36">
                         <option value="">Semua Status</option>
                         <option value="draft">Draft</option>
@@ -880,14 +885,14 @@
                         <option value="rejected">Rejected</option>
                         <option value="completed">Completed</option>
                     </select>
-                    
+
                     <select id="woPerPage" class="filter-select w-24">
                         <option value="10">10</option>
                         <option value="20" selected>20</option>
                         <option value="50">50</option>
                         <option value="100">100</option>
                     </select>
-                    
+
                     <button onclick="resetFilters()" class="px-4 py-2 text-sm border border-gray-300 rounded-lg hover:bg-gray-50 transition flex items-center gap-2">
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
@@ -949,7 +954,7 @@
             </div>
 
             {{-- ================= TAB 2: PROGRESS WORK ORDER ================= --}}
-            <div id="progress-wo" class="tab-content hidden">
+            <div id="progress-wo" class="tab-content {{ $isSectionHead ? '' : 'hidden' }}">
                 <!-- Progress Summary Cards - SOFT STYLE -->
                 <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
                     <div class="progress-card open">
@@ -966,7 +971,7 @@
                             </div>
                         </div>
                     </div>
-                    
+
                     <div class="progress-card progress">
                         <div class="flex items-center justify-between">
                             <div>
@@ -981,7 +986,7 @@
                             </div>
                         </div>
                     </div>
-                    
+
                     <div class="progress-card closed">
                         <div class="flex items-center justify-between">
                             <div>
@@ -1005,24 +1010,25 @@
                             <svg class="search-icon w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
                             </svg>
-                            <input type="text" id="progressSearch" class="search-input" placeholder="Cari nomor / judul WO...">
+                            <input type="text" id="progressSearch" class="search-input" placeholder="Cari nomor / judul / pelaksana WO...">
                         </div>
                     </div>
-                    
+
                     <select id="progressStatus" class="filter-select w-36">
                         <option value="">Semua Progress</option>
                         <option value="open">Open</option>
                         <option value="progress">Progress</option>
                         <option value="closed">Closed</option>
+                        <option value="rejected">Rejected</option>
                     </select>
-                    
+
                     <select id="progressPerPage" class="filter-select w-24">
                         <option value="10">10</option>
                         <option value="20" selected>20</option>
                         <option value="50">50</option>
                         <option value="100">100</option>
                     </select>
-                    
+
                     <button onclick="resetProgressFilters()" class="px-4 py-2 text-sm border border-gray-300 rounded-lg hover:bg-gray-50 transition flex items-center gap-2">
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
@@ -1040,6 +1046,7 @@
                                     <th class="text-center w-16">No</th>
                                     <th>Nomor WO</th>
                                     <th>Judul</th>
+                                    <th>Pelaksana</th>
                                     <th class="text-center">Progress Status</th>
                                     <th>Open Date</th>
                                     <th>Progress Date</th>
@@ -1049,7 +1056,7 @@
                             </thead>
                             <tbody id="progressBody">
                                 <tr>
-                                    <td colspan="8" class="text-center py-8">
+                                    <td colspan="9" class="text-center py-8">
                                         <div class="spinner"></div>
                                         <p class="text-sm text-gray-500 mt-2">Memuat data progress...</p>
                                     </td>
@@ -1070,42 +1077,42 @@
 <div id="workOrderModal" class="modal fixed inset-0 hidden items-center justify-center z-50">
     <div class="modal-content w-full max-w-2xl p-6 relative fade-in">
         <h2 class="text-xl font-semibold mb-4" id="modalTitle">Tambah Work Order</h2>
-        
+
         <form id="workOrderForm" enctype="multipart/form-data">
             @csrf
             <input type="hidden" name="id" id="woId">
 
             <div class="mb-4">
-                <label class="block text-sm font-medium mb-1">Nomor Work Order <span class="text-red-500">*</span></label>
-                <input type="text" name="nomor" id="woNomor" class="filter-input" 
-                       placeholder="Contoh: WO-2024-001" required>
-                <p class="text-xs text-gray-500 mt-1">Nomor akan digunakan sebagai nama file</p>
+                <label class="block text-sm font-medium mb-1">Nomor Work Order <span class="text-xs text-gray-400">(otomatis)</span></label>
+                <input type="text" name="nomor" id="woNomor" class="filter-input"
+                       placeholder="Nomor dibuat otomatis oleh sistem" readonly required>
+                <p class="text-xs text-gray-500 mt-1" id="nomorHelpText">Nomor dibuat otomatis dan digunakan sebagai nama file</p>
             </div>
 
             <div class="mb-4">
                 <label class="block text-sm font-medium mb-1">Judul <span class="text-red-500">*</span></label>
-                <input type="text" name="judul" id="woJudul" class="filter-input" 
+                <input type="text" name="judul" id="woJudul" class="filter-input"
                        placeholder="Judul work order" required>
             </div>
 
             <div class="mb-4">
                 <label class="block text-sm font-medium mb-1">Deskripsi</label>
-                <textarea name="deskripsi" id="woDeskripsi" rows="3" 
+                <textarea name="deskripsi" id="woDeskripsi" rows="3"
                           class="filter-input" placeholder="Deskripsi work order..."></textarea>
             </div>
 
             <div class="mb-4">
-                <label class="block text-sm font-medium mb-1">Dokumen PDF <span class="text-red-500">*</span></label>
+                <label class="block text-sm font-medium mb-1">Dokumen / Gambar <span class="text-red-500" id="fileRequiredMark">*</span></label>
                 <div class="upload-area" id="dropArea">
-                    <input type="file" name="dokumen" id="woFile" class="hidden" accept=".pdf">
+                    <input type="file" name="dokumen" id="woFile" class="hidden" accept=".pdf,.jpg,.jpeg,.png,.webp,application/pdf,image/jpeg,image/png,image/webp">
                     <svg class="w-12 h-12 mx-auto text-gray-400 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                               d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path>
                     </svg>
                     <p class="text-sm text-gray-600" id="fileText">
-                        Klik atau drag & drop file PDF disini
+                        Klik atau drag & drop file PDF/gambar di sini
                     </p>
-                    <p class="text-xs text-gray-500 mt-1">Maksimal 10MB</p>
+                    <p class="text-xs text-gray-500 mt-1" id="fileHelpText">PDF, JPG, PNG, atau WEBP. Maksimal 10MB</p>
                 </div>
                 <div id="fileInfo" class="mt-2 p-3 bg-gray-50 rounded-lg hidden">
                     <div class="flex items-center justify-between">
@@ -1133,7 +1140,7 @@
                 </button>
             </div>
         </form>
-        
+
         <button onclick="closeModal()" class="absolute top-4 right-4 text-gray-400 hover:text-gray-600">
             <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
@@ -1146,7 +1153,7 @@
 <div id="viewModal" class="modal fixed inset-0 hidden items-center justify-center z-50">
     <div class="modal-content w-full max-w-2xl p-6 relative fade-in">
         <h2 class="text-xl font-semibold mb-4">Detail Work Order</h2>
-        
+
         <div class="space-y-3">
             <div class="flex border-b pb-2">
                 <div class="w-1/3 text-sm text-gray-600">Nomor WO</div>
@@ -1170,11 +1177,7 @@
             </div>
             <div class="flex border-b pb-2">
                 <div class="w-1/3 text-sm text-gray-600">File</div>
-                <div class="w-2/3">
-                    <a href="#" id="viewFile" class="text-blue-600 hover:underline" target="_blank">
-                        Download PDF
-                    </a>
-                </div>
+                <div class="w-2/3 space-y-2" id="viewFiles"></div>
             </div>
             <div class="flex border-b pb-2">
                 <div class="w-1/3 text-sm text-gray-600">Dibuat Oleh</div>
@@ -1185,14 +1188,59 @@
                 <div class="w-2/3" id="viewCreated"></div>
             </div>
         </div>
-        
+
         <div class="flex justify-end mt-6">
             <button onclick="closeViewModal()" class="px-4 py-2 rounded-lg bg-gray-100 hover:bg-gray-200 transition">
                 Tutup
             </button>
         </div>
-        
+
         <button onclick="closeViewModal()" class="absolute top-4 right-4 text-gray-400 hover:text-gray-600">
+            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+            </svg>
+        </button>
+    </div>
+</div>
+
+{{-- Modal Approve & Assign --}}
+<div id="approveModal" class="modal fixed inset-0 hidden items-center justify-center z-50">
+    <div class="modal-content w-full max-w-md p-6 relative fade-in">
+        <h2 class="text-xl font-semibold mb-2">Approve & Assign Pelaksana</h2>
+        <p class="text-sm text-gray-500 mb-5">Pilih pelaksana sebelum WO disetujui.</p>
+
+        <form id="approveForm">
+            @csrf
+            <input type="hidden" id="approveId">
+
+            <div class="mb-5">
+                <label for="assignedRegu" class="block text-sm font-medium mb-1">Pelaksana <span class="text-red-500">*</span></label>
+                <select id="assignedRegu" class="filter-input" required>
+                    <option value="">-- Pilih Pelaksana --</option>
+                    @foreach(($pelaksanaOptions ?? []) as $pelaksana)
+                        <option value="{{ $pelaksana }}">{{ $pelaksana }}</option>
+                    @endforeach
+                </select>
+            </div>
+
+            <div class="mb-5">
+                <label for="delegationNotes" class="block text-sm font-medium mb-1">Catatan Delegasi <span class="text-red-500">*</span></label>
+                <textarea id="delegationNotes" rows="4" class="filter-input" required
+                          placeholder="Contoh: Cek panel MCC, pastikan area aman, update hasil pekerjaan dengan foto."></textarea>
+                <p class="text-xs text-gray-500 mt-1">Instruksi ini akan tampil untuk Section Head.</p>
+            </div>
+
+            <div class="flex justify-end gap-2">
+                <button type="button" onclick="closeApproveModal()" class="px-4 py-2 rounded-lg bg-gray-100 hover:bg-gray-200 transition">
+                    Batal
+                </button>
+                <button type="submit" class="px-4 py-2 rounded-lg bg-green-600 text-white hover:bg-green-700 transition">
+                    Approve WO
+                </button>
+            </div>
+        </form>
+
+        <button onclick="closeApproveModal()" class="absolute top-4 right-4 text-gray-400 hover:text-gray-600">
             <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
             </svg>
@@ -1204,17 +1252,17 @@
 <div id="rejectModal" class="modal fixed inset-0 hidden items-center justify-center z-50">
     <div class="modal-content w-full max-w-md p-6 relative fade-in">
         <h2 class="text-xl font-semibold mb-4">Tolak Work Order</h2>
-        
+
         <form id="rejectForm">
             @csrf
             <input type="hidden" id="rejectId">
-            
+
             <div class="mb-4">
                 <label class="block text-sm font-medium mb-1">Catatan Penolakan <span class="text-red-500">*</span></label>
-                <textarea id="rejectionNotes" rows="4" class="filter-input" 
+                <textarea id="rejectionNotes" rows="4" class="filter-input"
                           placeholder="Alasan penolakan..."></textarea>
             </div>
-            
+
             <div class="flex justify-end gap-2">
                 <button type="button" onclick="closeRejectModal()" class="px-4 py-2 rounded-lg bg-gray-100 hover:bg-gray-200 transition">
                     Batal
@@ -1224,7 +1272,7 @@
                 </button>
             </div>
         </form>
-        
+
         <button onclick="closeRejectModal()" class="absolute top-4 right-4 text-gray-400 hover:text-gray-600">
             <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
@@ -1237,12 +1285,12 @@
 <div id="progressModal" class="modal fixed inset-0 hidden items-center justify-center z-50">
     <div class="modal-content w-full max-w-md p-6 relative fade-in">
         <h2 class="text-xl font-semibold mb-4">Update Progress Work Order</h2>
-        
+
         <form id="progressForm">
             @csrf
             <input type="hidden" id="progressId">
             <input type="hidden" id="currentProgress">
-            
+
             <div class="mb-4">
                 <label class="block text-sm font-medium mb-2">Progress Status</label>
                 <div class="flex gap-2">
@@ -1251,13 +1299,13 @@
                     <button type="button" onclick="setProgress('closed')" class="flex-1 progress-btn closed py-2" id="btnClosed">Closed</button>
                 </div>
             </div>
-            
+
             <div class="mb-4">
                 <label class="block text-sm font-medium mb-1">Catatan Progress</label>
-                <textarea id="progressNotes" rows="3" class="filter-input" 
+                <textarea id="progressNotes" rows="3" class="filter-input"
                           placeholder="Tambahkan catatan progress..."></textarea>
             </div>
-            
+
             <div class="flex justify-end gap-2">
                 <button type="button" onclick="closeProgressModal()" class="px-4 py-2 rounded-lg bg-gray-100 hover:bg-gray-200 transition">
                     Batal
@@ -1267,7 +1315,7 @@
                 </button>
             </div>
         </form>
-        
+
         <button onclick="closeProgressModal()" class="absolute top-4 right-4 text-gray-400 hover:text-gray-600">
             <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
@@ -1280,17 +1328,17 @@
 <div id="timelineModal" class="modal fixed inset-0 hidden items-center justify-center z-50">
     <div class="modal-content w-full max-w-lg p-6 relative fade-in">
         <h2 class="text-xl font-semibold mb-4">Timeline Progress</h2>
-        
+
         <div id="timelineContent" class="timeline max-h-96 overflow-y-auto">
             <!-- Timeline akan diisi via JavaScript -->
         </div>
-        
+
         <div class="flex justify-end mt-4">
             <button onclick="closeTimelineModal()" class="px-4 py-2 rounded-lg bg-gray-100 hover:bg-gray-200 transition">
                 Tutup
             </button>
         </div>
-        
+
         <button onclick="closeTimelineModal()" class="absolute top-4 right-4 text-gray-400 hover:text-gray-600">
             <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
@@ -1312,11 +1360,53 @@ let progressFilters = {};
 
 // Initialize on load
 document.addEventListener('DOMContentLoaded', function() {
+    restoreActiveWorkOrderTab();
     loadData();
-    loadProgressData();
     initEventListeners();
     initFileUpload();
+    if (activeWorkOrderTab() === 'progress-wo') {
+        loadProgressData();
+    }
 });
+
+function activeWorkOrderTab() {
+    if (window.isSectionHead) {
+        return 'progress-wo';
+    }
+
+    const hashTab = window.location.hash ? window.location.hash.replace('#', '') : '';
+    if (hashTab === 'progress-wo' || hashTab === 'list-wo') {
+        return hashTab;
+    }
+    const stored = localStorage.getItem('workOrderActiveTab');
+    return stored === 'progress-wo' ? 'progress-wo' : 'list-wo';
+}
+
+function restoreActiveWorkOrderTab() {
+    activateWorkOrderTab(activeWorkOrderTab(), false);
+}
+
+function activateWorkOrderTab(tabId, shouldLoad = true) {
+    document.querySelectorAll('.tab-content').forEach(el => {
+        el.classList.add('hidden');
+    });
+
+    const target = document.getElementById(tabId) || document.getElementById('list-wo');
+    target.classList.remove('hidden');
+
+    document.querySelectorAll('.tab-btn').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.tab === target.id);
+    });
+
+    localStorage.setItem('workOrderActiveTab', target.id);
+    if (window.location.hash !== `#${target.id}`) {
+        history.replaceState(null, '', `#${target.id}`);
+    }
+
+    if (shouldLoad && target.id === 'progress-wo') {
+        loadProgressData();
+    }
+}
 
 function initEventListeners() {
     // Search Tab 1
@@ -1324,20 +1414,20 @@ function initEventListeners() {
         currentPage = 1;
         loadData();
     }, 500));
-    
+
     // Status filter Tab 1
     document.getElementById('woStatus').addEventListener('change', function() {
         currentPage = 1;
         loadData();
     });
-    
+
     // Per page Tab 1
     document.getElementById('woPerPage').addEventListener('change', function() {
         perPage = parseInt(this.value) || 20;
         currentPage = 1;
         loadData();
     });
-    
+
     // Column filters Tab 1
     document.querySelectorAll('#woTable .filter-input[data-key], #woTable .filter-select[data-key]').forEach(el => {
         el.addEventListener('change', function() {
@@ -1351,19 +1441,19 @@ function initEventListeners() {
             loadData();
         });
     });
-    
+
     // Search Tab 2
     document.getElementById('progressSearch').addEventListener('input', debounce(function() {
         progressPage = 1;
         loadProgressData();
     }, 500));
-    
+
     // Status filter Tab 2
     document.getElementById('progressStatus').addEventListener('change', function() {
         progressPage = 1;
         loadProgressData();
     });
-    
+
     // Per page Tab 2
     document.getElementById('progressPerPage').addEventListener('change', function() {
         progressPerPage = parseInt(this.value) || 20;
@@ -1383,19 +1473,19 @@ function debounce(func, wait) {
 // ============= FUNCTIONS TAB 1 =============
 function loadData() {
     showLoading();
-    
+
     const params = new URLSearchParams({
         page: currentPage,
         per_page: perPage,
         search: document.getElementById('woSearch').value,
         status: document.getElementById('woStatus').value
     });
-    
+
     // Add column filters
     Object.entries(filters).forEach(([key, value]) => {
         params.append(`filter_${key}`, value);
     });
-    
+
     fetch(`/workorder/data?${params.toString()}`)
         .then(response => response.json())
         .then(result => {
@@ -1451,19 +1541,19 @@ function renderTable(data) {
         `;
         return;
     }
-    
+
     let html = '';
     data.forEach((item, index) => {
         const statusBadge = getStatusBadge(item.status);
         const rowNumber = (currentPage - 1) * perPage + index + 1;
-        
+
         html += '<tr class="hover:bg-gray-50">';
         html += `<td class="text-center font-medium">${rowNumber}</td>`;
         html += `<td class="font-mono">${item.nomor || '-'}</td>`;
         html += `<td>${item.judul || '-'}</td>`;
         html += `<td>${(item.deskripsi || '').substring(0, 50)}${item.deskripsi && item.deskripsi.length > 50 ? '...' : ''}</td>`;
         html += `<td class="text-center">
-            ${item.file_name ? 
+            ${item.file_name ?
                 `<a href="/workorder/download/${item.id}" class="text-blue-600 hover:text-blue-800" title="Download">
                     <svg class="w-4 h-4 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path>
@@ -1472,58 +1562,66 @@ function renderTable(data) {
         </td>`;
         html += `<td class="text-center">${statusBadge}</td>`;
         html += `<td>${item.created_at ? new Date(item.created_at).toLocaleDateString('id-ID') : '-'}</td>`;
-        
+
         // Kolom Dibuat Oleh - KHUSUS APPROVAL
         if (window.isApproval) {
             html += `<td>
-                <div class="user-info">
-                    <div class="user-avatar">
+                <div class="wo-user-info">
+                    <div class="wo-user-avatar">
                         ${(item.created_by_name || '?').charAt(0).toUpperCase()}
                     </div>
-                    <div class="user-details">
-                        <div class="user-name">${item.created_by_name || 'Unknown'}</div>
-                        <div class="user-email">${item.created_by_email || ''}</div>
+                    <div class="wo-user-details">
+                        <div class="wo-user-name">${item.created_by_name || 'Unknown'}</div>
+                        <div class="wo-user-email">${item.created_by_email || ''}</div>
                     </div>
                 </div>
             </td>`;
         }
-        
+
         html += `<td class="text-center">
             <div class="action-group">`;
-        
+
         // ============= ACTION BERDASARKAN ROLE =============
-        
+
         if (window.isApproval) {
             // ===== APPROVAL LEVEL =====
             if (item.status === 'submitted') {
-                html += `<button onclick="approveWorkOrder(${item.id})" 
-                            class="action-btn text-green-600 hover:text-green-700" 
-                            title="Approve">
+                html += `<button onclick="openApproveModal(${item.id})"
+                            class="action-btn text-green-600 hover:text-green-700"
+                            title="Approve & Assign Pelaksana">
                             <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
                             </svg>
                         </button>
-                        <button onclick="openRejectModal(${item.id})" 
-                            class="action-btn text-red-600 hover:text-red-700" 
+                        <button onclick="openRejectModal(${item.id})"
+                            class="action-btn text-red-600 hover:text-red-700"
                             title="Reject">
                             <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
                             </svg>
                         </button>`;
             }
-            
+
         } else {
             // ===== USER LEVEL =====
             if (item.status === 'draft') {
-                html += `<button onclick="submitForApproval(${item.id})" 
-                            class="action-btn text-blue-600 hover:text-blue-700" 
+                html += `<button onclick='openEditModal(${JSON.stringify(item).replace(/'/g, "\\'")})'
+                            class="action-btn text-amber-600 hover:text-amber-700"
+                            title="Edit Draft">
+                            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5"></path>
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+                            </svg>
+                        </button>
+                        <button onclick="submitForApproval(${item.id})"
+                            class="action-btn text-blue-600 hover:text-blue-700"
                             title="Submit for Approval">
                             <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
                             </svg>
                         </button>`;
             }
-            
+
             if (['draft', 'rejected'].includes(item.status)) {
                 html += `<button onclick="deleteWorkOrder(${item.id})" class="action-btn text-red-600 hover:text-red-700" title="Delete">
                             <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1532,7 +1630,7 @@ function renderTable(data) {
                         </button>`;
             }
         }
-        
+
         // View Detail (SEMUA ROLE)
         html += `<button onclick='viewDetail(${JSON.stringify(item).replace(/'/g, "\\'")})' class="action-btn text-blue-600 hover:text-blue-700" title="Detail">
                     <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1540,7 +1638,7 @@ function renderTable(data) {
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
                     </svg>
                 </button>`;
-        
+
         // Download (SEMUA ROLE)
         if (item.file_name) {
             html += `<button onclick="downloadFile(${item.id})" class="action-btn text-green-600 hover:text-green-700" title="Download">
@@ -1549,12 +1647,12 @@ function renderTable(data) {
                         </svg>
                     </button>`;
         }
-        
+
         html += `</div>
                 </td>
             </tr>`;
     });
-    
+
     document.getElementById('woBody').innerHTML = html;
     updateSummary(data);
 }
@@ -1572,18 +1670,18 @@ function getStatusBadge(status) {
 
 function updatePagination(pagination) {
     const pagingEl = document.getElementById('woPaging');
-    
+
     pagingEl.innerHTML = `
         <div class="pagination-info">
             Halaman ${pagination.current_page} dari ${pagination.last_page} (${pagination.total} data)
         </div>
         <div class="pagination-buttons">
-            <button ${pagination.current_page === 1 ? 'disabled' : ''} 
+            <button ${pagination.current_page === 1 ? 'disabled' : ''}
                 onclick="changePage(${pagination.current_page - 1})"
                 class="pagination-btn">
                 Prev
             </button>
-            <button ${pagination.current_page === pagination.last_page ? 'disabled' : ''} 
+            <button ${pagination.current_page === pagination.last_page ? 'disabled' : ''}
                 onclick="changePage(${pagination.current_page + 1})"
                 class="pagination-btn">
                 Next
@@ -1606,7 +1704,7 @@ function updateSummary(data) {
         rejected: data.filter(d => d.status === 'rejected').length,
         completed: data.filter(d => d.status === 'completed').length
     };
-    
+
     document.getElementById('totalWo').textContent = counts.total;
     document.getElementById('totalDraft').textContent = counts.draft;
     document.getElementById('totalSubmitted').textContent = counts.submitted;
@@ -1618,7 +1716,7 @@ function updateSummary(data) {
 function populateColumnFilters(data) {
     const statusOptions = [...new Set(data.map(item => item.status).filter(Boolean))];
     const statusSelect = document.querySelector('#woTable select[data-key="status"]');
-    
+
     if (statusSelect) {
         const currentValue = statusSelect.value;
         statusSelect.innerHTML = '<option value="">All</option>';
@@ -1635,14 +1733,14 @@ function populateColumnFilters(data) {
 // ============= FUNCTIONS TAB 2: PROGRESS =============
 function loadProgressData() {
     showProgressLoading();
-    
+
     const params = new URLSearchParams({
         page: progressPage,
         per_page: progressPerPage,
         search: document.getElementById('progressSearch').value,
         progress_status: document.getElementById('progressStatus').value
     });
-    
+
     fetch(`/workorder/progress-data?${params.toString()}`)
         .then(response => {
             if (!response.ok) {
@@ -1679,7 +1777,7 @@ function showProgressLoading() {
 function showProgressError(message) {
     document.getElementById('progressBody').innerHTML = `
         <tr>
-            <td colspan="8" class="text-center py-8 text-red-500">
+            <td colspan="9" class="text-center py-8 text-red-500">
                 <p class="text-sm">${message}</p>
                 <button onclick="loadProgressData()" class="mt-2 px-4 py-2 bg-blue-600 text-white text-xs rounded-lg hover:bg-blue-700 transition">
                     Coba Lagi
@@ -1689,43 +1787,73 @@ function showProgressError(message) {
     `;
 }
 
+function formatDateTimeWib(value) {
+    if (!value || value === 'null') {
+        return '-';
+    }
+
+    const raw = String(value);
+    const match = raw.match(/^(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2}):(\d{2})/);
+    if (match) {
+        const [, year, month, day, hour, minute, second] = match;
+        return `${Number(day)}/${Number(month)}/${year}, ${hour}.${minute}.${second}`;
+    }
+
+    return new Date(value).toLocaleString('id-ID', {
+        timeZone: 'Asia/Jakarta',
+        day: 'numeric',
+        month: 'numeric',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+        hour12: false,
+    }).replace(/:/g, '.');
+}
+
 function renderProgressTable(data) {
     if (!data || data.length === 0) {
         document.getElementById('progressBody').innerHTML = `
             <tr>
-                <td colspan="8" class="text-center py-8 text-gray-500 text-sm">
+                <td colspan="9" class="text-center py-8 text-gray-500 text-sm">
                     Tidak ada data progress
                 </td>
             </tr>
         `;
         return;
     }
-    
+
     let html = '';
     data.forEach((item, index) => {
         const progressStatus = item.progress_status || 'open';
         const progressBadge = getProgressBadge(progressStatus);
         const rowNumber = (progressPage - 1) * progressPerPage + index + 1;
-        
+
         html += '<tr class="hover:bg-gray-50">';
         html += `<td class="text-center font-medium">${rowNumber}</td>`;
         html += `<td class="font-mono">${item.nomor || '-'}</td>`;
         html += `<td>${item.judul || '-'}</td>`;
+        html += `<td>
+            <div class="font-medium text-gray-900">${item.assigned_regu || '-'}</div>
+            <div class="text-xs text-gray-500">${item.assigned_at ? 'Assign: ' + formatDateTimeWib(item.assigned_at) : ''}</div>
+            ${item.delegation_notes ? `<div class="text-xs text-gray-500 mt-1">Catatan: ${escapeHtml(item.delegation_notes)}</div>` : ''}
+        </td>`;
         html += `<td class="text-center">${progressBadge}</td>`;
-        html += `<td>${item.open_at ? new Date(item.open_at).toLocaleString('id-ID') : '-'}</td>`;
-        html += `<td>${item.progress_at ? new Date(item.progress_at).toLocaleString('id-ID') : '-'}</td>`;
-        html += `<td>${item.closed_at ? new Date(item.closed_at).toLocaleString('id-ID') : '-'}</td>`;
+        html += `<td>${formatDateTimeWib(item.open_at)}</td>`;
+        html += `<td>${formatDateTimeWib(item.progress_at)}</td>`;
+        html += `<td>${formatDateTimeWib(item.closed_at)}</td>`;
         html += `<td class="text-center">
             <div class="action-group">
-                <button onclick="openProgressModal(${item.id}, '${progressStatus}')" 
-                        class="action-btn text-blue-600 hover:text-blue-700" 
+                ${renderProgressPhotoButton(item)}
+                <button onclick="openProgressModal(${item.id}, '${progressStatus}')"
+                        class="action-btn text-blue-600 hover:text-blue-700"
                         title="Update Progress">
                     <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path>
                     </svg>
                 </button>
-                <button onclick="viewTimeline(${item.id})" 
-                        class="action-btn text-purple-600 hover:text-purple-700" 
+                <button onclick="viewTimeline(${item.id})"
+                        class="action-btn text-purple-600 hover:text-purple-700"
                         title="Lihat Timeline">
                     <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
@@ -1735,33 +1863,366 @@ function renderProgressTable(data) {
         </td>`;
         html += '</tr>';
     });
-    
+
     document.getElementById('progressBody').innerHTML = html;
+}
+
+function renderProgressPhotoButton(item) {
+    const photos = item.photos || [];
+    if (!photos.length) {
+        return '';
+    }
+
+    const encoded = encodeURIComponent(JSON.stringify(photos));
+
+    return `
+        <button onclick="viewWorkOrderPhotos('${encoded}')"
+                class="px-2 py-1 rounded-md bg-green-50 text-green-700 text-xs font-semibold hover:bg-green-100 transition"
+                title="Lihat foto hasil pekerjaan">
+            Foto (${photos.length})
+        </button>
+    `;
+}
+
+function viewWorkOrderPhotos(encodedPhotos) {
+    let photos = [];
+    try {
+        photos = JSON.parse(decodeURIComponent(encodedPhotos));
+    } catch (error) {
+        alert('Data foto tidak valid');
+        return;
+    }
+
+    const escapePhotoHtml = (value) => String(value || '-')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+    const photoUrl = (value) => {
+        try {
+            return new URL(value || '', window.location.origin).href;
+        } catch (error) {
+            return value || '';
+        }
+    };
+
+    const normalizedPhotos = photos.map((photo, index) => ({
+        index,
+        url: photoUrl(photo.url),
+        fileName: photo.file_name || `Foto ${index + 1}`,
+        uploadedBy: photo.uploaded_by_name || '-',
+        createdAt: formatDateTimeWib(photo.created_at),
+        notes: photo.notes || '',
+    }));
+
+    const main = normalizedPhotos[0] || {};
+    const thumbs = normalizedPhotos.map((photo, index) => `
+        <button type="button"
+                class="wo-photo-thumb ${index === 0 ? 'active' : ''}"
+                data-index="${index}">
+            <img src="${photo.url}" alt="${escapePhotoHtml(photo.fileName)}">
+            <span>${index + 1}</span>
+        </button>
+    `).join('');
+
+    document.getElementById('woPhotoModal')?.remove();
+    const modal = document.createElement('div');
+    modal.id = 'woPhotoModal';
+    modal.innerHTML = `
+        <style>
+            #woPhotoModal {
+                position: fixed;
+                inset: 0;
+                z-index: 9999;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                background: rgba(15, 23, 42, .58);
+                padding: 24px;
+            }
+            #woPhotoModal .wo-photo-wrap {
+                width: min(1040px, 96vw);
+                max-height: 88vh;
+                overflow: hidden;
+                border-radius: 18px;
+                background: #fff;
+                box-shadow: 0 24px 80px rgba(15, 23, 42, .28);
+            }
+            #woPhotoModal .wo-photo-head {
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                gap: 16px;
+                padding: 18px 22px;
+                border-bottom: 1px solid #e5e7eb;
+            }
+            #woPhotoModal .wo-photo-head h2 {
+                margin: 0;
+                font-size: 18px;
+                font-weight: 800;
+                color: #0f172a;
+            }
+            #woPhotoModal .wo-photo-close {
+                border: 0;
+                border-radius: 10px;
+                background: #f1f5f9;
+                color: #334155;
+                cursor: pointer;
+                font-size: 18px;
+                height: 38px;
+                width: 38px;
+            }
+            #woPhotoModal .wo-photo-body {
+                max-height: calc(88vh - 76px);
+                padding: 18px 22px 22px;
+                background: #f8fafc;
+                overflow: auto;
+            }
+            #woPhotoModal .wo-photo-layout {
+                display: grid;
+                grid-template-columns: minmax(0, 1fr) 190px;
+                gap: 16px;
+                align-items: start;
+            }
+            #woPhotoModal .wo-photo-stage {
+                border: 1px solid #e5e7eb;
+                border-radius: 16px;
+                background: #fff;
+                padding: 12px;
+                min-width: 0;
+                display: grid;
+                gap: 12px;
+            }
+            #woPhotoModal .wo-photo-frame {
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                height: clamp(320px, 54vh, 560px);
+                border-radius: 12px;
+                background: #f1f5f9;
+                overflow: hidden;
+            }
+            #woPhotoModal .wo-photo-frame img {
+                display: block;
+                width: 100%;
+                height: 100%;
+                object-fit: contain;
+            }
+            #woPhotoModal .wo-photo-meta {
+                border: 1px solid #e2e8f0;
+                border-radius: 14px;
+                background: #fff;
+                padding: 12px 14px;
+                color: #475569;
+                font-size: 13px;
+                line-height: 1.45;
+                display: grid;
+                grid-template-columns: minmax(0, 1fr) auto;
+                gap: 10px 16px;
+                align-items: start;
+            }
+            #woPhotoModal .wo-photo-meta-title {
+                color: #0f172a;
+                font-size: 14px;
+                font-weight: 800;
+                word-break: break-word;
+            }
+            #woPhotoModal .wo-photo-meta-sub {
+                margin-top: 4px;
+                color: #64748b;
+            }
+            #woPhotoModal .wo-photo-meta-notes {
+                grid-column: 1 / -1;
+                color: #475569;
+                border-top: 1px solid #eef2f7;
+                padding-top: 10px;
+            }
+            #woPhotoModal .wo-photo-meta-notes:empty {
+                display: none;
+            }
+            #woPhotoModal .wo-photo-meta a {
+                display: inline-flex;
+                align-items: center;
+                justify-content: center;
+                min-height: 36px;
+                padding: 0 12px;
+                border-radius: 10px;
+                background: #eff6ff;
+                color: #2563eb;
+                font-weight: 800;
+                text-decoration: none;
+                white-space: nowrap;
+            }
+            #woPhotoModal .wo-photo-thumbs {
+                display: grid;
+                gap: 10px;
+                align-content: start;
+                max-height: calc(88vh - 112px);
+                overflow-y: auto;
+            }
+            #woPhotoModal .wo-photo-thumb {
+                position: relative;
+                overflow: hidden;
+                border: 2px solid transparent;
+                border-radius: 12px;
+                background: #fff;
+                padding: 0;
+                cursor: pointer;
+                height: 96px;
+            }
+            #woPhotoModal .wo-photo-thumb.active {
+                border-color: #2563eb;
+                box-shadow: 0 0 0 3px rgba(37, 99, 235, .12);
+            }
+            #woPhotoModal .wo-photo-thumb img {
+                width: 100%;
+                height: 100%;
+                object-fit: cover;
+                display: block;
+            }
+            #woPhotoModal .wo-photo-thumb span {
+                position: absolute;
+                top: 6px;
+                left: 6px;
+                min-width: 24px;
+                border-radius: 999px;
+                background: rgba(15, 23, 42, .78);
+                color: #fff;
+                font-size: 12px;
+                font-weight: 800;
+                padding: 3px 7px;
+            }
+            #woPhotoModal .wo-photo-error {
+                display: none;
+                border-radius: 12px;
+                background: #fff7ed;
+                color: #9a3412;
+                padding: 14px;
+                font-size: 13px;
+                text-align: center;
+            }
+            #woPhotoModal .wo-photo-error a {
+                color: #2563eb;
+                font-weight: 700;
+            }
+            @media (max-width: 760px) {
+                #woPhotoModal {
+                    padding: 12px;
+                }
+                #woPhotoModal .wo-photo-layout {
+                    grid-template-columns: 1fr;
+                }
+                #woPhotoModal .wo-photo-thumbs {
+                    grid-template-columns: repeat(4, minmax(0, 1fr));
+                    max-height: none;
+                    overflow-y: visible;
+                }
+                #woPhotoModal .wo-photo-meta {
+                    grid-template-columns: 1fr;
+                }
+                #woPhotoModal .wo-photo-thumb {
+                    height: 74px;
+                }
+            }
+        </style>
+        <div class="wo-photo-wrap" role="dialog" aria-modal="true" aria-label="Foto Hasil Work Order">
+            <div class="wo-photo-head">
+                <h2>Foto Hasil Work Order (${normalizedPhotos.length})</h2>
+                <button type="button" class="wo-photo-close" aria-label="Tutup">×</button>
+            </div>
+            <div class="wo-photo-body">
+                <div class="wo-photo-layout">
+                    <div class="wo-photo-stage">
+                        <a href="${main.url || '#'}" target="_blank" rel="noopener" class="wo-photo-frame" id="woPhotoMainLink">
+                            <img id="woPhotoMainImage"
+                                 src="${main.url || ''}"
+                                 alt="${escapePhotoHtml(main.fileName || 'Foto WO')}"
+                                 onerror="this.style.display='none'; document.getElementById('woPhotoMainError').style.display='block';">
+                            <div class="wo-photo-error" id="woPhotoMainError">
+                                Foto belum bisa ditampilkan.
+                                <a id="woPhotoErrorLink" href="${main.url || '#'}" target="_blank" rel="noopener">Buka file langsung</a>
+                            </div>
+                        </a>
+                        <div class="wo-photo-meta" id="woPhotoMeta">
+                            <div>
+                                <div class="wo-photo-meta-title">${escapePhotoHtml(main.fileName)}</div>
+                                <div class="wo-photo-meta-sub">${escapePhotoHtml(main.uploadedBy)} &bull; ${escapePhotoHtml(main.createdAt)}</div>
+                            </div>
+                            <a href="${main.url || '#'}" target="_blank" rel="noopener" id="woPhotoDirectLink">Buka File</a>
+                            <div class="wo-photo-meta-notes">${escapePhotoHtml(main.notes)}</div>
+                        </div>
+                    </div>
+                    <div class="wo-photo-thumbs">${thumbs}</div>
+                </div>
+            </div>
+        </div>
+    `;
+    modal.addEventListener('click', (event) => {
+        if (event.target.id === 'woPhotoModal' || event.target.classList.contains('wo-photo-close')) {
+            modal.remove();
+        }
+    });
+    document.addEventListener('keydown', function closeOnEscape(event) {
+        if (event.key === 'Escape') {
+            modal.remove();
+            document.removeEventListener('keydown', closeOnEscape);
+        }
+    });
+    document.body.appendChild(modal);
+    modal.querySelectorAll('.wo-photo-thumb').forEach(button => {
+        button.addEventListener('click', () => {
+            const photo = normalizedPhotos[Number(button.dataset.index)] || normalizedPhotos[0];
+            const img = modal.querySelector('#woPhotoMainImage');
+            const error = modal.querySelector('#woPhotoMainError');
+            const mainLink = modal.querySelector('#woPhotoMainLink');
+            const errorLink = modal.querySelector('#woPhotoErrorLink');
+            const directLink = modal.querySelector('#woPhotoDirectLink');
+            img.style.display = 'block';
+            error.style.display = 'none';
+            img.src = photo.url;
+            img.alt = photo.fileName;
+            mainLink.href = photo.url;
+            errorLink.href = photo.url;
+            directLink.href = photo.url;
+            modal.querySelector('#woPhotoMeta').innerHTML = `
+                <div>
+                    <div class="wo-photo-meta-title">${escapePhotoHtml(photo.fileName)}</div>
+                    <div class="wo-photo-meta-sub">${escapePhotoHtml(photo.uploadedBy)} &bull; ${escapePhotoHtml(photo.createdAt)}</div>
+                </div>
+                <a href="${photo.url}" target="_blank" rel="noopener" id="woPhotoDirectLink">Buka File</a>
+                <div class="wo-photo-meta-notes">${escapePhotoHtml(photo.notes)}</div>
+            `;
+            modal.querySelectorAll('.wo-photo-thumb').forEach(item => item.classList.remove('active'));
+            button.classList.add('active');
+        });
+    });
 }
 
 function getProgressBadge(status) {
     const badges = {
         'open': '<span class="badge badge-open">Open</span>',
         'progress': '<span class="badge badge-progress">In Progress</span>',
-        'closed': '<span class="badge badge-closed">Closed</span>'
+        'closed': '<span class="badge badge-closed">Done</span>',
+        'rejected': '<span class="badge badge-rejected">Rejected</span>'
     };
     return badges[status] || '<span class="badge">' + status + '</span>';
 }
 
 function updateProgressPagination(pagination) {
     const pagingEl = document.getElementById('progressPaging');
-    
+
     pagingEl.innerHTML = `
         <div class="pagination-info">
             Halaman ${pagination.current_page} dari ${pagination.last_page} (${pagination.total} data)
         </div>
         <div class="pagination-buttons">
-            <button ${pagination.current_page === 1 ? 'disabled' : ''} 
+            <button ${pagination.current_page === 1 ? 'disabled' : ''}
                 onclick="changeProgressPage(${pagination.current_page - 1})"
                 class="pagination-btn">
                 Prev
             </button>
-            <button ${pagination.current_page === pagination.last_page ? 'disabled' : ''} 
+            <button ${pagination.current_page === pagination.last_page ? 'disabled' : ''}
                 onclick="changeProgressPage(${pagination.current_page + 1})"
                 class="pagination-btn">
                 Next
@@ -1786,12 +2247,12 @@ function openProgressModal(id, currentStatus) {
     document.getElementById('progressId').value = id;
     document.getElementById('currentProgress').value = currentStatus;
     document.getElementById('progressNotes').value = '';
-    
+
     // Reset highlight
     document.querySelectorAll('#progressModal .progress-btn').forEach(btn => {
         btn.classList.remove('ring-2', 'ring-offset-2', 'ring-blue-500');
     });
-    
+
     // Highlight button sesuai status
     if (currentStatus === 'open') {
         document.getElementById('btnOpen').classList.add('ring-2', 'ring-offset-2', 'ring-blue-500');
@@ -1800,7 +2261,7 @@ function openProgressModal(id, currentStatus) {
     } else if (currentStatus === 'closed') {
         document.getElementById('btnClosed').classList.add('ring-2', 'ring-offset-2', 'ring-blue-500');
     }
-    
+
     document.getElementById('progressModal').classList.remove('hidden');
     document.getElementById('progressModal').classList.add('flex');
 }
@@ -1812,11 +2273,11 @@ function closeProgressModal() {
 
 function setProgress(status) {
     document.getElementById('currentProgress').value = status;
-    
+
     document.querySelectorAll('#progressModal .progress-btn').forEach(btn => {
         btn.classList.remove('ring-2', 'ring-offset-2', 'ring-blue-500');
     });
-    
+
     if (status === 'open') {
         document.getElementById('btnOpen').classList.add('ring-2', 'ring-offset-2', 'ring-blue-500');
     } else if (status === 'progress') {
@@ -1829,16 +2290,16 @@ function setProgress(status) {
 // Submit Progress Form
 document.getElementById('progressForm').onsubmit = async function(e) {
     e.preventDefault();
-    
+
     const id = document.getElementById('progressId').value;
     const status = document.getElementById('currentProgress').value;
     const notes = document.getElementById('progressNotes').value;
-    
+
     if (!status) {
         alert('Pilih status progress!');
         return;
     }
-    
+
     try {
         const response = await fetch(`/workorder/progress/${id}`, {
             method: 'POST',
@@ -1847,14 +2308,14 @@ document.getElementById('progressForm').onsubmit = async function(e) {
                 'Content-Type': 'application/json',
                 'Accept': 'application/json'
             },
-            body: JSON.stringify({ 
+            body: JSON.stringify({
                 progress_status: status,
-                progress_notes: notes 
+                progress_notes: notes
             })
         });
-        
+
         const result = await response.json();
-        
+
         if (result.success) {
             alert('Progress berhasil diupdate!');
             closeProgressModal();
@@ -1874,7 +2335,7 @@ async function viewTimeline(id) {
     try {
         const response = await fetch(`/workorder/timeline/${id}`);
         const result = await response.json();
-        
+
         if (result.success) {
             renderTimeline(result.data);
             document.getElementById('timelineModal').classList.remove('hidden');
@@ -1890,99 +2351,99 @@ async function viewTimeline(id) {
 
 function renderTimeline(data) {
     let html = '';
-    
+
     if (data.created_at) {
         html += `
             <div class="timeline-item">
                 <div class="timeline-dot" style="background-color: #3b82f6;"></div>
-                <div class="timeline-date">${new Date(data.created_at).toLocaleString('id-ID')}</div>
+                <div class="timeline-date">${formatDateTimeWib(data.created_at)}</div>
                 <div class="timeline-title">Dibuat</div>
                 <div class="timeline-description">Work Order dibuat oleh ${data.created_by_name || 'System'}</div>
             </div>
         `;
     }
-    
+
     if (data.submitted_at) {
         html += `
             <div class="timeline-item">
                 <div class="timeline-dot" style="background-color: #8b5cf6;"></div>
-                <div class="timeline-date">${new Date(data.submitted_at).toLocaleString('id-ID')}</div>
+                <div class="timeline-date">${formatDateTimeWib(data.submitted_at)}</div>
                 <div class="timeline-title">Disubmit</div>
                 <div class="timeline-description">Work Order disubmit untuk approval</div>
             </div>
         `;
     }
-    
+
     if (data.approved_at) {
         html += `
             <div class="timeline-item">
                 <div class="timeline-dot" style="background-color: #10b981;"></div>
-                <div class="timeline-date">${new Date(data.approved_at).toLocaleString('id-ID')}</div>
+                <div class="timeline-date">${formatDateTimeWib(data.approved_at)}</div>
                 <div class="timeline-title">Disetujui</div>
                 <div class="timeline-description">Work Order telah disetujui</div>
             </div>
         `;
     }
-    
+
     if (data.rejected_at) {
         html += `
             <div class="timeline-item">
                 <div class="timeline-dot" style="background-color: #ef4444;"></div>
-                <div class="timeline-date">${new Date(data.rejected_at).toLocaleString('id-ID')}</div>
+                <div class="timeline-date">${formatDateTimeWib(data.rejected_at)}</div>
                 <div class="timeline-title">Ditolak</div>
                 <div class="timeline-description">${data.rejection_notes || 'Work Order ditolak'}</div>
             </div>
         `;
     }
-    
+
     if (data.open_at) {
         html += `
             <div class="timeline-item">
                 <div class="timeline-dot" style="background-color: #f59e0b;"></div>
-                <div class="timeline-date">${new Date(data.open_at).toLocaleString('id-ID')}</div>
+                <div class="timeline-date">${formatDateTimeWib(data.open_at)}</div>
                 <div class="timeline-title">Open</div>
                 <div class="timeline-description">Pekerjaan dimulai</div>
             </div>
         `;
     }
-    
+
     if (data.progress_at) {
         html += `
             <div class="timeline-item">
                 <div class="timeline-dot" style="background-color: #3b82f6;"></div>
-                <div class="timeline-date">${new Date(data.progress_at).toLocaleString('id-ID')}</div>
+                <div class="timeline-date">${formatDateTimeWib(data.progress_at)}</div>
                 <div class="timeline-title">In Progress</div>
                 <div class="timeline-description">${data.progress_notes || 'Pekerjaan sedang berlangsung'}</div>
             </div>
         `;
     }
-    
+
     if (data.closed_at) {
         html += `
             <div class="timeline-item">
                 <div class="timeline-dot" style="background-color: #10b981;"></div>
-                <div class="timeline-date">${new Date(data.closed_at).toLocaleString('id-ID')}</div>
+                <div class="timeline-date">${formatDateTimeWib(data.closed_at)}</div>
                 <div class="timeline-title">Closed</div>
                 <div class="timeline-description">Pekerjaan selesai</div>
             </div>
         `;
     }
-    
+
     if (data.completed_at) {
         html += `
             <div class="timeline-item">
                 <div class="timeline-dot" style="background-color: #8b5cf6;"></div>
-                <div class="timeline-date">${new Date(data.completed_at).toLocaleString('id-ID')}</div>
+                <div class="timeline-date">${formatDateTimeWib(data.completed_at)}</div>
                 <div class="timeline-title">Completed</div>
                 <div class="timeline-description">Work Order selesai</div>
             </div>
         `;
     }
-    
+
     if (html === '') {
         html = '<p class="text-center text-gray-500 py-4">Belum ada timeline</p>';
     }
-    
+
     document.getElementById('timelineContent').innerHTML = html;
 }
 
@@ -1995,32 +2456,32 @@ function closeTimelineModal() {
 function initFileUpload() {
     const dropArea = document.getElementById('dropArea');
     const fileInput = document.getElementById('woFile');
-    
+
     ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
         dropArea.addEventListener(eventName, preventDefaults, false);
     });
-    
+
     function preventDefaults(e) {
         e.preventDefault();
         e.stopPropagation();
     }
-    
+
     ['dragenter', 'dragover'].forEach(eventName => {
         dropArea.addEventListener(eventName, highlight, false);
     });
-    
+
     ['dragleave', 'drop'].forEach(eventName => {
         dropArea.addEventListener(eventName, unhighlight, false);
     });
-    
+
     function highlight() {
         dropArea.classList.add('border-blue-500', 'bg-blue-50');
     }
-    
+
     function unhighlight() {
         dropArea.classList.remove('border-blue-500', 'bg-blue-50');
     }
-    
+
     dropArea.addEventListener('drop', handleDrop, false);
     dropArea.addEventListener('click', () => fileInput.click());
     fileInput.addEventListener('change', handleFiles);
@@ -2036,21 +2497,24 @@ function handleFiles(e) {
     const files = e.target.files;
     if (files.length > 0) {
         const file = files[0];
-        
-        if (file.type !== 'application/pdf') {
-            alert('Hanya file PDF yang diperbolehkan!');
+        const allowedTypes = ['application/pdf', 'image/jpeg', 'image/png', 'image/webp'];
+        const allowedExtensions = ['pdf', 'jpg', 'jpeg', 'png', 'webp'];
+        const extension = (file.name.split('.').pop() || '').toLowerCase();
+
+        if (!allowedTypes.includes(file.type) && !allowedExtensions.includes(extension)) {
+            alert('Hanya file PDF atau gambar (JPG, PNG, WEBP) yang diperbolehkan!');
             return;
         }
-        
+
         if (file.size > 10 * 1024 * 1024) {
             alert('Ukuran file maksimal 10MB!');
             return;
         }
-        
+
         document.getElementById('fileText').textContent = file.name;
         document.getElementById('fileName').textContent = file.name;
         document.getElementById('fileInfo').classList.remove('hidden');
-        
+
         const dataTransfer = new DataTransfer();
         dataTransfer.items.add(file);
         document.getElementById('woFile').files = dataTransfer.files;
@@ -2059,7 +2523,7 @@ function handleFiles(e) {
 
 function removeFile() {
     document.getElementById('woFile').value = '';
-    document.getElementById('fileText').textContent = 'Klik atau drag & drop file PDF disini';
+    document.getElementById('fileText').textContent = 'Klik atau drag & drop file PDF/gambar di sini';
     document.getElementById('fileInfo').classList.add('hidden');
 }
 
@@ -2068,6 +2532,54 @@ function openCreateModal() {
     document.getElementById('modalTitle').textContent = 'Tambah Work Order';
     document.getElementById('workOrderForm').reset();
     document.getElementById('woId').value = '';
+    const nomorInput = document.getElementById('woNomor');
+    nomorInput.value = 'Membuat nomor...';
+    nomorInput.readOnly = true;
+    nomorInput.classList.add('bg-gray-50', 'cursor-not-allowed');
+    document.getElementById('nomorHelpText').textContent = 'Nomor dibuat otomatis dan digunakan sebagai nama file';
+    document.getElementById('fileRequiredMark').classList.remove('hidden');
+    document.getElementById('fileHelpText').textContent = 'PDF, JPG, PNG, atau WEBP. Maksimal 10MB';
+    removeFile();
+    document.getElementById('workOrderModal').classList.remove('hidden');
+    document.getElementById('workOrderModal').classList.add('flex');
+    loadAutoWorkOrderNumber();
+}
+
+async function loadAutoWorkOrderNumber() {
+    const nomorInput = document.getElementById('woNomor');
+
+    try {
+        const response = await fetch('/workorder/generate-nomor', {
+            headers: { 'Accept': 'application/json' }
+        });
+        const result = await response.json();
+
+        if (!response.ok || !result.success || !result.nomor) {
+            throw new Error(result.message || 'Gagal membuat nomor WO');
+        }
+
+        nomorInput.value = result.nomor;
+    } catch (error) {
+        console.error('Generate WO number error:', error);
+        nomorInput.value = 'Otomatis saat disimpan';
+        document.getElementById('nomorHelpText').textContent = 'Nomor akan dibuat otomatis saat disimpan';
+    }
+}
+
+function openEditModal(item) {
+    document.getElementById('modalTitle').textContent = 'Edit Draft Work Order';
+    document.getElementById('workOrderForm').reset();
+    document.getElementById('woId').value = item.id || '';
+    document.getElementById('woNomor').value = item.nomor || '';
+    document.getElementById('woNomor').readOnly = true;
+    document.getElementById('woNomor').classList.add('bg-gray-50', 'cursor-not-allowed');
+    document.getElementById('woJudul').value = item.judul || '';
+    document.getElementById('woDeskripsi').value = item.deskripsi || '';
+    document.getElementById('nomorHelpText').textContent = 'Nomor Work Order tidak dapat diubah setelah dibuat';
+    document.getElementById('fileRequiredMark').classList.add('hidden');
+    document.getElementById('fileHelpText').textContent = item.file_name
+        ? `File saat ini: ${item.file_name}. Upload PDF/gambar baru jika ingin mengganti.`
+        : 'Upload PDF/gambar baru jika ingin menambahkan dokumen.';
     removeFile();
     document.getElementById('workOrderModal').classList.remove('hidden');
     document.getElementById('workOrderModal').classList.add('flex');
@@ -2078,25 +2590,164 @@ function closeModal() {
     document.getElementById('workOrderModal').classList.remove('flex');
 }
 
+function escapeHtml(value) {
+    return String(value ?? '').replace(/[&<>"']/g, function (char) {
+        return {
+            '&': '&amp;',
+            '<': '&lt;',
+            '>': '&gt;',
+            '"': '&quot;',
+            "'": '&#039;'
+        }[char];
+    });
+}
+
+function getWorkOrderFiles(item) {
+    const files = [];
+    const attachmentSources = Array.isArray(item.attachments)
+        ? item.attachments
+        : (Array.isArray(item.files) ? item.files : []);
+
+    attachmentSources.forEach((file, index) => {
+        const name = file.file_name || file.name || `File ${index + 1}`;
+        const downloadUrl = file.download_url || file.url || file.file_url || (file.id ? `/workorder/download-file/${file.id}` : '#');
+        const previewUrl = file.preview_url || file.url || file.file_url || downloadUrl;
+        files.push({ name, previewUrl, downloadUrl });
+    });
+
+    if (item.file_name) {
+        files.push({
+            name: item.file_name,
+            previewUrl: `/workorder/preview/${item.id}`,
+            downloadUrl: `/workorder/download/${item.id}`
+        });
+    }
+
+    return files.filter((file, index, self) =>
+        file.name && self.findIndex((candidate) => candidate.name === file.name && candidate.downloadUrl === file.downloadUrl) === index
+    );
+}
+
+function renderWorkOrderFiles(item) {
+    const files = getWorkOrderFiles(item);
+
+    if (!files.length) {
+        return '<span class="text-gray-400">-</span>';
+    }
+
+    return files.map((file, index) => `
+        <div class="flex flex-wrap items-center gap-2 rounded-xl border border-gray-200 bg-gray-50 px-3 py-2">
+            <div class="flex min-w-0 flex-1 items-center gap-2 text-sm text-gray-800">
+                <svg class="h-4 w-4 flex-none text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21h10a2 2 0 002-2V9.5L13.5 4H7a2 2 0 00-2 2v13a2 2 0 002 2z"></path>
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 4v6h6"></path>
+                </svg>
+                <span class="truncate" title="${escapeHtml(file.name)}">${files.length > 1 ? `${index + 1}. ` : ''}${escapeHtml(file.name)}</span>
+            </div>
+            <button type="button"
+                    onclick="previewWorkOrderFileFromButton(this)"
+                    data-preview-url="${escapeHtml(file.previewUrl)}"
+                    data-file-name="${escapeHtml(file.name)}"
+                    data-download-url="${escapeHtml(file.downloadUrl)}"
+                    class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-blue-100 bg-white text-blue-600 hover:bg-blue-50"
+                    title="Lihat file">
+                <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
+                </svg>
+            </button>
+            <a href="${escapeHtml(file.downloadUrl)}"
+               class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-green-100 bg-white text-green-600 hover:bg-green-50"
+               title="Download file">
+                <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path>
+                </svg>
+            </a>
+        </div>
+    `).join('');
+}
+
+function previewWorkOrderFileFromButton(button) {
+    previewWorkOrderFile(
+        button.dataset.previewUrl || '',
+        button.dataset.fileName || 'File Work Order',
+        button.dataset.downloadUrl || ''
+    );
+}
+
+function previewWorkOrderFile(url, name, downloadUrl) {
+    url = url || '';
+    name = name || 'File Work Order';
+    downloadUrl = downloadUrl || url.replace('/preview/', '/download/');
+    const isImage = /\.(png|jpe?g|webp|gif|bmp)$/i.test(name);
+    const isPdf = /\.pdf$/i.test(name);
+
+    document.getElementById('woFilePreviewModal')?.remove();
+
+    const content = isImage
+        ? `<img src="${escapeHtml(url)}" alt="${escapeHtml(name)}" class="max-h-[72vh] w-full rounded-xl object-contain bg-slate-50">`
+        : `<iframe src="${escapeHtml(url)}" class="h-[72vh] w-full rounded-xl border border-gray-200 bg-white"></iframe>`;
+
+    const modal = document.createElement('div');
+    modal.id = 'woFilePreviewModal';
+    modal.className = 'fixed inset-0 z-[9999] flex items-center justify-center bg-slate-900/60 p-4';
+    modal.innerHTML = `
+        <div class="w-full max-w-5xl overflow-hidden rounded-2xl bg-white shadow-2xl">
+            <div class="flex items-center justify-between gap-4 border-b border-gray-100 px-5 py-4">
+                <div class="min-w-0">
+                    <h3 class="text-lg font-semibold text-gray-900">Preview File Work Order</h3>
+                    <p class="mt-1 truncate text-sm text-gray-500">${escapeHtml(name)}</p>
+                </div>
+                <div class="flex items-center gap-2">
+                    <a href="${escapeHtml(downloadUrl)}"
+                       class="inline-flex items-center gap-2 rounded-lg border border-gray-200 px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50">
+                        Download
+                    </a>
+                    <button type="button" onclick="document.getElementById('woFilePreviewModal')?.remove()"
+                            class="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-gray-100 text-gray-500 hover:bg-gray-200">
+                        <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                        </svg>
+                    </button>
+                </div>
+            </div>
+            <div class="p-5">
+                ${isImage || isPdf ? content : `
+                    <div class="rounded-xl border border-amber-100 bg-amber-50 px-4 py-5 text-center text-sm text-amber-700">
+                        File ini tidak bisa dipreview langsung. Silakan download untuk membuka.
+                    </div>
+                `}
+            </div>
+        </div>
+    `;
+    modal.addEventListener('click', (event) => {
+        if (event.target === modal) {
+            modal.remove();
+        }
+    });
+    document.body.appendChild(modal);
+}
+
 function viewDetail(item) {
     document.getElementById('viewNomor').textContent = item.nomor || '-';
     document.getElementById('viewJudul').textContent = item.judul || '-';
     document.getElementById('viewDeskripsi').textContent = item.deskripsi || '-';
     document.getElementById('viewStatus').innerHTML = getStatusBadge(item.status);
     document.getElementById('viewRejectionNotes').textContent = item.rejection_notes || '-';
-    document.getElementById('viewFile').href = `/workorder/download/${item.id}`;
+    document.getElementById('viewFiles').innerHTML = renderWorkOrderFiles(item);
     document.getElementById('viewCreatedBy').innerHTML = `
-        <div class="user-info">
-            <div class="user-avatar">${(item.created_by_name || '?').charAt(0).toUpperCase()}</div>
-            <div class="user-details">
-                <div class="user-name">${item.created_by_name || 'Unknown'}</div>
-                <div class="user-email">${item.created_by_email || ''}</div>
+        <div class="wo-user-info">
+            <div class="wo-user-avatar">${(item.created_by_name || '?').charAt(0).toUpperCase()}</div>
+            <div class="wo-user-details">
+                <div class="wo-user-name">${item.created_by_name || 'Unknown'}</div>
+                <div class="wo-user-email">${item.created_by_email || ''}</div>
             </div>
         </div>
     `;
-    document.getElementById('viewCreated').textContent = item.created_at ? 
-        new Date(item.created_at).toLocaleString('id-ID') : '-';
-    
+    document.getElementById('viewCreated').textContent = item.created_at
+        ? formatDateTimeWib(item.created_at)
+        : '-';
+
     document.getElementById('viewModal').classList.remove('hidden');
     document.getElementById('viewModal').classList.add('flex');
 }
@@ -2125,13 +2776,18 @@ function downloadFile(id) {
 // Form Submit
 document.getElementById('workOrderForm').onsubmit = async function(e) {
     e.preventDefault();
-    
+
+    const nomorInput = document.getElementById('woNomor');
+    if (!document.getElementById('woId').value && ['Membuat nomor...', 'Otomatis saat disimpan'].includes(nomorInput.value)) {
+        nomorInput.value = '';
+    }
+
     const formData = new FormData(this);
     const submitBtn = this.querySelector('button[type="submit"]');
     const originalText = submitBtn.textContent;
     submitBtn.textContent = 'Menyimpan...';
     submitBtn.disabled = true;
-    
+
     try {
         const response = await fetch('/workorder/store', {
             method: 'POST',
@@ -2141,9 +2797,9 @@ document.getElementById('workOrderForm').onsubmit = async function(e) {
             },
             body: formData
         });
-        
+
         const result = await response.json();
-        
+
         if (result.success) {
             alert('Work Order berhasil disimpan!');
             closeModal();
@@ -2170,7 +2826,7 @@ document.getElementById('workOrderForm').onsubmit = async function(e) {
 // Submit for Approval (USER ONLY)
 async function submitForApproval(id) {
     if (!confirm('Submit work order untuk approval?')) return;
-    
+
     try {
         const response = await fetch(`/workorder/submit/${id}`, {
             method: 'POST',
@@ -2179,9 +2835,9 @@ async function submitForApproval(id) {
                 'Accept': 'application/json'
             }
         });
-        
+
         const result = await response.json();
-        
+
         if (result.success) {
             alert('Work Order berhasil disubmit!');
             loadData();
@@ -2195,23 +2851,53 @@ async function submitForApproval(id) {
     }
 }
 
+function openApproveModal(id) {
+    document.getElementById('approveId').value = id;
+    document.getElementById('assignedRegu').value = '';
+    document.getElementById('delegationNotes').value = '';
+    document.getElementById('approveModal').classList.remove('hidden');
+    document.getElementById('approveModal').classList.add('flex');
+}
+
+function closeApproveModal() {
+    document.getElementById('approveModal').classList.add('hidden');
+    document.getElementById('approveModal').classList.remove('flex');
+}
+
 // Approve Work Order (APPROVAL ONLY)
-async function approveWorkOrder(id) {
-    if (!confirm('Approve work order ini?')) return;
-    
+document.getElementById('approveForm').onsubmit = async function(e) {
+    e.preventDefault();
+
+    const id = document.getElementById('approveId').value;
+    const assignedRegu = document.getElementById('assignedRegu').value;
+    const delegationNotes = document.getElementById('delegationNotes').value.trim();
+
+    if (!assignedRegu) {
+        alert('Pelaksana wajib dipilih!');
+        return;
+    }
+
+    if (!delegationNotes) {
+        alert('Catatan delegasi wajib diisi!');
+        return;
+    }
+
     try {
         const response = await fetch(`/workorder/approve/${id}`, {
             method: 'POST',
             headers: {
                 'X-CSRF-TOKEN': document.querySelector('input[name="_token"]').value,
+                'Content-Type': 'application/json',
                 'Accept': 'application/json'
-            }
+            },
+            body: JSON.stringify({ assigned_regu: assignedRegu, delegation_notes: delegationNotes })
         });
-        
+
         const result = await response.json();
-        
+
         if (result.success) {
-            alert('Work Order berhasil diapprove!');
+            alert(result.message || 'Work Order berhasil diapprove!');
+            closeApproveModal();
             loadData();
             loadProgressData();
         } else {
@@ -2221,20 +2907,20 @@ async function approveWorkOrder(id) {
         console.error('Error:', error);
         alert('Error approving work order');
     }
-}
+};
 
 // Reject Work Order (APPROVAL ONLY)
 document.getElementById('rejectForm').onsubmit = async function(e) {
     e.preventDefault();
-    
+
     const id = document.getElementById('rejectId').value;
     const notes = document.getElementById('rejectionNotes').value;
-    
+
     if (!notes.trim()) {
         alert('Catatan penolakan harus diisi!');
         return;
     }
-    
+
     try {
         const response = await fetch(`/workorder/reject/${id}`, {
             method: 'POST',
@@ -2245,9 +2931,9 @@ document.getElementById('rejectForm').onsubmit = async function(e) {
             },
             body: JSON.stringify({ rejection_notes: notes })
         });
-        
+
         const result = await response.json();
-        
+
         if (result.success) {
             alert('Work Order ditolak!');
             closeRejectModal();
@@ -2265,7 +2951,7 @@ document.getElementById('rejectForm').onsubmit = async function(e) {
 // Delete Work Order (USER ONLY)
 async function deleteWorkOrder(id) {
     if (!confirm('Yakin ingin menghapus work order ini?')) return;
-    
+
     try {
         const response = await fetch(`/workorder/delete/${id}`, {
             method: 'DELETE',
@@ -2274,9 +2960,9 @@ async function deleteWorkOrder(id) {
                 'Accept': 'application/json'
             }
         });
-        
+
         const result = await response.json();
-        
+
         if (result.success) {
             alert('Work Order dihapus!');
             loadData();
@@ -2294,11 +2980,11 @@ async function deleteWorkOrder(id) {
 function resetFilters() {
     document.getElementById('woSearch').value = '';
     document.getElementById('woStatus').value = '';
-    
+
     document.querySelectorAll('#woTable .filter-input[data-key], #woTable .filter-select[data-key]').forEach(el => {
         el.value = '';
     });
-    
+
     filters = {};
     currentPage = 1;
     loadData();
@@ -2316,22 +3002,7 @@ function resetProgressFilters() {
 // Tab handling
 document.querySelectorAll('.tab-btn').forEach(btn => {
     btn.addEventListener('click', function() {
-        document.querySelectorAll('.tab-content').forEach(el => {
-            el.classList.add('hidden');
-        });
-        
-        const tabId = this.dataset.tab;
-        document.getElementById(tabId).classList.remove('hidden');
-        
-        document.querySelectorAll('.tab-btn').forEach(b => {
-            b.classList.remove('active');
-        });
-        this.classList.add('active');
-        
-        // Refresh data sesuai tab
-        if (tabId === 'progress-wo') {
-            loadProgressData();
-        }
+        activateWorkOrderTab(this.dataset.tab);
     });
 });
 

@@ -99,6 +99,7 @@
         cursor: not-allowed;
     }
 
+    #createMesinModal,
     #editMesinModal,
     #editBangunanModal {
         background: rgba(15, 23, 42, .55);
@@ -181,12 +182,21 @@
             <div class="mb-4 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
                 <input id="msSearch" class="master-input w-full md:w-72" placeholder="Cari kode / nama / zona / area..." autocomplete="off">
 
-                <select id="msPerPage" class="master-input w-full md:w-28">
-                    <option value="10">10</option>
-                    <option value="20" selected>20</option>
-                    <option value="50">50</option>
-                    <option value="0">Semua</option>
-                </select>
+                <div class="flex flex-col gap-2 sm:flex-row sm:items-center">
+                    <button id="openCreateMesinBtn" type="button" class="master-action-btn justify-center bg-blue-600 text-white hover:bg-blue-700">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" />
+                        </svg>
+                        Tambah Mesin
+                    </button>
+
+                    <select id="msPerPage" class="master-input w-full md:w-28">
+                        <option value="10">10</option>
+                        <option value="20" selected>20</option>
+                        <option value="50">50</option>
+                        <option value="0">Semua</option>
+                    </select>
+                </div>
             </div>
 
             <div class="overflow-x-auto">
@@ -253,6 +263,63 @@
 
             <div id="bgPaging" class="mt-4 flex items-center justify-between text-sm"></div>
         </div>
+    </div>
+</div>
+
+{{-- ================= TAMBAH MESIN MODAL ================= --}}
+<div id="createMesinModal" class="fixed inset-0 z-50 hidden items-center justify-center p-4">
+    <div class="bg-white rounded-xl shadow-xl border border-gray-200 w-full max-w-lg">
+        <div class="flex items-center justify-between px-6 py-4 border-b border-gray-200">
+            <div>
+                <h2 class="text-lg font-semibold text-gray-900">Tambah Master Mesin</h2>
+                <p class="text-xs text-gray-500 mt-1">Isi kode, nama, zona, dan area mesin.</p>
+            </div>
+            <button type="button" onclick="closeCreateMesinModal()" class="text-gray-400 hover:text-gray-700">
+                <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+            </button>
+        </div>
+
+        <form id="createMesinForm" class="p-6 space-y-4">
+            @csrf
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Kode Mesin</label>
+                <input name="code" id="createMesinCode" class="master-input w-full" placeholder="Contoh: PRG-TEK-COOK-001" autocomplete="off" required>
+            </div>
+
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Nama Mesin</label>
+                <input name="name" id="createMesinName" class="master-input w-full" placeholder="Nama mesin" autocomplete="off" required>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Zona</label>
+                    <select name="zona" id="createMesinZona" class="master-input w-full" required>
+                        <option value="">Pilih Zona</option>
+                        @foreach($zonas as $zona)
+                            <option value="{{ $zona->znName }}">{{ $zona->znName }}</option>
+                        @endforeach
+                    </select>
+                </div>
+
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Area</label>
+                    <select name="area" id="createMesinArea" class="master-input w-full" required>
+                        <option value="">Pilih Area</option>
+                        @foreach($areas as $area)
+                            <option value="{{ $area->areaName }}">{{ $area->areaName }}</option>
+                        @endforeach
+                    </select>
+                </div>
+            </div>
+
+            <div class="flex justify-end gap-3 pt-2">
+                <button type="button" onclick="closeCreateMesinModal()" class="master-action-btn border border-gray-300 text-gray-700 hover:bg-gray-50">Batal</button>
+                <button type="submit" class="master-action-btn bg-blue-600 text-white hover:bg-blue-700">Simpan</button>
+            </div>
+        </form>
     </div>
 </div>
 
@@ -366,7 +433,14 @@
     const mesinData = @json($mesinData ?? [], JSON_INVALID_UTF8_IGNORE);
     const bangunanData = @json($bangunanData ?? [], JSON_INVALID_UTF8_IGNORE);
     const userRole = '{{ auth()->user()->role }}';
+    const userName = @json(auth()->user()->username ?? '');
+    const canEditMaster = @json(auth()->user()->role === 'admin' || auth()->user()->username === 'administrator');
+    const canCreateMesin = @json(auth()->user()->role === 'admin' || auth()->user()->username === 'adm-engineering' || auth()->id() === 2);
     let activeTab = 'master-sparepart';
+
+    if (!canCreateMesin) {
+        document.getElementById('openCreateMesinBtn')?.classList.add('hidden');
+    }
 
     const tableConfig = {
         'master-sparepart': {
@@ -507,12 +581,17 @@
                 if (this.hasActions) {
                     const tableType = this.bodyEl.id === 'msBody' ? 'mesin' : 'bangunan';
 
-                    if (userRole === 'admin') {
+                    if (canEditMaster) {
                         html += `
                             <td class="text-center">
                                 <button onclick='openEditModal("${tableType}", ${JSON.stringify(item).replace(/'/g, '&#039;')})'
-                                    class="inline-flex items-center justify-center px-3 py-1 text-xs font-semibold text-blue-700 bg-blue-50 rounded hover:bg-blue-100">
-                                    Edit
+                                    title="Edit data"
+                                    class="inline-flex items-center justify-center gap-1.5 px-3 py-2 text-xs font-semibold text-blue-700 bg-blue-50 border border-blue-100 rounded-lg hover:bg-blue-100">
+                                    <svg xmlns="http://www.w3.org/2000/svg" class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                        <path stroke-linecap="round" stroke-linejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931z" />
+                                        <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 7.125L16.875 4.5" />
+                                    </svg>
+                                    <span>Edit</span>
                                 </button>
                             </td>`;
                     } else {
@@ -657,6 +736,72 @@
         modal.classList.remove('flex');
     }
 
+    function openCreateMesinModal() {
+        if (!canCreateMesin) {
+            alert('Anda tidak memiliki akses untuk menambah master mesin.');
+            return;
+        }
+
+        document.getElementById('createMesinForm')?.reset();
+        const modal = document.getElementById('createMesinModal');
+        modal.classList.remove('hidden');
+        modal.classList.add('flex');
+        setTimeout(() => document.getElementById('createMesinCode')?.focus(), 50);
+    }
+
+    function closeCreateMesinModal() {
+        const modal = document.getElementById('createMesinModal');
+        modal.classList.add('hidden');
+        modal.classList.remove('flex');
+    }
+
+    document.getElementById('openCreateMesinBtn')?.addEventListener('click', openCreateMesinModal);
+
+    document.getElementById('createMesinForm')?.addEventListener('submit', async function(e) {
+        e.preventDefault();
+
+        if (!canCreateMesin) {
+            alert('Anda tidak memiliki akses untuk menambah master mesin.');
+            closeCreateMesinModal();
+            return;
+        }
+
+        const formData = new FormData(this);
+        const submitBtn = this.querySelector('button[type="submit"]');
+        const originalText = submitBtn.textContent;
+        submitBtn.textContent = 'Menyimpan...';
+        submitBtn.disabled = true;
+
+        try {
+            const response = await fetch(`{{ route('master.mesin.store') }}`, {
+                method: 'POST',
+                headers: {
+                    'X-CSRF-TOKEN': '{{ csrf_token() }}',
+                    'Accept': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest'
+                },
+                body: formData
+            });
+
+            const result = await response.json();
+
+            if (!response.ok || !result.success) {
+                const firstError = result.errors ? Object.values(result.errors).flat()[0] : null;
+                throw new Error(firstError || result.message || 'Gagal menyimpan master mesin.');
+            }
+
+            alert('Master Mesin berhasil ditambahkan!');
+            closeCreateMesinModal();
+            location.reload();
+        } catch (error) {
+            console.error('Store mesin error:', error);
+            alert('Gagal menyimpan: ' + error.message);
+        } finally {
+            submitBtn.textContent = originalText;
+            submitBtn.disabled = false;
+        }
+    });
+
     document.getElementById('editMesinForm').onsubmit = async function(e) {
         e.preventDefault();
 
@@ -752,6 +897,7 @@
     };
 
     window.addEventListener('click', function(e) {
+        if (e.target.id === 'createMesinModal') closeCreateMesinModal();
         if (e.target.id === 'editMesinModal') closeEditMesinModal();
         if (e.target.id === 'editBangunanModal') closeEditBangunanModal();
     });

@@ -27,7 +27,7 @@ class StockController extends Controller
         } catch (\Exception $e) {
             Log::error('Warehouse2 Stock index error: ' . $e->getMessage());
 
-            return view('warehouse2.stock.index')->with('error', 'Gagal memuat data: ' . $e->getMessage());
+            return view('warehouse2.stock.index')->with('error', 'Gagal memuat data stock.');
         }
     }
 
@@ -89,7 +89,7 @@ class StockController extends Controller
 
             return response()->json([
                 'success' => false,
-                'message' => 'Gagal mengambil data stok: ' . $e->getMessage(),
+                'message' => 'Gagal mengambil data stok.',
                 'data' => [],
             ], 500);
         }
@@ -128,16 +128,19 @@ class StockController extends Controller
                 ], 404);
             }
 
+            $data = $this->formatStockRow($stock);
+            $data['history'] = $this->buildStockHistory((int) $stock->item_id);
+
             return response()->json([
                 'success' => true,
-                'data' => $this->formatStockRow($stock),
+                'data' => $data,
             ]);
         } catch (\Exception $e) {
             Log::error('Warehouse2 Stock show error: ' . $e->getMessage());
 
             return response()->json([
                 'success' => false,
-                'message' => 'Gagal mengambil detail stok: ' . $e->getMessage(),
+                'message' => 'Gagal mengambil detail stok.',
             ], 500);
         }
     }
@@ -171,8 +174,6 @@ class StockController extends Controller
                     'Satuan',
                     'Lokasi',
                     'Qty',
-                    'Min Stock',
-                    'Max Stock',
                     'Status',
                     'Last Updated',
                 ]);
@@ -190,8 +191,6 @@ class StockController extends Controller
                                 $formatted['unit'],
                                 $formatted['location'],
                                 $formatted['stock'],
-                                $formatted['min_stock'],
-                                $formatted['max_stock'],
                                 strtoupper($formatted['status']),
                                 $formatted['last_updated'],
                             ]);
@@ -207,7 +206,7 @@ class StockController extends Controller
 
             return response()->json([
                 'success' => false,
-                'message' => 'Gagal export stock: ' . $e->getMessage(),
+                'message' => 'Gagal export stock.',
             ], 500);
         }
     }
@@ -227,7 +226,7 @@ class StockController extends Controller
 
             return response()->json([
                 'success' => false,
-                'message' => 'Gagal mengambil summary stock: ' . $e->getMessage(),
+                'message' => 'Gagal mengambil summary stock.',
             ], 500);
         }
     }
@@ -292,7 +291,218 @@ class StockController extends Controller
 
             return response()->json([
                 'success' => false,
-                'message' => 'Gagal menyesuaikan stock: ' . $e->getMessage(),
+                'message' => 'Gagal menyesuaikan stock.',
+            ], 500);
+        }
+    }
+
+    public function storeOpname(Request $request)
+    {
+        try {
+            $validator = Validator::make($request->all(), [
+                'stock_id' => 'required|integer',
+                'opname_name' => 'required|string|max:150',
+                'opname_date' => 'required|date',
+                'physical_quantity' => 'required|numeric|min:0',
+                'notes' => 'nullable|string|max:500',
+            ]);
+
+            if ($validator->fails()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Data stock opname tidak valid',
+                    'errors' => $validator->errors(),
+                ], 422);
+            }
+
+            $stock = DB::table('warehouse2_stock as s')
+                ->join('warehouse2_items as i', 's.item_id', '=', 'i.id')
+                ->select(
+                    's.id',
+                    's.item_id',
+                    's.quantity',
+                    's.location',
+                    'i.code',
+                    'i.name',
+                    'i.unit'
+                )
+                ->where('s.id', $request->stock_id)
+                ->first();
+
+            if (!$stock) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Data stok tidak ditemukan',
+                ], 404);
+            }
+
+            $systemQuantity = (float) $stock->quantity;
+            $physicalQuantity = (float) $request->physical_quantity;
+            $difference = $physicalQuantity - $systemQuantity;
+
+            $opname = DB::transaction(function () use ($request, $stock, $systemQuantity, $physicalQuantity, $difference) {
+                $opnameNumber = $this->generateOpnameNumber($request->opname_date);
+
+                $opnameId = DB::table('warehouse2_stock_opnames')->insertGetId([
+                    'opname_number' => $opnameNumber,
+                    'opname_name' => $request->opname_name,
+                    'opname_date' => $request->opname_date,
+                    'location' => $stock->location,
+                    'status' => 'posted',
+                    'notes' => $request->notes,
+                    'created_by' => auth()->id(),
+                    'posted_by' => auth()->id(),
+                    'posted_at' => now(),
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ]);
+
+                DB::table('warehouse2_stock_opname_details')->insert([
+                    'opname_id' => $opnameId,
+                    'stock_id' => $stock->id,
+                    'item_id' => $stock->item_id,
+                    'item_code' => $stock->code,
+                    'item_name' => $stock->name,
+                    'unit' => $stock->unit,
+                    'location' => $stock->location,
+                    'system_quantity' => $systemQuantity,
+                    'physical_quantity' => $physicalQuantity,
+                    'difference_quantity' => $difference,
+                    'notes' => $request->notes,
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ]);
+
+                DB::table('warehouse2_stock')
+                    ->where('id', $stock->id)
+                    ->update([
+                        'quantity' => $physicalQuantity,
+                        'last_updated' => now(),
+                        'updated_at' => now(),
+                    ]);
+
+                return DB::table('warehouse2_stock_opnames')->where('id', $opnameId)->first();
+            });
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Stock opname berhasil diposting',
+                'data' => [
+                    'id' => $opname->id,
+                    'opname_number' => $opname->opname_number,
+                    'opname_name' => $opname->opname_name,
+                    'old_quantity' => $systemQuantity,
+                    'new_quantity' => $physicalQuantity,
+                    'difference_quantity' => $difference,
+                ],
+            ]);
+        } catch (\Exception $e) {
+            Log::error('Warehouse2 Stock opname error: ' . $e->getMessage());
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Gagal menyimpan stock opname.',
+            ], 500);
+        }
+    }
+
+    public function opnameData(Request $request)
+    {
+        try {
+            $query = DB::table('warehouse2_stock_opnames as h')
+                ->leftJoin('warehouse2_stock_opname_details as d', 'h.id', '=', 'd.opname_id')
+                ->leftJoin('users as creator', 'h.created_by', '=', 'creator.id')
+                ->select(
+                    'h.id',
+                    'h.opname_number',
+                    'h.opname_name',
+                    'h.opname_date',
+                    'h.location',
+                    'h.status',
+                    'h.notes',
+                    'h.posted_at',
+                    'h.created_at',
+                    'creator.name as created_by_name',
+                    DB::raw('COUNT(d.id) as total_items'),
+                    DB::raw('COALESCE(SUM(d.difference_quantity), 0) as total_difference')
+                )
+                ->groupBy(
+                    'h.id',
+                    'h.opname_number',
+                    'h.opname_name',
+                    'h.opname_date',
+                    'h.location',
+                    'h.status',
+                    'h.notes',
+                    'h.posted_at',
+                    'h.created_at',
+                    'creator.name'
+                );
+
+            if ($request->filled('search')) {
+                $search = $request->search;
+                $query->where(function ($q) use ($search) {
+                    $q->where('h.opname_number', 'like', "%{$search}%")
+                        ->orWhere('h.opname_name', 'like', "%{$search}%")
+                        ->orWhere('h.location', 'like', "%{$search}%");
+                });
+            }
+
+            $items = $query
+                ->orderByDesc('h.opname_date')
+                ->orderByDesc('h.id')
+                ->limit(100)
+                ->get();
+
+            return response()->json([
+                'success' => true,
+                'data' => $items,
+            ]);
+        } catch (\Exception $e) {
+            Log::error('Warehouse2 Stock opnameData error: ' . $e->getMessage());
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Gagal mengambil history stock opname.',
+                'data' => [],
+            ], 500);
+        }
+    }
+
+    public function opnameShow($id)
+    {
+        try {
+            $header = DB::table('warehouse2_stock_opnames as h')
+                ->leftJoin('users as creator', 'h.created_by', '=', 'creator.id')
+                ->select('h.*', 'creator.name as created_by_name')
+                ->where('h.id', $id)
+                ->first();
+
+            if (!$header) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Stock opname tidak ditemukan',
+                ], 404);
+            }
+
+            $details = DB::table('warehouse2_stock_opname_details')
+                ->where('opname_id', $id)
+                ->orderBy('item_code')
+                ->get();
+
+            return response()->json([
+                'success' => true,
+                'data' => [
+                    'header' => $header,
+                    'details' => $details,
+                ],
+            ]);
+        } catch (\Exception $e) {
+            Log::error('Warehouse2 Stock opnameShow error: ' . $e->getMessage());
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Gagal mengambil detail stock opname.',
             ], 500);
         }
     }
@@ -353,6 +563,23 @@ class StockController extends Controller
                 $movements = $movements->merge($issuings);
             }
 
+            if (Schema::hasTable('warehouse2_stock_opnames') && Schema::hasTable('warehouse2_stock_opname_details')) {
+                $opnames = DB::table('warehouse2_stock_opname_details as d')
+                    ->join('warehouse2_stock_opnames as h', 'd.opname_id', '=', 'h.id')
+                    ->where('d.item_id', $itemId)
+                    ->select(
+                        'h.opname_date as tanggal',
+                        'h.opname_number as nomor',
+                        DB::raw("'OPNAME' as tipe"),
+                        'd.difference_quantity as quantity',
+                        'h.opname_name as keterangan',
+                        'd.created_at'
+                    )
+                    ->get();
+
+                $movements = $movements->merge($opnames);
+            }
+
             $data = $movements
                 ->sortByDesc('tanggal')
                 ->take(100)
@@ -386,7 +613,7 @@ class StockController extends Controller
 
             return response()->json([
                 'success' => false,
-                'message' => 'Gagal mengambil movement stock: ' . $e->getMessage(),
+                'message' => 'Gagal mengambil movement stock.',
                 'data' => [],
             ], 500);
         }
@@ -444,7 +671,7 @@ class StockController extends Controller
 
             return response()->json([
                 'success' => false,
-                'message' => 'Gagal mengambil stock item: ' . $e->getMessage(),
+                'message' => 'Gagal mengambil stock item.',
             ], 500);
         }
     }
@@ -497,6 +724,25 @@ class StockController extends Controller
         return $query;
     }
 
+    private function generateOpnameNumber(string $date): string
+    {
+        $datePart = date('Ymd', strtotime($date));
+        $prefix = 'OPN-' . $datePart . '-';
+
+        $lastNumber = DB::table('warehouse2_stock_opnames')
+            ->where('opname_number', 'like', $prefix . '%')
+            ->orderByDesc('opname_number')
+            ->value('opname_number');
+
+        $next = 1;
+
+        if ($lastNumber) {
+            $next = ((int) substr($lastNumber, -3)) + 1;
+        }
+
+        return $prefix . str_pad((string) $next, 3, '0', STR_PAD_LEFT);
+    }
+
     private function buildSummary(Request $request): array
     {
         $query = $this->buildStockQuery($request);
@@ -539,6 +785,75 @@ class StockController extends Controller
             'last_updated' => $row->last_updated,
             'status' => $this->getStockStatus($quantity, $minStock),
         ];
+    }
+
+    private function buildStockHistory(int $itemId)
+    {
+        $history = collect();
+
+        if (Schema::hasTable('warehouse2_receiving') && Schema::hasTable('warehouse2_receiving_detail')) {
+            $receivings = DB::table('warehouse2_receiving_detail as d')
+                ->join('warehouse2_receiving as h', 'd.receiving_id', '=', 'h.id')
+                ->where('d.item_id', $itemId)
+                ->select(
+                    'h.receipt_date as date',
+                    'h.receipt_number as document',
+                    DB::raw("'TERIMA' as type"),
+                    'd.quantity',
+                    'h.supplier as notes',
+                    'd.created_at'
+                )
+                ->get();
+
+            $history = $history->merge($receivings);
+        }
+
+        if (Schema::hasTable('warehouse2_issuing') && Schema::hasTable('warehouse2_issuing_detail')) {
+            $issuings = DB::table('warehouse2_issuing_detail as d')
+                ->join('warehouse2_issuing as h', 'd.issuing_id', '=', 'h.id')
+                ->where('d.item_id', $itemId)
+                ->select(
+                    'h.issue_date as date',
+                    'h.issue_number as document',
+                    DB::raw("'KELUAR' as type"),
+                    'd.quantity',
+                    DB::raw("CONCAT(COALESCE(h.purpose, '-'), CASE WHEN h.notes IS NULL OR h.notes = '' THEN '' ELSE CONCAT(' - ', h.notes) END) as notes"),
+                    'd.created_at'
+                )
+                ->get();
+
+            $history = $history->merge($issuings);
+        }
+
+        if (Schema::hasTable('warehouse2_stock_opnames') && Schema::hasTable('warehouse2_stock_opname_details')) {
+            $opnames = DB::table('warehouse2_stock_opname_details as d')
+                ->join('warehouse2_stock_opnames as h', 'd.opname_id', '=', 'h.id')
+                ->where('d.item_id', $itemId)
+                ->select(
+                    'h.opname_date as date',
+                    'h.opname_number as document',
+                    DB::raw("'OPNAME' as type"),
+                    'd.difference_quantity as quantity',
+                    'h.opname_name as notes',
+                    'd.created_at'
+                )
+                ->get();
+
+            $history = $history->merge($opnames);
+        }
+
+        return $history
+            ->sortByDesc(fn ($row) => $row->date . ' ' . ($row->created_at ?? ''))
+            ->take(100)
+            ->values()
+            ->map(fn ($row) => [
+                'date' => $row->date,
+                'document' => $row->document,
+                'type' => $row->type,
+                'quantity' => (float) $row->quantity,
+                'notes' => $row->notes,
+                'created_at' => $row->created_at,
+            ]);
     }
 
     private function getStockStatus(float $quantity, float $minStock): string

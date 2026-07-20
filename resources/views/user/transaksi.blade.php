@@ -315,7 +315,8 @@
     window.masterBarang = @json($barang ?? []);
     window.csrfToken = '{{ csrf_token() }}';
     window.baseUrl = '{{ url('/') }}';
-    window.userRole = '{{ auth()->user()->role }}';    
+    window.userRole = '{{ auth()->user()->role }}';
+    window.sectionHeads = @json($sectionHeads ?? []);
 </script>
 
 {{-- Alpine JS --}}
@@ -718,6 +719,7 @@
                                         <span class="px-3 py-1 text-xs font-medium rounded-full inline-flex items-center justify-center gap-1 whitespace-nowrap min-w-[104px]"
                                               :class="{
                                                   'bg-yellow-100 text-yellow-800': tr.status === 'pending',
+                                                  'bg-sky-100 text-sky-800': tr.status === 'verification',
                                                   'bg-blue-100 text-blue-800': tr.status === 'approved',
                                                   'bg-red-100 text-red-800': tr.status === 'rejected',
                                                   'bg-purple-100 text-purple-800': tr.status === 'in_progress',
@@ -727,6 +729,7 @@
                                             <span class="w-1.5 h-1.5 rounded-full" 
                                                   :class="{
                                                       'bg-yellow-500': tr.status === 'pending',
+                                                      'bg-sky-500': tr.status === 'verification',
                                                       'bg-blue-500': tr.status === 'approved',
                                                       'bg-red-500': tr.status === 'rejected',
                                                       'bg-purple-500': tr.status === 'in_progress',
@@ -889,8 +892,69 @@
             </div>
 
             <div class="p-6">
-                <div class="mb-4 flex items-center justify-between text-sm text-gray-500">
-                    <span><span class="font-medium text-gray-700" x-text="historyTransaksi.length"></span> riwayat ditemukan</span>
+                <div class="mb-4 flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
+                    <div class="text-sm text-gray-500">
+                        <span><span class="font-medium text-gray-700" x-text="historyTransaksi.length"></span> riwayat ditemukan</span>
+                    </div>
+
+                    <div class="flex flex-col gap-2 xl:flex-row xl:items-end">
+                        <div>
+                            <label class="mb-1 block text-xs font-medium uppercase tracking-wide text-gray-500">Cari Riwayat</label>
+                            <div class="relative">
+                                <input type="text"
+                                       x-model.debounce.250ms="historySearchQuery"
+                                       placeholder="Cari no PB, tujuan, status..."
+                                       class="w-full rounded-lg border border-gray-300 py-2 pl-9 pr-8 text-sm focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500 sm:w-72">
+                                <svg class="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-4.35-4.35M10.5 18a7.5 7.5 0 110-15 7.5 7.5 0 010 15z" />
+                                </svg>
+                                <button x-show="historySearchQuery"
+                                        x-cloak
+                                        @click="historySearchQuery = ''"
+                                        class="absolute right-3 top-2.5 text-gray-400 transition hover:text-gray-600">
+                                    <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                                    </svg>
+                                </button>
+                            </div>
+                        </div>
+                        <div>
+                            <label class="mb-1 block text-xs font-medium uppercase tracking-wide text-gray-500">Status</label>
+                            <select x-model="historyStatusFilter"
+                                    class="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500 sm:w-40">
+                                <option value="">Semua Status</option>
+                                <option value="approved">Disetujui</option>
+                                <option value="completed">Selesai</option>
+                                <option value="rejected">Ditolak</option>
+                                <option value="pending_l2">Pending L2</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="mb-1 block text-xs font-medium uppercase tracking-wide text-gray-500">Dari Tanggal PB</label>
+                            <input type="date"
+                                   x-model="historyDateFrom"
+                                   :max="historyDateTo || null"
+                                   @change="normalizeHistoryDateRange('from')"
+                                   class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500 sm:w-40">
+                        </div>
+                        <div>
+                            <label class="mb-1 block text-xs font-medium uppercase tracking-wide text-gray-500">Sampai Tanggal PB</label>
+                            <input type="date"
+                                   x-model="historyDateTo"
+                                   :min="historyDateFrom || null"
+                                   @change="normalizeHistoryDateRange('to')"
+                                   class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500 sm:w-40">
+                        </div>
+                        <button x-show="historySearchQuery || historyStatusFilter || historyDateFrom || historyDateTo"
+                                x-cloak
+                                @click="resetHistoryFilters()"
+                                class="inline-flex items-center justify-center gap-2 rounded-lg border border-gray-300 px-3 py-2 text-sm font-medium text-gray-600 transition hover:bg-gray-50">
+                            <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                            </svg>
+                            Reset
+                        </button>
+                    </div>
                 </div>
 
                 <div class="overflow-x-auto rounded-lg border border-gray-200">
@@ -900,7 +964,9 @@
                                 <th class="py-3 px-4 text-xs font-medium text-gray-500 uppercase">No. PB</th>
                                 <th class="py-3 px-4 text-xs font-medium text-gray-500 uppercase">Tanggal</th>
                                 <th class="py-3 px-4 text-xs font-medium text-gray-500 uppercase">Waktu Approval</th>
-                                <th x-show="userRole === 'approval2'" class="py-3 px-4 text-xs font-medium text-gray-500 uppercase min-w-[280px]">Approval Flow</th>
+                                <th x-show="['approval','approval_level1','approval2'].includes(userRole)"
+                                    class="py-3 px-4 text-xs font-medium text-gray-500 uppercase min-w-[260px]"
+                                    x-text="historyTransaksi.some(tr => requiresTwoLevelApproval(tr)) || userRole === 'approval2' ? 'Approval Flow' : 'Durasi Approval L1'"></th>
                                 <th class="py-3 px-4 text-xs font-medium text-gray-500 uppercase">Tujuan</th>
                                 <th class="py-3 px-4 text-xs font-medium text-gray-500 uppercase">Status</th>
                                 <th class="py-3 px-4 text-xs font-medium text-gray-500 uppercase text-center w-24">Aksi</th>
@@ -918,27 +984,43 @@
                                         <div class="text-xs text-gray-500">Diperlukan: <span x-text="formatDateForDisplay(tr.tanggal_diperlukan)"></span></div>
                                     </td>
                                     <td class="py-3 px-4">
-                                        <template x-if="userRole === 'approval2'">
+                                        <template x-if="userRole === 'approval2' || requiresTwoLevelApproval(tr)">
                                             <div class="space-y-2">
                                                 <div>
-                                                    <div class="text-xs font-semibold uppercase tracking-wide text-gray-400">Approved L1</div>
-                                                    <div class="font-medium text-gray-900" x-text="formatDateTimeForDisplay(tr.approval_level_1_at)"></div>
+                                                    <div class="text-xs font-semibold uppercase tracking-wide text-gray-400">Diajukan</div>
+                                                    <div class="text-xs font-medium text-gray-900" x-text="formatDateTimeForDisplay(tr.created_at || tr.tanggal_permintaan)"></div>
                                                 </div>
                                                 <div class="border-t-2 border-gray-200 pt-2">
-                                                    <div class="text-xs font-semibold uppercase tracking-wide text-gray-400" x-text="tr.status === 'rejected' ? 'Ditolak L2' : 'Approved L2'"></div>
-                                                    <div class="font-medium text-gray-900" x-text="formatDateTimeForDisplay(tr.approval_level_2_at || tr.approved_at || tr.rejected_at)"></div>
+                                                    <div class="text-xs font-semibold uppercase tracking-wide text-gray-400">Approved L1</div>
+                                                    <div class="text-xs font-medium text-gray-900" x-text="formatDateTimeForDisplay(tr.approval_level_1_at)"></div>
+                                                </div>
+                                                <div>
+                                                    <div class="text-xs font-semibold uppercase tracking-wide text-gray-400" x-text="tr.status === 'pending' && parseInt(tr.approval_current_level || 1, 10) === 2 ? 'Menunggu L2' : (tr.status === 'rejected' ? 'Ditolak L2' : 'Approved L2')"></div>
+                                                    <div class="text-xs font-medium text-gray-900" x-text="formatDateTimeForDisplay(tr.approval_level_2_at || tr.approved_at || tr.rejected_at)"></div>
                                                 </div>
                                             </div>
                                         </template>
-                                        <template x-if="userRole !== 'approval2'">
+                                        <template x-if="['approval','approval_level1'].includes(userRole) && !requiresTwoLevelApproval(tr)">
+                                            <div class="space-y-2">
+                                                <div>
+                                                    <div class="text-xs font-semibold uppercase tracking-wide text-gray-400">Diajukan</div>
+                                                    <div class="text-xs font-medium text-gray-900" x-text="formatDateTimeForDisplay(tr.created_at || tr.tanggal_permintaan)"></div>
+                                                </div>
+                                                <div class="border-t-2 border-gray-200 pt-2">
+                                                    <div class="text-xs font-semibold uppercase tracking-wide text-gray-400" x-text="tr.status === 'rejected' ? 'Ditolak L1' : 'Approved L1'"></div>
+                                                    <div class="text-xs font-medium text-gray-900" x-text="formatDateTimeForDisplay(tr.approval_level_1_at || tr.approved_at || tr.rejected_at)"></div>
+                                                </div>
+                                            </div>
+                                        </template>
+                                        <template x-if="!['approval','approval_level1','approval2'].includes(userRole) && !requiresTwoLevelApproval(tr)">
                                             <div>
-                                                <div class="font-medium text-gray-900" x-text="formatDateTimeForDisplay(getApprovalTime(tr))"></div>
+                                                <div class="text-xs font-medium text-gray-900" x-text="formatDateTimeForDisplay(getApprovalTime(tr))"></div>
                                                 <div class="text-xs text-gray-500" x-text="getApprovalTimeLabel(tr)"></div>
                                             </div>
                                         </template>
                                     </td>
-                                    <td x-show="userRole === 'approval2'" class="py-3 px-4">
-                                        <div class="rounded-lg border border-gray-100 bg-gray-50 px-3 py-2">
+                                    <td x-show="['approval','approval_level1','approval2'].includes(userRole)" class="py-3 px-4">
+                                        <div x-show="userRole === 'approval2' || requiresTwoLevelApproval(tr)" class="rounded-lg border border-gray-100 bg-gray-50 px-3 py-2">
                                             <div class="grid grid-cols-[1fr_auto] gap-x-4 gap-y-1 text-xs">
                                                 <span class="text-gray-500">Request -> L1</span>
                                                 <span class="font-medium text-gray-900" x-text="formatDurationBetween(tr.created_at || tr.tanggal_permintaan, tr.approval_level_1_at)"></span>
@@ -950,17 +1032,45 @@
                                                 <span class="font-semibold text-blue-700" x-text="formatDurationBetween(tr.created_at || tr.tanggal_permintaan, tr.approval_level_2_at || tr.approved_at || tr.rejected_at)"></span>
                                             </div>
                                         </div>
+                                        <div x-show="['approval','approval_level1'].includes(userRole) && !requiresTwoLevelApproval(tr)" class="rounded-lg border border-gray-100 bg-gray-50 px-3 py-2">
+                                            <div class="grid grid-cols-[1fr_auto] gap-x-4 gap-y-1 text-xs">
+                                                <span class="text-gray-500">Diajukan -> L1</span>
+                                                <span class="font-medium text-gray-900" x-text="formatDurationBetween(tr.created_at || tr.tanggal_permintaan, tr.approval_level_1_at || tr.approved_at || tr.rejected_at)"></span>
+                                            </div>
+                                            <div class="mt-2 flex items-center justify-between border-t border-gray-200 pt-2 text-xs">
+                                                <span class="font-semibold text-gray-600">Total proses L1</span>
+                                                <span class="font-semibold text-blue-700" x-text="formatDurationBetween(tr.created_at || tr.tanggal_permintaan, tr.approval_level_1_at || tr.approved_at || tr.rejected_at)"></span>
+                                            </div>
+                                        </div>
                                     </td>
                                     <td class="py-3 px-4">
                                         <div class="capitalize text-gray-900" x-text="tr.untuk || '-'"></div>
+                                        <div x-show="getTujuanDetail(tr)" class="text-xs font-medium text-gray-700" x-text="getTujuanDetail(tr)"></div>
                                         <div class="text-xs text-gray-500" x-text="tr.jumlah_barang + ' item'"></div>
+                                        <div class="mt-2 inline-flex items-center gap-1 rounded-lg border border-blue-100 bg-blue-50 px-2 py-1 text-xs font-semibold text-blue-700">
+                                            <span class="text-[10px] uppercase tracking-wide text-blue-500">Total biaya</span>
+                                            <span class="font-mono" x-text="formatCurrency(tr.total_value)"></span>
+                                        </div>
                                     </td>
                                     <td class="py-3 px-4">
-                                        <span class="px-3 py-1 text-xs font-medium rounded-full inline-flex items-center justify-center gap-1 whitespace-nowrap min-w-[92px]"
-                                              :class="getHistoryStatusClass(tr.status)">
-                                            <span class="w-1.5 h-1.5 rounded-full" :class="getHistoryStatusDotClass(tr.status)"></span>
-                                            <span x-text="getApprovalStatusLabel(tr)"></span>
-                                        </span>
+                                        <div class="relative inline-flex group">
+                                            <span class="px-3 py-1 text-xs font-medium rounded-full inline-flex items-center justify-center gap-1 whitespace-nowrap min-w-[92px]"
+                                                  :class="getHistoryStatusClass(tr.status)">
+                                                <span class="w-1.5 h-1.5 rounded-full" :class="getHistoryStatusDotClass(tr.status)"></span>
+                                                <span x-text="getApprovalStatusLabel(tr)"></span>
+                                            </span>
+
+                                            <template x-if="tr.status === 'rejected'">
+                                                <div class="pointer-events-none absolute left-1/2 top-full z-50 mt-2 hidden w-72 -translate-x-1/2 rounded-lg border border-red-100 bg-white p-3 text-left shadow-xl shadow-gray-200/70 group-hover:block">
+                                                    <div class="mb-1 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-red-600">
+                                                        <span class="h-2 w-2 rounded-full bg-red-500"></span>
+                                                        Alasan Penolakan
+                                                    </div>
+                                                    <div class="text-sm leading-5 text-gray-700" x-text="getHistoryRejectionReason(tr)"></div>
+                                                    <div class="absolute -top-1 left-1/2 h-2 w-2 -translate-x-1/2 rotate-45 border-l border-t border-red-100 bg-white"></div>
+                                                </div>
+                                            </template>
+                                        </div>
                                     </td>
                                     <td class="py-3 px-4 text-center">
                                         <button @click="showDetail(tr.id)" class="inline-flex h-9 w-9 items-center justify-center rounded-lg text-primary-600 hover:bg-primary-50 hover:text-primary-800" title="Lihat detail">
@@ -1077,19 +1187,34 @@
                                 <label class="block text-xs font-medium text-gray-700 mb-1 compact-label">
                                     Pilih Mesin
                                 </label>
-                                <div class="relative">
-                                    <select x-model="formData.untuk_id" 
-                                            @change="handleUntukIdChange()"
-                                            class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 text-sm compact-input appearance-none bg-white">
-                                        <option value="">-- Pilih Mesin --</option>
-                                        <template x-for="item in untukList" :key="item.id">
-                                            <option :value="item.id" x-text="item.nama + (item.kode ? ' (' + item.kode + ')' : '')"></option>
-                                        </template>
-                                    </select>
-                                    <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-700">
-                                        <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
-                                        </svg>
+                                <div class="relative" @click.stop>
+                                    <div class="relative">
+                                        <input type="text"
+                                               x-model="untukSearchQuery"
+                                               @focus="openUntukDropdown()"
+                                               @input="handleUntukSearchInput()"
+                                               placeholder="Cari kode / nama mesin..."
+                                               class="w-full px-9 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 text-sm compact-input bg-white">
+                                        <div class="pointer-events-none absolute inset-y-0 left-0 flex items-center px-3 text-gray-400">
+                                            <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-4.35-4.35M10.5 18a7.5 7.5 0 100-15 7.5 7.5 0 000 15z" />
+                                            </svg>
+                                        </div>
+                                        <button type="button"
+                                                x-show="formData.untuk_id"
+                                                @click="clearUntukSelection()"
+                                                class="absolute inset-y-0 right-8 flex items-center px-2 text-gray-400 hover:text-gray-600">
+                                            <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                                            </svg>
+                                        </button>
+                                        <button type="button"
+                                                @click="toggleUntukDropdown()"
+                                                class="absolute inset-y-0 right-0 flex items-center px-2 text-gray-600">
+                                            <svg class="h-4 w-4 transition-transform" :class="showUntukResults ? 'rotate-180' : ''" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                                            </svg>
+                                        </button>
                                     </div>
                                     
                                     {{-- Loading indicator --}}
@@ -1098,6 +1223,33 @@
                                             <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
                                             <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                                         </svg>
+                                    </div>
+
+                                    <div x-show="showUntukResults"
+                                         x-transition
+                                         class="absolute z-50 mt-1 max-h-64 w-full overflow-y-auto rounded-md border border-gray-200 bg-white shadow-lg"
+                                         x-cloak>
+                                        <template x-if="filteredUntukList.length > 0">
+                                            <div>
+                                                <template x-for="item in filteredUntukList" :key="item.id">
+                                                    <button type="button"
+                                                            @click="selectUntukItem(item)"
+                                                            class="flex w-full items-start justify-between gap-3 px-3 py-2 text-left text-sm hover:bg-blue-50"
+                                                            :class="formData.untuk_id == item.id ? 'bg-blue-50 text-blue-700' : 'text-gray-800'">
+                                                        <span class="min-w-0">
+                                                            <span class="block truncate font-medium" x-text="item.nama"></span>
+                                                            <span class="block truncate text-xs text-gray-500" x-text="item.kode || '-'"></span>
+                                                        </span>
+                                                        <svg x-show="formData.untuk_id == item.id" class="mt-0.5 h-4 w-4 shrink-0 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                                                        </svg>
+                                                    </button>
+                                                </template>
+                                            </div>
+                                        </template>
+                                        <div x-show="!isLoadingUntuk && filteredUntukList.length === 0" class="px-3 py-3 text-sm text-gray-500">
+                                            Tidak ada mesin ditemukan
+                                        </div>
                                     </div>
                                 </div>
                             </div>
@@ -1107,19 +1259,34 @@
                                 <label class="block text-xs font-medium text-gray-700 mb-1 compact-label">
                                     Pilih Bangunan
                                 </label>
-                                <div class="relative">
-                                    <select x-model="formData.untuk_id" 
-                                            @change="handleUntukIdChange()"
-                                            class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 text-sm compact-input appearance-none bg-white">
-                                        <option value="">-- Pilih Bangunan --</option>
-                                        <template x-for="item in untukList" :key="item.id">
-                                            <option :value="item.id" x-text="item.nama + (item.kode ? ' (' + item.kode + ')' : '')"></option>
-                                        </template>
-                                    </select>
-                                    <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-700">
-                                        <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
-                                        </svg>
+                                <div class="relative" @click.stop>
+                                    <div class="relative">
+                                        <input type="text"
+                                               x-model="untukSearchQuery"
+                                               @focus="openUntukDropdown()"
+                                               @input="handleUntukSearchInput()"
+                                               placeholder="Cari kode / nama bangunan..."
+                                               class="w-full px-9 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 text-sm compact-input bg-white">
+                                        <div class="pointer-events-none absolute inset-y-0 left-0 flex items-center px-3 text-gray-400">
+                                            <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-4.35-4.35M10.5 18a7.5 7.5 0 100-15 7.5 7.5 0 000 15z" />
+                                            </svg>
+                                        </div>
+                                        <button type="button"
+                                                x-show="formData.untuk_id"
+                                                @click="clearUntukSelection()"
+                                                class="absolute inset-y-0 right-8 flex items-center px-2 text-gray-400 hover:text-gray-600">
+                                            <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                                            </svg>
+                                        </button>
+                                        <button type="button"
+                                                @click="toggleUntukDropdown()"
+                                                class="absolute inset-y-0 right-0 flex items-center px-2 text-gray-600">
+                                            <svg class="h-4 w-4 transition-transform" :class="showUntukResults ? 'rotate-180' : ''" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                                            </svg>
+                                        </button>
                                     </div>
                                     
                                     {{-- Loading indicator --}}
@@ -1128,6 +1295,33 @@
                                             <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
                                             <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                                         </svg>
+                                    </div>
+
+                                    <div x-show="showUntukResults"
+                                         x-transition
+                                         class="absolute z-50 mt-1 max-h-64 w-full overflow-y-auto rounded-md border border-gray-200 bg-white shadow-lg"
+                                         x-cloak>
+                                        <template x-if="filteredUntukList.length > 0">
+                                            <div>
+                                                <template x-for="item in filteredUntukList" :key="item.id">
+                                                    <button type="button"
+                                                            @click="selectUntukItem(item)"
+                                                            class="flex w-full items-start justify-between gap-3 px-3 py-2 text-left text-sm hover:bg-blue-50"
+                                                            :class="formData.untuk_id == item.id ? 'bg-blue-50 text-blue-700' : 'text-gray-800'">
+                                                        <span class="min-w-0">
+                                                            <span class="block truncate font-medium" x-text="item.nama"></span>
+                                                            <span class="block truncate text-xs text-gray-500" x-text="item.kode || '-'"></span>
+                                                        </span>
+                                                        <svg x-show="formData.untuk_id == item.id" class="mt-0.5 h-4 w-4 shrink-0 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                                                        </svg>
+                                                    </button>
+                                                </template>
+                                            </div>
+                                        </template>
+                                        <div x-show="!isLoadingUntuk && filteredUntukList.length === 0" class="px-3 py-3 text-sm text-gray-500">
+                                            Tidak ada bangunan ditemukan
+                                        </div>
                                     </div>
                                 </div>
                             </div>
@@ -1163,8 +1357,21 @@
                                 </p>
                             </div>
                             
-                            <div></div>
-                            <div></div>
+                            <div class="xl:col-span-2">
+                                <label class="block text-xs font-medium text-gray-700 mb-1 compact-label">
+                                    Diverifikasi Oleh
+                                </label>
+                                <select x-model="formData.verification_section_head_id"
+                                        class="w-full h-[38px] px-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 text-sm compact-input bg-white">
+                                    <option value="">-- Pilih Section Head --</option>
+                                    <template x-for="head in sectionHeads" :key="head.id">
+                                        <option :value="head.id" x-text="`${head.name} (${head.username || '-'})`"></option>
+                                    </template>
+                                </select>
+                                <p class="mt-0.5 text-xs text-gray-500">
+                                    PB wajib diverifikasi Section Head sebelum masuk Approval L1.
+                                </p>
+                            </div>
                         </div>
 
                         {{-- JENIS PEKERJAAN SECTION --}}                                              
@@ -1182,6 +1389,10 @@
                                     <span class="ml-2 text-sm text-gray-700">Maintenance (Perawatan)</span>
                                 </label>
                                 <label class="inline-flex items-center radio-option">
+                                    <input type="radio" x-model="formData.jenis_pekerjaan" value="utility" class="h-4 w-4 rounded-full border-gray-300 text-primary-600 focus:ring-primary-500">
+                                    <span class="ml-2 text-sm text-gray-700">Utility (Consumable)</span>
+                                </label>
+                                <label class="inline-flex items-center radio-option">
                                     <input type="radio" x-model="formData.jenis_pekerjaan" value="project" class="h-4 w-4 rounded-full border-gray-300 text-primary-600 focus:ring-primary-500">
                                     <span class="ml-2 text-sm text-gray-700">Project (Proyek)</span>
                                 </label>
@@ -1189,15 +1400,79 @@
                             </div>
                         </div>
 
-                        {{-- KETERANGAN TAMBAHAN --}}
-                        <div>
-                            <label class="block text-xs font-medium text-gray-700 mb-1 compact-label">
-                                Keterangan (Mohon di sertakan No. WO di kolom ini)
-                            </label>
-                            <textarea x-model="formData.keterangan" 
-                                      rows="2" 
-                                      placeholder="Tambahkan keterangan tambahan jika diperlukan..."
-                                      class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent text-sm compact-input"></textarea>
+                        {{-- REFERENSI WO & KETERANGAN TAMBAHAN --}}
+                        <div class="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,0.8fr)_minmax(0,1.2fr)]">
+                            <div class="relative" @click.stop>
+                                <label class="block text-xs font-medium text-gray-700 mb-1 compact-label">
+                                    Referensi Work Order Approved
+                                </label>
+                                <div class="relative">
+                                    <input type="text"
+                                           x-model="woSearchQuery"
+                                           @input.debounce.300ms="searchApprovedWorkOrders"
+                                           @focus="showWoResults = true"
+                                           placeholder="Cari nomor / judul WO approved..."
+                                           class="w-full h-[38px] pl-9 pr-9 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent text-sm compact-input">
+                                    <svg class="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-4.35-4.35m1.35-5.15a6.5 6.5 0 11-13 0 6.5 6.5 0 0113 0z"></path>
+                                    </svg>
+                                    <button type="button"
+                                            x-show="selectedWoReference || woSearchQuery"
+                                            @click="clearWoReference"
+                                            class="absolute right-2 top-1/2 -translate-y-1/2 rounded p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600">
+                                        <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                                        </svg>
+                                    </button>
+                                </div>
+
+                                <div x-show="showWoResults && (isSearchingWo || woResults.length > 0 || woSearchHasRun)"
+                                     x-transition
+                                     class="absolute z-40 mt-1 max-h-56 w-full overflow-y-auto rounded-lg border border-gray-200 bg-white shadow-lg">
+                                    <div x-show="isSearchingWo" class="px-3 py-2 text-sm text-gray-500">Mencari WO...</div>
+                                    <template x-for="wo in woResults" :key="wo.id">
+                                        <button type="button"
+                                                @click="selectWoReference(wo)"
+                                                class="block w-full px-3 py-2 text-left hover:bg-blue-50">
+                                            <div class="text-sm font-semibold text-gray-900" x-text="wo.nomor"></div>
+                                            <div class="text-xs text-gray-500" x-text="wo.judul || '-'"></div>
+                                        </button>
+                                    </template>
+                                    <div x-show="!isSearchingWo && woResults.length === 0 && woSearchHasRun"
+                                         class="px-3 py-2 text-sm text-gray-500">
+                                        Tidak ada WO approved yang cocok.
+                                    </div>
+                                </div>
+
+                                <p class="mt-1 text-xs text-gray-500">
+                                    Pilih WO yang sudah disetujui Approval Level 1 sebagai referensi PB.
+                                </p>
+                            </div>
+
+                            <div>
+                                <label class="block text-xs font-medium text-gray-700 mb-1 compact-label">
+                                    Keterangan Tambahan
+                                </label>
+                                <textarea x-model="formData.keterangan"
+                                          rows="1"
+                                          placeholder="Tambahkan keterangan tambahan jika diperlukan..."
+                                          class="w-full h-[38px] px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent text-sm compact-input resize-none"></textarea>
+                            </div>
+                        </div>
+
+                        <div class="mb-4 rounded-lg border border-blue-100 bg-blue-50/60 p-3">
+                            <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                                <div>
+                                    <label class="block text-xs font-semibold uppercase tracking-wide text-gray-700">Jenis Barang</label>
+                                    <p class="mt-0.5 text-xs text-gray-500">Pilihan ini menentukan sumber daftar barang.</p>
+                                </div>
+                                <select :value="formData.material_type"
+                                        @change="handleMaterialTypeChange($event.target.value, $event)"
+                                        class="h-[38px] min-w-[190px] rounded-md border border-blue-200 bg-white px-3 text-sm font-semibold text-gray-800 focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500">
+                                    <option value="sparepart">Sparepart</option>
+                                    <option value="non_sparepart">Non Sparepart</option>
+                                </select>
+                            </div>
                         </div>
 
                         {{-- TABLE HEADER DENGAN TOMBOL TAMBAH --}}
@@ -1471,20 +1746,22 @@
                                   class="px-4 py-1.5 text-xs font-semibold rounded-full shadow-lg"
                                   :class="{
                                       'bg-yellow-100 text-yellow-800 border border-yellow-200': selectedDetail?.header?.status === 'pending',
+                                      'bg-sky-100 text-sky-800 border border-sky-200': selectedDetail?.header?.status === 'verification',
                                       'bg-blue-100 text-blue-800 border border-blue-200': selectedDetail?.header?.status === 'approved',
                                       'bg-green-100 text-green-800 border border-green-200': selectedDetail?.header?.status === 'completed',
                                       'bg-red-100 text-red-800 border border-red-200': selectedDetail?.header?.status === 'rejected',
                                       'bg-purple-100 text-purple-800 border border-purple-200': selectedDetail?.header?.status === 'in_progress',
-                                      'bg-gray-100 text-gray-800 border border-gray-200': !['pending','approved','completed','rejected','in_progress'].includes(selectedDetail?.header?.status)
+                                      'bg-gray-100 text-gray-800 border border-gray-200': !['pending','verification','approved','completed','rejected','in_progress'].includes(selectedDetail?.header?.status)
                                   }">
                                 <span class="flex items-center gap-1.5">
                                     <span class="w-2 h-2 rounded-full" :class="{
                                         'bg-yellow-500': selectedDetail?.header?.status === 'pending',
+                                        'bg-sky-500': selectedDetail?.header?.status === 'verification',
                                         'bg-blue-500': selectedDetail?.header?.status === 'approved',
                                         'bg-green-500': selectedDetail?.header?.status === 'completed',
                                         'bg-red-500': selectedDetail?.header?.status === 'rejected',
                                         'bg-purple-500': selectedDetail?.header?.status === 'in_progress',
-                                        'bg-gray-500': !['pending','approved','completed','rejected','in_progress'].includes(selectedDetail?.header?.status)
+                                        'bg-gray-500': !['pending','verification','approved','completed','rejected','in_progress'].includes(selectedDetail?.header?.status)
                                     }"></span>
                                     <span x-text="getApprovalStatusLabel(selectedDetail?.header)"></span>
                                 </span>
@@ -1566,6 +1843,7 @@
                                 <p class="text-xs text-gray-500 mt-0.5">
                                     <span x-show="selectedDetail?.header?.jenis_pekerjaan === 'repair'">Perbaikan mesin/alat</span>
                                     <span x-show="selectedDetail?.header?.jenis_pekerjaan === 'maintenance'">Perawatan rutin</span>
+                                    <span x-show="selectedDetail?.header?.jenis_pekerjaan === 'utility'">Kebutuhan consumable utility</span>
                                     <span x-show="selectedDetail?.header?.jenis_pekerjaan === 'project'">Kebutuhan proyek</span>
                                  
                                 </p>
@@ -1600,6 +1878,38 @@
                             <div>
                                 <p class="text-xs font-medium text-gray-500 uppercase tracking-wider">Tanggal Permintaan</p>
                                 <p class="text-sm font-semibold text-gray-900 mt-0.5" x-text="formatDateForDisplay(selectedDetail?.header?.tanggal_permintaan)"></p>
+                            </div>
+                        </div>
+                    </div>
+
+                    {{-- VERIFIKATOR SECTION HEAD --}}
+                    <div class="bg-sky-50 rounded-lg p-4 border border-sky-200 hover:shadow-md transition duration-200 col-span-1 md:col-span-2">
+                        <div class="flex items-start gap-3">
+                            <div class="bg-sky-100 p-2 rounded-lg">
+                                <svg class="w-5 h-5 text-sky-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+                                </svg>
+                            </div>
+                            <div class="flex-1 min-w-0">
+                                <div class="flex items-start justify-between gap-3">
+                                    <div>
+                                        <p class="text-xs font-medium text-sky-700 uppercase tracking-wider">Verifikator Section Head</p>
+                                        <p class="text-sm font-bold text-gray-900 mt-0.5" x-text="getVerifierLabel(selectedDetail?.header)"></p>
+                                        <p class="text-xs text-gray-500 mt-0.5" x-show="selectedDetail?.header?.verification_section_head_username" x-text="'Username: ' + selectedDetail?.header?.verification_section_head_username"></p>
+                                    </div>
+                                    <span class="px-2.5 py-1 rounded-full text-xs font-semibold whitespace-nowrap" :class="getVerificationStatusClass(selectedDetail?.header)" x-text="getVerificationStatusLabel(selectedDetail?.header)"></span>
+                                </div>
+                                <div x-show="selectedDetail?.header?.verified_by_name || selectedDetail?.header?.verified_at || selectedDetail?.header?.verification_notes" class="mt-3 pt-3 border-t border-sky-100 text-xs text-gray-600 space-y-1">
+                                    <p x-show="selectedDetail?.header?.verified_by_name">
+                                        Diproses oleh <span class="font-semibold text-gray-800" x-text="selectedDetail?.header?.verified_by_name"></span>
+                                    </p>
+                                    <p x-show="selectedDetail?.header?.verified_at">
+                                        Waktu verifikasi: <span class="font-semibold text-gray-800" x-text="formatDateTimeForDisplay(selectedDetail?.header?.verified_at)"></span>
+                                    </p>
+                                    <p x-show="selectedDetail?.header?.verification_notes">
+                                        Catatan: <span class="font-semibold text-gray-800" x-text="selectedDetail?.header?.verification_notes"></span>
+                                    </p>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -1815,6 +2125,10 @@ function transaksiApp() {
         searchQuery: '',
         statusFilter: '',
         dateFilter: '',
+        historySearchQuery: '',
+        historyStatusFilter: '',
+        historyDateFrom: '',
+        historyDateTo: '',
         isSearchingTransaksi: false,
         isSearchFocused: false,
         
@@ -1840,6 +2154,8 @@ function transaksiApp() {
             dari_gudang: 'gudang_11',
             jenis_pekerjaan: '',
             tanggal_diperlukan: '',
+            verification_section_head_id: '',
+            material_type: 'sparepart',
             keterangan: ''
         },
         
@@ -1847,6 +2163,8 @@ function transaksiApp() {
         untukList: [],           // List mesin atau bangunan
         isLoadingUntuk: false,
         selectedUntuk: null,
+        untukSearchQuery: '',
+        showUntukResults: false,
         
         // ============ BARANG ITEMS ============
         barangItems: [{ 
@@ -1854,6 +2172,7 @@ function transaksiApp() {
             nama_barang: '', 
             jumlah: '', 
             satuan: '', 
+            material_type: 'sparepart',
             keterangan: '' 
         }],
         
@@ -1867,6 +2186,14 @@ function transaksiApp() {
         lastBarangSearchQuery: '',
         lastBarangSearchIndex: null,
         searchDropdownPosition: { top: 0, left: 0, width: 0, maxHeight: 256 },
+
+        // ============ SEARCH REFERENSI WO ============
+        woSearchQuery: '',
+        woResults: [],
+        isSearchingWo: false,
+        showWoResults: false,
+        woSearchHasRun: false,
+        selectedWoReference: null,
         
         // ============ SUBMIT STATE ============
         isSubmitting: false,
@@ -1890,6 +2217,7 @@ function transaksiApp() {
             { value: 'pack', label: 'Pack' },
             { value: 'roll', label: 'Roll' },
             { value: 'set', label: 'Set' },
+            { value: 'btg', label: 'Batang (BTG)' },
             { value: 'buah', label: 'Buah' },
             { value: 'lembar', label: 'Lembar' },
             { value: 'pair', label: 'Pair (Pasang)' },
@@ -1904,6 +2232,7 @@ function transaksiApp() {
 
         // ============ USER ROLE ============
         userRole: window.userRole || 'user',
+        sectionHeads: window.sectionHeads || [],
 
         // ============ GETTERS ============
         get filteredTransaksi() {
@@ -1970,10 +2299,13 @@ function transaksiApp() {
         get historyTransaksi() {
             return this.transaksiData
                 .filter(tr => this.isHistoryForCurrentRole(tr))
+                .filter(tr => this.matchesHistorySearch(tr))
+                .filter(tr => this.matchesHistoryStatus(tr))
+                .filter(tr => this.isWithinHistoryDateRange(tr))
                 .sort((a, b) => {
-                    if (a.updated_at && b.updated_at) {
-                        return new Date(b.updated_at) - new Date(a.updated_at);
-                    }
+                    const dateA = this.getHistoryProcessTime(a) || a.updated_at;
+                    const dateB = this.getHistoryProcessTime(b) || b.updated_at;
+                    if (dateA && dateB) return new Date(dateB) - new Date(dateA);
                     return (b.id || 0) - (a.id || 0);
                 });
         },
@@ -1988,6 +2320,22 @@ function transaksiApp() {
             return Math.ceil(this.filteredTransaksi.length / this.perPage);
         },
 
+        get filteredUntukList() {
+            const query = (this.untukSearchQuery || '').trim().toLowerCase();
+
+            if (!query || this.formData.untuk_id) {
+                return this.untukList.slice(0, 50);
+            }
+
+            return this.untukList
+                .filter(item => {
+                    const nama = (item.nama || '').toLowerCase();
+                    const kode = (item.kode || '').toLowerCase();
+                    return nama.includes(query) || kode.includes(query);
+                })
+                .slice(0, 50);
+        },
+
         // ============ BARANG METHODS ============
         addBarangItem() {
             this.clearBarangSearchState();
@@ -1996,6 +2344,7 @@ function transaksiApp() {
                 nama_barang: '', 
                 jumlah: '', 
                 satuan: '', 
+                material_type: this.formData.material_type || 'sparepart',
                 keterangan: '' 
             });
         },
@@ -2057,6 +2406,8 @@ function transaksiApp() {
             this.isLoadingUntuk = true;
             this.formData.untuk_id = '';
             this.selectedUntuk = null;
+            this.untukSearchQuery = '';
+            this.showUntukResults = false;
             
             try {
                 let url = '';
@@ -2125,6 +2476,8 @@ function transaksiApp() {
             this.formData.untuk_id = '';
             this.selectedUntuk = null;
             this.untukList = [];
+            this.untukSearchQuery = '';
+            this.showUntukResults = false;
             
             // Load list berdasarkan pilihan
             if (this.formData.untuk === 'mesin' || this.formData.untuk === 'bangunan') {
@@ -2150,6 +2503,38 @@ function transaksiApp() {
                     window.notificationApp.showNotification('success', `${this.selectedUntuk.nama} dipilih`);
                 }
             }
+        },
+
+        openUntukDropdown() {
+            if (this.formData.untuk === 'mesin' || this.formData.untuk === 'bangunan') {
+                this.showUntukResults = true;
+            }
+        },
+
+        toggleUntukDropdown() {
+            if (this.formData.untuk === 'mesin' || this.formData.untuk === 'bangunan') {
+                this.showUntukResults = !this.showUntukResults;
+            }
+        },
+
+        handleUntukSearchInput() {
+            this.formData.untuk_id = '';
+            this.selectedUntuk = null;
+            this.showUntukResults = true;
+        },
+
+        selectUntukItem(item) {
+            this.formData.untuk_id = item.id;
+            this.selectedUntuk = item;
+            this.untukSearchQuery = item.nama + (item.kode ? ` (${item.kode})` : '');
+            this.showUntukResults = false;
+        },
+
+        clearUntukSelection() {
+            this.formData.untuk_id = '';
+            this.selectedUntuk = null;
+            this.untukSearchQuery = '';
+            this.showUntukResults = true;
         },
 
         // ============ SEARCH METHODS ============
@@ -2179,6 +2564,26 @@ function transaksiApp() {
             this.dateFilter = '';
             this.currentPage = 1;
             this.loadData();
+        },
+
+        resetHistoryFilters() {
+            this.historySearchQuery = '';
+            this.historyStatusFilter = '';
+            this.historyDateFrom = '';
+            this.historyDateTo = '';
+        },
+
+        normalizeHistoryDateRange(changedField = null) {
+            if (!this.historyDateFrom || !this.historyDateTo) return;
+
+            if (this.historyDateTo < this.historyDateFrom) {
+                if (changedField === 'from') {
+                    this.historyDateTo = this.historyDateFrom;
+                    return;
+                }
+
+                this.historyDateFrom = this.historyDateTo;
+            }
         },
 
         // ============ LOAD DATA FROM SERVER ============
@@ -2408,7 +2813,8 @@ function transaksiApp() {
             this.searchResults = [];
             
             try {
-                const response = await fetch(`/api/barang/search?q=${encodeURIComponent(trimmedQuery)}`);
+                const materialType = this.formData.material_type || 'sparepart';
+                const response = await fetch(`/api/barang/search?q=${encodeURIComponent(trimmedQuery)}&material_type=${encodeURIComponent(materialType)}`);
                 
                 if (!response.ok) {
                     throw new Error('Network response was not ok');
@@ -2438,6 +2844,9 @@ function transaksiApp() {
                 this.searchResults = [];
                 
                 if (window.masterBarang && window.masterBarang.length > 0) {
+                    if ((this.formData.material_type || 'sparepart') !== 'sparepart') {
+                        return;
+                    }
                     const searchTerm = trimmedQuery.toLowerCase();
                     this.searchResults = window.masterBarang
                         .filter(item => 
@@ -2524,6 +2933,7 @@ function transaksiApp() {
                 'PACK': 'pack', 'PK': 'pack',
                 'ROLL': 'roll', 'ROL': 'roll',
                 'SET': 'set',
+                'BTG': 'btg', 'BATANG': 'btg', 'BT': 'btg',
                 'BTL': 'bottle',
                 'CAN': 'can',
                 'TUBE': 'tube',
@@ -2556,6 +2966,7 @@ function transaksiApp() {
             this.barangItems[index].id = item.id;
             this.barangItems[index].nama_barang = item.nama;
             this.barangItems[index].satuan = item.satuan;
+            this.barangItems[index].material_type = item.material_type || this.formData.material_type || 'sparepart';
             this.clearBarangSearchState();
         },
 
@@ -2563,7 +2974,40 @@ function transaksiApp() {
             this.barangItems[index].id = null;
             this.barangItems[index].nama_barang = '';
             this.barangItems[index].satuan = '';
+            this.barangItems[index].material_type = this.formData.material_type || 'sparepart';
             this.clearBarangSearchState();
+        },
+
+        handleMaterialTypeChange(value, event) {
+            const nextType = ['sparepart', 'non_sparepart'].includes(value) ? value : 'sparepart';
+            const currentType = this.formData.material_type || 'sparepart';
+            const hasItems = this.barangItems.some(item => item.nama_barang || item.jumlah || item.satuan || item.keterangan);
+
+            if (nextType === currentType) {
+                return;
+            }
+
+            if (hasItems && !confirm('Mengubah jenis barang akan mengosongkan daftar barang yang sudah dipilih. Lanjutkan?')) {
+                if (event?.target) {
+                    event.target.value = currentType;
+                }
+                return;
+            }
+
+            this.formData.material_type = nextType;
+            this.barangItems = [this.emptyBarangItem()];
+            this.clearBarangSearchState();
+        },
+
+        emptyBarangItem() {
+            return {
+                id: null,
+                nama_barang: '',
+                jumlah: '',
+                satuan: '',
+                material_type: this.formData.material_type || 'sparepart',
+                keterangan: ''
+            };
         },
 
         addNewBarang(namaBarang, index) {
@@ -2572,7 +3016,69 @@ function transaksiApp() {
 
         closeAllDropdowns() {
             this.clearBarangSearchState();
+            this.showWoResults = false;
+            this.showUntukResults = false;
             this.isSearchFocused = false;
+        },
+
+        async searchApprovedWorkOrders() {
+            const query = (this.woSearchQuery || '').trim();
+            this.selectedWoReference = null;
+            this.woResults = [];
+            this.woSearchHasRun = false;
+
+            if (query.length < 2) {
+                this.showWoResults = query.length > 0;
+                return;
+            }
+
+            this.isSearchingWo = true;
+            this.showWoResults = true;
+
+            try {
+                const params = new URLSearchParams({ q: query });
+                const response = await fetch(`/transaksi/approved-work-orders?${params.toString()}`, {
+                    headers: {
+                        'Accept': 'application/json',
+                        'X-Requested-With': 'XMLHttpRequest'
+                    }
+                });
+                const data = await response.json();
+                this.woResults = data.success ? (data.data || []) : [];
+                this.woSearchHasRun = true;
+            } catch (error) {
+                console.error('WO reference search error:', error);
+                this.woResults = [];
+                this.woSearchHasRun = true;
+            } finally {
+                this.isSearchingWo = false;
+            }
+        },
+
+        selectWoReference(wo) {
+            this.selectedWoReference = wo;
+            this.woSearchQuery = `${wo.nomor} - ${wo.judul || '-'}`;
+            this.woResults = [];
+            this.showWoResults = false;
+        },
+
+        clearWoReference() {
+            this.selectedWoReference = null;
+            this.woSearchQuery = '';
+            this.woResults = [];
+            this.showWoResults = false;
+            this.woSearchHasRun = false;
+        },
+
+        buildKeteranganWithWoReference() {
+            const note = (this.formData.keterangan || '').trim();
+            const woNumber = this.selectedWoReference?.nomor || '';
+
+            if (!woNumber) {
+                return note;
+            }
+
+            return note ? `Referensi WO: ${woNumber}\n${note}` : `Referensi WO: ${woNumber}`;
         },
 
         // ============ DATE METHODS ============
@@ -2635,15 +3141,82 @@ function transaksiApp() {
         getApprovalTime(tr) {
             if (!tr) return null;
             if (this.userRole === 'approval2') return tr.approval_level_2_at || tr.approved_at || tr.rejected_at;
-            if (this.userRole === 'approval') return tr.approval_level_1_at || tr.approved_at || tr.rejected_at;
+            if (['approval','approval_level1'].includes(this.userRole)) return tr.approval_level_1_at || tr.approved_at || tr.rejected_at;
             return tr.approved_at || tr.approval_level_2_at || tr.approval_level_1_at || tr.rejected_at;
+        },
+
+        getHistoryProcessTime(tr) {
+            return this.getApprovalTime(tr);
+        },
+
+        getTujuanDetail(tr) {
+            if (!tr) return '';
+
+            if (tr.untuk === 'mesin') {
+                return tr.mesin_nama || tr.mesin_kode || '';
+            }
+
+            if (tr.untuk === 'bangunan') {
+                return tr.bangunan_nama || tr.bangunan_kode || '';
+            }
+
+            return '';
+        },
+
+        matchesHistorySearch(tr) {
+            const term = (this.historySearchQuery || '').trim().toLowerCase();
+            if (!term) return true;
+
+            const statusLabel = this.getApprovalStatusLabel(tr);
+            const fields = [
+                tr?.nomor_pb,
+                tr?.untuk,
+                tr?.jenis_pekerjaan,
+                tr?.status,
+                statusLabel,
+                tr?.dari_gudang,
+                this.getTujuanDetail(tr),
+            ];
+
+            return fields.some(value => String(value || '').toLowerCase().includes(term));
+        },
+
+        matchesHistoryStatus(tr) {
+            if (!this.historyStatusFilter) return true;
+
+            if (this.historyStatusFilter === 'pending_l2') {
+                return tr?.status === 'pending'
+                    && parseInt(tr?.approval_current_level || 1, 10) === 2;
+            }
+
+            return tr?.status === this.historyStatusFilter;
+        },
+
+        isWithinHistoryDateRange(tr) {
+            const processTime = tr?.tanggal_permintaan || tr?.created_at;
+            if (!processTime) return !this.historyDateFrom && !this.historyDateTo;
+
+            const processDate = new Date(processTime);
+            if (Number.isNaN(processDate.getTime())) return false;
+
+            if (this.historyDateFrom) {
+                const start = new Date(`${this.historyDateFrom}T00:00:00`);
+                if (processDate < start) return false;
+            }
+
+            if (this.historyDateTo) {
+                const end = new Date(`${this.historyDateTo}T23:59:59`);
+                if (processDate > end) return false;
+            }
+
+            return true;
         },
 
         getApprovalTimeLabel(tr) {
             if (!tr) return '';
             if (tr.status === 'rejected') return 'Ditolak';
             if (this.userRole === 'approval2' || tr.approval_level_2_at) return 'Approved L2';
-            if (this.userRole === 'approval' || tr.approval_level_1_at) return 'Approved L1';
+            if (['approval','approval_level1'].includes(this.userRole) || tr.approval_level_1_at) return 'Approved L1';
             return 'Approved';
         },
 
@@ -2703,6 +3276,7 @@ function transaksiApp() {
             }
 
             const labels = {
+                verification: 'Menunggu Verifikasi',
                 approved: 'Disetujui',
                 rejected: 'Ditolak',
                 in_progress: 'Diproses',
@@ -2710,6 +3284,36 @@ function transaksiApp() {
             };
 
             return labels[tr.status] || tr.status.charAt(0).toUpperCase() + tr.status.slice(1).replace('_', ' ');
+        },
+
+        getVerifierLabel(header) {
+            if (!header) return '-';
+            return header.verification_section_head_name || header.verification_section_head_username || '-';
+        },
+
+        getVerificationStatusLabel(header) {
+            if (!header || !header.verification_section_head_id) return 'Belum dipilih';
+
+            const status = header.verification_status || (header.status === 'verification' ? 'pending' : '');
+            const labels = {
+                pending: 'Menunggu Verifikasi',
+                verified: 'Terverifikasi',
+                rejected: 'Ditolak'
+            };
+
+            return labels[status] || '-';
+        },
+
+        getVerificationStatusClass(header) {
+            const status = header?.verification_status || (header?.status === 'verification' ? 'pending' : '');
+
+            const classes = {
+                pending: 'bg-sky-100 text-sky-700 border border-sky-200',
+                verified: 'bg-green-100 text-green-700 border border-green-200',
+                rejected: 'bg-red-100 text-red-700 border border-red-200'
+            };
+
+            return classes[status] || 'bg-gray-100 text-gray-600 border border-gray-200';
         },
 
         requiresTwoLevelApproval(tr) {
@@ -2774,20 +3378,33 @@ function transaksiApp() {
             return classes[status] || 'bg-gray-500';
         },
 
+        getHistoryStatusTooltip(tr) {
+            if (!tr || tr.status !== 'rejected') return '';
+
+            const reason = (tr.rejection_reason || '').trim();
+            return reason ? `Alasan ditolak: ${reason}` : 'Alasan ditolak belum tersedia';
+        },
+
+        getHistoryRejectionReason(tr) {
+            if (!tr || tr.status !== 'rejected') return '';
+
+            return (tr.rejection_reason || '').trim() || 'Alasan ditolak belum tersedia';
+        },
+
         canApproveTransaction(tr) {
             if (!tr || tr.status !== 'pending') return false;
 
             const currentLevel = parseInt(tr.approval_current_level || 1, 10);
 
             if (this.userRole === 'admin') return true;
-            if (currentLevel === 1) return this.userRole === 'approval';
+            if (currentLevel === 1) return ['approval','approval_level1'].includes(this.userRole);
             if (currentLevel === 2) return this.userRole === 'approval2';
 
             return false;
         },
 
         isApprovalRole() {
-            return ['approval', 'approval2'].includes(this.userRole);
+            return ['approval', 'approval_level1', 'approval2'].includes(this.userRole);
         },
 
         isActionableForCurrentRole(tr) {
@@ -2797,7 +3414,7 @@ function transaksiApp() {
             const requiredLevel = parseInt(tr.approval_level_required || 1, 10);
             const isHighValue = Boolean(parseInt(tr.has_high_value_item || 0, 10));
 
-            if (this.userRole === 'approval') {
+            if (['approval','approval_level1'].includes(this.userRole)) {
                 return currentLevel === 1;
             }
 
@@ -2811,7 +3428,7 @@ function transaksiApp() {
         isHistoryForCurrentRole(tr) {
             if (!tr) return false;
 
-            if (this.userRole === 'approval') {
+            if (['approval','approval_level1'].includes(this.userRole)) {
                 return Boolean(tr.approval_level_1_by)
                     || (tr.status === 'rejected' && parseInt(tr.approval_current_level || 1, 10) === 1);
             }
@@ -2857,6 +3474,11 @@ function transaksiApp() {
                 return false;
             }
 
+            if (!this.formData.verification_section_head_id) {
+                alert('Pilih Section Head untuk verifikasi PB');
+                return false;
+            }
+
             const validItems = this.barangItems.filter(item => 
                 item.nama_barang && item.jumlah && item.satuan
             );
@@ -2897,7 +3519,9 @@ function transaksiApp() {
                 dari_gudang: this.formData.dari_gudang,
                 jenis_pekerjaan: this.formData.jenis_pekerjaan,
                 tanggal_diperlukan: this.formData.tanggal_diperlukan,
-                keterangan: this.formData.keterangan || '',
+                verification_section_head_id: this.formData.verification_section_head_id,
+                material_type: this.formData.material_type || 'sparepart',
+                keterangan: this.buildKeteranganWithWoReference(),
                 barang: this.barangItems
                     .filter(item => item.nama_barang && item.jumlah && item.satuan)
                     .map(item => ({
@@ -2905,6 +3529,7 @@ function transaksiApp() {
                         nama_barang: item.nama_barang,
                         jumlah: parseFloat(item.jumlah),
                         satuan: item.satuan,
+                        material_type: item.material_type || this.formData.material_type || 'sparepart',
                         keterangan: item.keterangan || ''
                     }))
             };
@@ -2915,17 +3540,28 @@ function transaksiApp() {
                 const response = await fetch('/transaksi', {
                     method: 'POST',
                     headers: {
+                        'Accept': 'application/json',
                         'Content-Type': 'application/json',
                         'X-CSRF-TOKEN': window.csrfToken
                     },
                     body: JSON.stringify(formData)
                 });
-                
-                const result = await response.json();
+
+                const contentType = response.headers.get('content-type') || '';
+                const result = contentType.includes('application/json')
+                    ? await response.json()
+                    : { success: false, message: await response.text() };
+
+                if (!response.ok) {
+                    const validationMessage = result.errors
+                        ? Object.values(result.errors).flat().join('\n')
+                        : (result.message || `Gagal menyimpan (${response.status})`);
+                    throw new Error(validationMessage);
+                }
                 
                 if (result.success) {
                     if (window.notificationApp) {
-                        window.notificationApp.showNotification('success', '? Permintaan berhasil disimpan!');
+                        window.notificationApp.showNotification('success', 'Permintaan berhasil disimpan!');
                     }
                     
                     this.resetForm();
@@ -2947,7 +3583,9 @@ function transaksiApp() {
                 console.error('Error:', error);
                 
                 if (window.notificationApp) {
-                    window.notificationApp.showNotification('error', '? Gagal menyimpan: ' + error.message);
+                    window.notificationApp.showNotification('error', 'Gagal menyimpan: ' + error.message);
+                } else {
+                    alert('Gagal menyimpan: ' + error.message);
                 }
             } finally {
                 this.isSubmitting = false;
@@ -2962,6 +3600,8 @@ function transaksiApp() {
                 dari_gudang: 'gudang_11',
                 jenis_pekerjaan: '',
                 tanggal_diperlukan: this.getDefaultRequiredDate(),
+                verification_section_head_id: '',
+                material_type: 'sparepart',
                 keterangan: ''
             };
             this.barangItems = [{ 
@@ -2969,11 +3609,15 @@ function transaksiApp() {
                 nama_barang: '', 
                 jumlah: '', 
                 satuan: '', 
+                material_type: 'sparepart',
                 keterangan: '' 
             }];
             this.untukList = [];
             this.selectedUntuk = null;
+            this.untukSearchQuery = '';
+            this.showUntukResults = false;
             this.clearBarangSearchState();
+            this.clearWoReference();
             this.ensureFixedGudang();
             
             this.loadNomorPB();
@@ -3223,6 +3867,12 @@ printDetail(detail, targetWindow = null) {
                         background: #eab308;
                         color: white;
                         border: 1px solid #ca8a04;
+                    }
+
+                    .status-verification {
+                        background: #3b82f6;
+                        color: white;
+                        border: 1px solid #2563eb;
                     }
                     
                     .status-rejected {
@@ -3750,16 +4400,19 @@ ${detail.untuk_info ? `
         },
 
         showRejectModal(tr) {
-            const reason = prompt('Masukkan alasan penolakan:', '');
+            const level = parseInt(tr?.approval_current_level || 1, 10);
+            const reason = prompt(`Masukkan alasan penolakan Approval Level ${level}:`, '');
             
             if (reason === null) return;
             
-            if (!reason.trim()) {
-                alert('Alasan penolakan harus diisi');
+            const cleanReason = reason.trim();
+
+            if (!cleanReason) {
+                alert('Alasan penolakan wajib diisi.');
                 return;
             }
             
-            this.rejectRequest(tr, reason);
+            this.rejectRequest(tr, cleanReason);
         },
 
         // ============ INIT ============
@@ -3811,6 +4464,8 @@ ${detail.untuk_info ? `
                     this.clearBarangSearchState();
                     this.untukList = [];
                     this.selectedUntuk = null;
+                    this.untukSearchQuery = '';
+                    this.showUntukResults = false;
                     this.formData.untuk = '';
                     this.formData.untuk_id = '';
                     this.ensureFixedGudang();

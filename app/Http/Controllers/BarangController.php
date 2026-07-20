@@ -13,6 +13,7 @@ class BarangController extends Controller
     public function search(Request $request)
     {
         $query = $request->get('q');
+        $materialType = $this->normalizeMaterialType($request->get('material_type', 'sparepart'));
         
         if (strlen($query) < 2) {
             return response()->json([]);
@@ -36,15 +37,22 @@ class BarangController extends Controller
                         ELSE COALESCE(mtart, 'Sparepart')
                     END as kategori")
                 )
-                ->where('item_name', 'ilike', "%{$searchTerm}%")
-                ->orWhere('code', 'ilike', "%{$searchTerm}%")
+                ->where(function ($query) use ($materialType) {
+                    $this->applyMaterialScope($query, $materialType);
+                })
+                ->where(function ($query) use ($searchTerm) {
+                    $query->where('item_name', 'ilike', "%{$searchTerm}%")
+                        ->orWhere('code', 'ilike', "%{$searchTerm}%");
+                })
                 ->orderBy('item_name')
                 ->limit(20)
                 ->get();
 
             // Mapping satuan default jika NULL
-            $results = $results->map(function($item) {
+            $results = $results->map(function($item) use ($materialType) {
                 $item->satuan = $this->mapSatuan($item->satuan ?? 'pcs');
+                $item->material_type = $materialType;
+                $item->material_type_label = $materialType === 'non_sparepart' ? 'Non Sparepart' : 'Sparepart';
                 return $item;
             });
 
@@ -70,6 +78,50 @@ class BarangController extends Controller
         $search = ['%', '_', '\\'];
         $replace = ['\\%', '\\_', '\\\\'];
         return str_replace($search, $replace, $string);
+    }
+
+    private function normalizeMaterialType(?string $value): string
+    {
+        return in_array($value, ['sparepart', 'non_sparepart'], true) ? $value : 'sparepart';
+    }
+
+    private function sparepartMaterialPrefixes(): array
+    {
+        return ['YSPR'];
+    }
+
+    private function applyMaterialScope($query, string $materialType, string $mtartColumn = 'mtart', string $codeColumn = 'code'): void
+    {
+        $prefixes = $this->sparepartMaterialPrefixes();
+
+        if ($materialType === 'non_sparepart') {
+            $query->where(function ($scope) use ($prefixes, $mtartColumn) {
+                $scope->whereNull($mtartColumn)
+                    ->orWhereNotIn(DB::raw('UPPER(TRIM(' . $mtartColumn . '))'), $prefixes);
+            });
+
+            foreach ($prefixes as $prefix) {
+                $query->where(function ($scope) use ($codeColumn, $prefix) {
+                    $scope->whereNull($codeColumn)
+                        ->orWhere(DB::raw('UPPER(TRIM(' . $codeColumn . '))'), 'NOT LIKE', $prefix . '%');
+                });
+            }
+
+            return;
+        }
+
+        $query->where(function ($scope) use ($prefixes, $mtartColumn, $codeColumn) {
+            $scope->whereIn(DB::raw('UPPER(TRIM(' . $mtartColumn . '))'), $prefixes);
+
+            foreach ($prefixes as $prefix) {
+                $scope->orWhere(DB::raw('UPPER(TRIM(' . $codeColumn . '))'), 'LIKE', $prefix . '%');
+            }
+        });
+    }
+
+    private function applySparepartMaterialScope($query, string $mtartColumn = 'mtart', string $codeColumn = 'code'): void
+    {
+        $this->applyMaterialScope($query, 'sparepart', $mtartColumn, $codeColumn);
     }
 
     /**

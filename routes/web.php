@@ -1,10 +1,12 @@
 <?php
 
+use App\Http\Controllers\Admin\DepartmentController;
 use App\Http\Controllers\Admin\UserController;
 use App\Http\Controllers\ApprovalController;
 use App\Http\Controllers\BangunanController;
 use App\Http\Controllers\BarangController;
 use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\HistoricalImportController;
 use App\Http\Controllers\MasterController;
 use App\Http\Controllers\MesinController;
 use App\Http\Controllers\NotificationController;
@@ -33,6 +35,10 @@ Route::get('/', function () {
     return view('landing');
 });
 
+Route::get('/logout-success', function () {
+    return view('auth.logout-success');
+})->middleware('guest')->name('logout.success');
+
 // ============= DASHBOARD =============
 Route::middleware(['auth'])->group(function () {
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
@@ -40,6 +46,23 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/admin', [DashboardController::class, 'index'])
         ->middleware('role:admin,approval')
         ->name('admin.dashboard');
+});
+
+// ============= ROUTE E-REQUEST ALIAS =============
+Route::middleware(['auth'])->prefix('e-requests')->name('e-requests.')->group(function () {
+    Route::get('/', function () {
+        return redirect()->route('transaksi.index');
+    })->name('index');
+
+    Route::get('/create', function () {
+        return request('service_key') === 'engineering_service'
+            ? redirect()->route('workorder.index')
+            : redirect()->route('transaksi.index');
+    })->name('create');
+
+    Route::get('/{id}', function () {
+        return redirect()->route('transaksi.index');
+    })->whereNumber('id')->name('show');
 });
 
 // ============= ROUTE ADMIN =============
@@ -52,7 +75,15 @@ Route::middleware(['auth', 'role:admin,approval'])
             Route::post('/users', [UserController::class, 'store'])->name('admin.users.store');
             Route::get('/users/{user}/edit', [UserController::class, 'edit'])->name('admin.users.edit');
             Route::put('/users/{user}', [UserController::class, 'update'])->name('admin.users.update');
+            Route::patch('/users/{user}/toggle-active', [UserController::class, 'toggleActive'])->name('admin.users.toggle-active');
             Route::delete('/users/{user}', [UserController::class, 'destroy'])->name('admin.users.destroy');
+
+            Route::get('/departments', [DepartmentController::class, 'index'])->name('admin.departments.index');
+            Route::get('/departments/create', [DepartmentController::class, 'create'])->name('admin.departments.create');
+            Route::post('/departments', [DepartmentController::class, 'store'])->name('admin.departments.store');
+            Route::get('/departments/{department}/edit', [DepartmentController::class, 'edit'])->name('admin.departments.edit');
+            Route::put('/departments/{department}', [DepartmentController::class, 'update'])->name('admin.departments.update');
+            Route::delete('/departments/{department}', [DepartmentController::class, 'destroy'])->name('admin.departments.destroy');
         });
 
         Route::put('/mesin/{id}', [MasterController::class, 'updateMesin'])
@@ -77,8 +108,22 @@ Route::middleware(['auth'])->group(function () {
     Route::prefix('master')->name('master.')->group(function () {
         Route::get('/sparepart/data', [MasterController::class, 'getSparepartData'])->name('sparepart.data');
         Route::get('/mesin/data', [MasterController::class, 'getMesinData'])->name('mesin.data');
+        Route::post('/mesin', [MasterController::class, 'storeMesin'])->name('mesin.store');
         Route::get('/bangunan/data', [MasterController::class, 'getBangunanData'])->name('bangunan.data');
     });
+});
+
+// ============= ROUTE GOOD ISSUE ERP (READ-ONLY) =============
+Route::middleware(['auth'])->get('/good-issue-erp', [StockController::class, 'goodIssueIndex'])->name('good-issue.index');
+
+// ============= ROUTE HISTORICAL IMPORT PB & WO =============
+Route::middleware(['auth'])->prefix('historical-import')->name('historical-import.')->group(function () {
+    Route::get('/', [HistoricalImportController::class, 'index'])->name('index');
+    Route::get('/template', [HistoricalImportController::class, 'template'])->name('template');
+    Route::post('/', [HistoricalImportController::class, 'store'])->name('store');
+    Route::get('/{batch}', [HistoricalImportController::class, 'show'])->whereNumber('batch')->name('show');
+    Route::post('/{batch}/submit', [HistoricalImportController::class, 'submit'])->whereNumber('batch')->name('submit');
+    Route::post('/{batch}/sign-off', [HistoricalImportController::class, 'signOff'])->whereNumber('batch')->name('sign-off');
 });
 
 // ============= ROUTE STOCK SPAREPART =============
@@ -87,6 +132,19 @@ Route::middleware(['auth'])->prefix('stock')->name('stock.')->group(function () 
     Route::get('/data', [StockController::class, 'getStockData'])->name('data');
     Route::get('/detail/{id}', [StockController::class, 'getDetail'])->name('detail');
     Route::get('/movement', [StockController::class, 'getMovement'])->name('movement');
+    Route::get('/good-issue', [StockController::class, 'getGoodIssue'])->name('good-issue');
+    Route::post('/opname', [StockController::class, 'saveOpname'])->name('opname');
+    Route::get('/export', [StockController::class, 'export'])->name('export');
+    Route::get('/by-location/{location?}', [StockController::class, 'getByLocation'])->name('by-location');
+});
+
+// ============= ROUTE STOCK NON-SPAREPART =============
+Route::middleware(['auth'])->prefix('stock-non-sparepart')->name('stock-non-sparepart.')->group(function () {
+    Route::get('/', [StockController::class, 'index'])->name('index');
+    Route::get('/data', [StockController::class, 'getStockData'])->name('data');
+    Route::get('/detail/{id}', [StockController::class, 'getDetail'])->name('detail');
+    Route::get('/movement', [StockController::class, 'getMovement'])->name('movement');
+    Route::get('/good-issue', [StockController::class, 'getGoodIssue'])->name('good-issue');
     Route::post('/opname', [StockController::class, 'saveOpname'])->name('opname');
     Route::get('/export', [StockController::class, 'export'])->name('export');
     Route::get('/by-location/{location?}', [StockController::class, 'getByLocation'])->name('by-location');
@@ -96,13 +154,16 @@ Route::middleware(['auth'])->prefix('stock')->name('stock.')->group(function () 
 Route::middleware(['auth'])->prefix('workorder')->name('workorder.')->group(function () {
     Route::get('/', [WorkOrderController::class, 'index'])->name('index');
     Route::get('/data', [WorkOrderController::class, 'getData'])->name('data');
+    Route::get('/generate-nomor', [WorkOrderController::class, 'generateNomor'])->name('generate-nomor');
     Route::post('/store', [WorkOrderController::class, 'store'])->name('store');
+    Route::get('/preview/{id}', [WorkOrderController::class, 'preview'])->whereNumber('id')->name('preview');
     Route::get('/download/{id}', [WorkOrderController::class, 'download'])->whereNumber('id')->name('download');
     Route::delete('/delete/{id}', [WorkOrderController::class, 'destroy'])->whereNumber('id')->name('delete');
     Route::post('/submit/{id}', [WorkOrderController::class, 'submit'])->whereNumber('id')->name('submit');
     Route::post('/approve/{id}', [WorkOrderController::class, 'approve'])->whereNumber('id')->name('approve');
     Route::post('/reject/{id}', [WorkOrderController::class, 'reject'])->whereNumber('id')->name('reject');
     Route::get('/progress-data', [WorkOrderController::class, 'progressData'])->name('progress.data');
+    Route::get('/photo/{id}', [WorkOrderController::class, 'photo'])->whereNumber('id')->name('photo');
     Route::post('/progress/{id}', [WorkOrderController::class, 'updateProgress'])->whereNumber('id')->name('progress.update');
     Route::get('/timeline/{id}', [WorkOrderController::class, 'getTimeline'])->whereNumber('id')->name('timeline');
 });
@@ -112,8 +173,20 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/transaksi', [TransaksiController::class, 'index'])->name('transaksi.index');
     Route::post('/transaksi', [TransaksiController::class, 'store'])->name('transaksi.store');
     Route::get('/transaksi/generate-nomor', [TransaksiController::class, 'generateNomor'])->name('transaksi.generate-nomor');
+    Route::get('/transaksi/approved-work-orders', [TransaksiController::class, 'approvedWorkOrders'])->name('transaksi.approved-work-orders');
     Route::get('/transaksi/{id}', [TransaksiController::class, 'show'])->whereNumber('id')->name('transaksi.show');
 });
+
+Route::middleware(['auth', 'role:section_head,admin'])
+    ->prefix('pb-verification')
+    ->name('pb-verification.')
+    ->group(function () {
+        Route::get('/', [TransaksiController::class, 'verificationIndex'])->name('index');
+        Route::get('/data', [TransaksiController::class, 'verificationData'])->name('data');
+        Route::get('/history', [TransaksiController::class, 'verificationHistoryData'])->name('history');
+        Route::post('/{id}/verify', [TransaksiController::class, 'verify'])->whereNumber('id')->name('verify');
+        Route::post('/{id}/reject', [TransaksiController::class, 'rejectVerification'])->whereNumber('id')->name('reject');
+    });
 
 // ============= ROUTE UNTUK API =============
 Route::prefix('api')->middleware(['auth'])->group(function () {
@@ -133,7 +206,10 @@ Route::get('/cari-barang', [BarangController::class, 'search'])->name('barang.se
 
 // ============= ROUTE NOTIFIKASI =============
 Route::middleware(['auth'])->prefix('notifications')->name('notifications.')->group(function () {
+    Route::get('/user', [NotificationController::class, 'user'])->name('user');
+    Route::get('/approval1', [NotificationController::class, 'approvalLevelOne'])->name('approval1');
     Route::get('/approval2', [NotificationController::class, 'approvalLevelTwo'])->name('approval2');
+    Route::get('/section-head', [NotificationController::class, 'sectionHead'])->name('section-head');
 });
 
 // ============= ROUTE UNTUK APPROVAL =============
@@ -159,10 +235,16 @@ Route::middleware(['auth', 'role:warehouse,admin'])
         Route::post('/pb/{id}/erp-reference', [WarehouseController::class, 'updateReference'])
             ->whereNumber('id')
             ->name('pb.erp-reference');
+        Route::get('/pb/{id}/items/{detailId}/stock-options', [WarehouseController::class, 'stockOptions'])
+            ->whereNumber('id')
+            ->whereNumber('detailId')
+            ->name('pb.items.stock-options');
         Route::post('/pb/{id}/items/{detailId}', [WarehouseController::class, 'updateItem'])
             ->whereNumber('id')
             ->whereNumber('detailId')
             ->name('pb.items.update');
+        Route::get('/pb/stock-receipt/{receiptNumber}', [WarehouseController::class, 'printStockReceipt'])
+            ->name('pb.stock-receipt.print');
     });
 
 // ============= ROUTE WAREHOUSE 2 =============
@@ -175,15 +257,18 @@ Route::middleware(['auth'])->prefix('warehouse2')->name('warehouse2.')->group(fu
         Route::get('/export', [Warehouse2StockController::class, 'export'])->name('export');
         Route::get('/summary', [Warehouse2StockController::class, 'summary'])->name('summary');
         Route::get('/movement/{id}', [Warehouse2StockController::class, 'movement'])->whereNumber('id')->name('movement');
-        Route::post('/adjust/{id}', [Warehouse2StockController::class, 'adjust'])->whereNumber('id')->name('adjust');
+        Route::post('/adjust/{id}', [Warehouse2StockController::class, 'adjust'])->middleware('role:warehouse,admin')->whereNumber('id')->name('adjust');
+        Route::post('/opname', [Warehouse2StockController::class, 'storeOpname'])->middleware('role:warehouse,admin')->name('opname.store');
+        Route::get('/opname-data', [Warehouse2StockController::class, 'opnameData'])->name('opname.data');
+        Route::get('/opname/{id}', [Warehouse2StockController::class, 'opnameShow'])->whereNumber('id')->name('opname.show');
         Route::get('/{id}', [Warehouse2StockController::class, 'show'])->whereNumber('id')->name('show');
     });
 
     Route::prefix('receiving')->name('receiving.')->group(function () {
         Route::get('/', [Warehouse2ReceivingController::class, 'index'])->name('index');
         Route::get('/data', [Warehouse2ReceivingController::class, 'getData'])->name('data');
-        Route::get('/create', [Warehouse2ReceivingController::class, 'create'])->name('create');
-        Route::post('/', [Warehouse2ReceivingController::class, 'store'])->name('store');
+        Route::get('/create', [Warehouse2ReceivingController::class, 'create'])->middleware('role:warehouse,admin')->name('create');
+        Route::post('/', [Warehouse2ReceivingController::class, 'store'])->middleware('role:warehouse,admin')->name('store');
         Route::get('/print/{id}', [Warehouse2ReceivingController::class, 'print'])->whereNumber('id')->name('print');
         Route::get('/download-pdf/{id}', [Warehouse2ReceivingController::class, 'downloadPdf'])->whereNumber('id')->name('download-pdf');
         Route::get('/{id}', [Warehouse2ReceivingController::class, 'show'])->whereNumber('id')->name('show');
@@ -192,8 +277,8 @@ Route::middleware(['auth'])->prefix('warehouse2')->name('warehouse2.')->group(fu
     Route::prefix('issuing')->name('issuing.')->group(function () {
         Route::get('/', [Warehouse2IssuingController::class, 'index'])->name('index');
         Route::get('/data', [Warehouse2IssuingController::class, 'getData'])->name('data');
-        Route::get('/create', [Warehouse2IssuingController::class, 'create'])->name('create');
-        Route::post('/', [Warehouse2IssuingController::class, 'store'])->name('store');
+        Route::get('/create', [Warehouse2IssuingController::class, 'create'])->middleware('role:warehouse,admin')->name('create');
+        Route::post('/', [Warehouse2IssuingController::class, 'store'])->middleware('role:warehouse,admin')->name('store');
         Route::get('/print/{id}', [Warehouse2IssuingController::class, 'print'])->whereNumber('id')->name('print');
         Route::get('/download-pdf/{id}', [Warehouse2IssuingController::class, 'downloadPdf'])->whereNumber('id')->name('download-pdf');
         Route::get('/{id}', [Warehouse2IssuingController::class, 'show'])->whereNumber('id')->name('show');

@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Login | Engineering Apps V.1.0</title>
+    <title>Login | e-Request</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
       tailwind.config = {
@@ -263,16 +263,7 @@
         <div class="left-panel hidden lg:flex lg:w-1/2 flex-col items-center justify-center p-12 text-white relative">
             <!-- App Logo and Title -->
             <div class="relative z-10 text-center mb-12">
-                <!-- Logo Container -->
-                <div class="logo-container w-48 h-48 rounded-3xl flex items-center justify-center mb-6 mx-auto">
-                    <!-- Fallback text jika logo tidak muncul -->
-                    <div id="logoFallback" class="text-center">
-                        <div class="text-4xl font-bold mb-2">EA</div>
-                        <div class="text-sm">Engineering Apps</div>
-                    </div>
-                    <!-- Logo image akan dimuat di sini -->
-                </div>
-                <h1 class="text-4xl font-bold mb-2">Engineering Apps</h1>
+                <h1 class="text-4xl font-bold mb-2">e-Request</h1>
                 <p class="text-xl opacity-90">Versi 1.0</p>
             </div>
             
@@ -285,8 +276,8 @@
                                 <i class="fas fa-cogs text-accent-300 text-lg"></i>
                             </div>
                             <div class="ml-3">
-                                <h3 class="font-semibold text-lg mb-1">Tools Engineering</h3>
-                                <p class="text-sm opacity-80">Meng-capture kebutuhan sparepart engineering</p>
+                                <h3 class="font-semibold text-lg mb-1">Request Lintas Department</h3>
+                                <p class="text-sm opacity-80">Ajukan kebutuhan kerja ke Engineering Warehouse, IT, GA, dan service lain</p>
                             </div>
                         </div>
                     </div>
@@ -297,8 +288,8 @@
                                 <i class="fas fa-chart-line text-accent-300 text-lg"></i>
                             </div>
                             <div class="ml-3">
-                                <h3 class="font-semibold text-lg mb-1">Analisis Data</h3>
-                                <p class="text-sm opacity-80">Data tracer dan visualisasi</p>
+                                <h3 class="font-semibold text-lg mb-1">Tracking Status</h3>
+                                <p class="text-sm opacity-80">Pantau draft, approval, progress, sampai request selesai</p>
                             </div>
                         </div>
                     </div>
@@ -309,8 +300,8 @@
                                 <i class="fas fa-shield-alt text-accent-300 text-lg"></i>
                             </div>
                             <div class="ml-3">
-                                <h3 class="font-semibold text-lg mb-1">Dikolaborasikan dengan ERP System</h3>
-                                <p class="text-sm opacity-80">Sinkronisasi data lintas aplikasi</p>
+                                <h3 class="font-semibold text-lg mb-1">Kolaborasi Service Owner</h3>
+                                <p class="text-sm opacity-80">Task masuk ke department owner untuk diproses lebih cepat</p>
                             </div>
                         </div>
                     </div>
@@ -327,12 +318,12 @@
             
             <div class="w-full max-w-md">
                 <!-- Status Message -->
-                <div id="sessionStatus" class="mb-6 p-4 rounded-lg bg-gradient-to-r from-primary-50 to-accent-50 dark:from-primary-900/20 dark:to-accent-900/20 border border-primary-100 dark:border-primary-800 hidden">
+                <div id="sessionStatus" class="mb-6 p-4 rounded-lg bg-gradient-to-r from-primary-50 to-accent-50 dark:from-primary-900/20 dark:to-accent-900/20 border border-primary-100 dark:border-primary-800 {{ session('status') ? '' : 'hidden' }}">
                     <div class="flex items-center">
-                        <i class="fas fa-info-circle text-primary-600 dark:text-primary-300 mr-3"></i>
+                        <i class="fas fa-circle-check text-accent-600 dark:text-accent-300 mr-3"></i>
                         <div>
                             <h4 class="font-medium text-primary-800 dark:text-primary-200">Status Sesi</h4>
-                            <p id="statusMessage" class="text-sm text-primary-700 dark:text-primary-300"></p>
+                            <p id="statusMessage" class="text-sm text-primary-700 dark:text-primary-300">{{ session('status') }}</p>
                         </div>
                         <button id="closeStatus" class="ml-auto text-primary-600 hover:text-primary-800 dark:text-primary-300">
                             <i class="fas fa-times"></i>
@@ -345,29 +336,23 @@
                     <!-- Header -->
                     <div class="text-center mb-10">
                         <div class="lg:hidden mb-6 flex flex-col items-center">
-                            <div class="logo-container w-24 h-24 rounded-2xl flex items-center justify-center mb-4">
-                                <div id="mobileLogoFallback" class="text-center">
-                                    <div class="text-2xl font-bold mb-1">EA</div>
-                                    <div class="text-xs">Engineering</div>
-                                </div>
-                            </div>
                             <div class="text-center">
-                                <h1 class="text-2xl font-bold text-gray-800 dark:text-white">Engineering Apps</h1>
+                                <h1 class="text-2xl font-bold text-gray-800 dark:text-white">e-Request</h1>
                                 <p class="text-gray-600 dark:text-gray-300 text-sm">Versi 1.0</p>
                             </div>
                         </div>
                         <h1 class="text-3xl font-bold text-gray-800 dark:text-white mb-2">Selamat Datang</h1>
-                        <p class="text-gray-600 dark:text-gray-300">Masuk ke Engineering Apps V.1.0</p>
+                        <p class="text-gray-600 dark:text-gray-300">Masuk ke e-Request</p>
                     </div>
                     
                     <form method="POST" action="{{ route('login') }}" id="loginForm">
                         @csrf
-                        
-                        <!-- Email Address -->
+
+                        <!-- Username -->
                         <div class="mb-6">
                             <div class="flex items-center justify-between mb-2">
-                                <label for="email" class="text-sm font-medium text-gray-700 dark:text-gray-300">
-                                    <i class="fas fa-envelope mr-2"></i> Alamat Email
+                                <label for="username" class="text-sm font-medium text-gray-700 dark:text-gray-300">
+                                    <i class="fas fa-user mr-2"></i> Username
                                 </label>
                                 <span class="text-xs text-gray-500 dark:text-gray-400">Wajib</span>
                             </div>
@@ -375,19 +360,19 @@
                                 <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                                     <i class="fas fa-user text-gray-400"></i>
                                 </div>
-                                <input id="email" 
-                                       class="input-field pl-10 pr-4 py-3 w-full rounded-xl focus:outline-none focus:ring-0 transition-all duration-300 text-gray-800 dark:text-white placeholder-gray-400 dark:placeholder-gray-500" 
-                                       type="email" 
-                                       name="email" 
-                                       :value="old('email')" 
-                                       required 
-                                       autofocus 
+                                <input id="username"
+                                       class="input-field pl-10 pr-4 py-3 w-full rounded-xl focus:outline-none focus:ring-0 transition-all duration-300 text-gray-800 dark:text-white placeholder-gray-400 dark:placeholder-gray-500"
+                                       type="text"
+                                       name="username"
+                                       value="{{ old('username') }}"
+                                       required
+                                       autofocus
                                        autocomplete="username"
-                                       placeholder="anda@contoh.com">
+                                       placeholder="username">
                             </div>
-                            <div id="emailError" class="mt-2 text-sm text-red-600 dark:text-red-400 hidden">
+                            <div id="usernameError" class="mt-2 text-sm text-red-600 dark:text-red-400 {{ $errors->has('username') ? '' : 'hidden' }}">
                                 <i class="fas fa-exclamation-circle mr-1"></i>
-                                <span id="emailErrorText"></span>
+                                <span id="usernameErrorText">@error('username'){{ $message }}@enderror</span>
                             </div>
                         </div>
 
@@ -459,12 +444,12 @@
                             </div>
                         </div>
 
-                        <!-- Remember Me & Forgot Password -->
-                        <div class="flex items-center justify-between mb-8">
+                        <!-- Remember Me -->
+                        <div class="flex items-center mb-8">
                             <label for="remember_me" class="flex items-center cursor-pointer">
                                 <div class="relative">
-                                    <input id="remember_me" 
-                                           type="checkbox" 
+                                    <input id="remember_me"
+                                           type="checkbox"
                                            class="sr-only" 
                                            name="remember">
                                     <div class="toggle-dot block bg-gray-200 dark:bg-gray-700 w-10 h-6 rounded-full transition-colors duration-300"></div>
@@ -472,14 +457,6 @@
                                 </div>
                                 <span class="ml-3 text-sm text-gray-700 dark:text-gray-300">Ingat Saya</span>
                             </label>
-                            
-                            @if (Route::has('password.request'))
-                                <a class="text-sm font-medium gradient-text hover:opacity-80 transition-opacity duration-300" 
-                                   href="{{ route('password.request') }}">
-                                    <i class="fas fa-unlock mr-1"></i>
-                                    Lupa Kata Sandi?
-                                </a>
-                            @endif
                         </div>
 
                         <!-- Submit Button -->
@@ -503,7 +480,7 @@
                         <i class="fas fa-shield-alt mr-1"></i>
                         Dilindungi oleh PT. SEKARBUMI TBK
                         <br>
-                        <span class="text-xs mt-1 block">@ 2026 Engineering Apps V.1.0</span>
+                        <span class="text-xs mt-1 block">@ 2026 e-Request</span>
                     </p>
                 </div>
             </div>
@@ -597,25 +574,25 @@
         if (loginForm) {
             loginForm.addEventListener('submit', (e) => {
                 // Simulate form validation
-                const email = document.getElementById('email')?.value;
+                const username = document.getElementById('username')?.value;
                 const password = document.getElementById('password')?.value;
                 let valid = true;
-                
+
                 // Reset errors
-                const emailError = document.getElementById('emailError');
+                const usernameError = document.getElementById('usernameError');
                 const passwordError = document.getElementById('passwordError');
-                
-                if (emailError) emailError.classList.add('hidden');
+
+                if (usernameError) usernameError.classList.add('hidden');
                 if (passwordError) passwordError.classList.add('hidden');
-                
-                // Email validation
-                if (!email || !email.includes('@')) {
-                    const emailErrorText = document.getElementById('emailErrorText');
-                    if (emailErrorText) {
-                        emailErrorText.textContent = 'Harap masukkan alamat email yang valid';
+
+                // Username validation
+                if (!username || username.trim().length < 2) {
+                    const usernameErrorText = document.getElementById('usernameErrorText');
+                    if (usernameErrorText) {
+                        usernameErrorText.textContent = 'Harap masukkan username';
                     }
-                    if (emailError) {
-                        emailError.classList.remove('hidden');
+                    if (usernameError) {
+                        usernameError.classList.remove('hidden');
                     }
                     valid = false;
                 }

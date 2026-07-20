@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="csrf-token" content="{{ csrf_token() }}">
-    <title>@yield('title', 'Engineering Apps V.1.0 - Admin')</title>
+    <title>@yield('title', 'e-Request')</title>
     
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
@@ -269,13 +269,13 @@
                     <div class="logo-fallback text-center">
                         <div class="text-lg font-bold gradient-text">EA</div>
                     </div>
-                    <img src="{{ asset('resources/img/skb.png') }}" alt="Engineering Apps Logo" 
+                    <img src="{{ asset('resources/img/skb.png') }}" alt="e-Request Logo" 
                          class="w-8 h-8 object-contain hidden" 
                          onload="document.querySelector('.logo-fallback').style.display = 'none'; this.classList.remove('hidden');"
                          onerror="document.querySelector('.logo-fallback').classList.remove('hidden');">
                 </div>
                 <div>
-                    <h1 class="text-lg font-bold text-white tracking-tight sidebar-text">ENGINEERING APPS</h1>
+                    <h1 class="text-lg font-bold text-white tracking-tight sidebar-text">e-Request</h1>
                     <p class="text-xs text-gray-400 mt-1 sidebar-text">Administration Panel</p>
                 </div>
             </div>
@@ -283,57 +283,142 @@
 
         {{-- Navigation Menu --}}
         <nav class="flex-1 px-4 py-6 space-y-1 overflow-y-auto">
-            {{-- ================= DASHBOARD ================= --}}
-            <a href="{{ route('dashboard') }}"
-               class="nav-link flex items-center gap-3 px-4 py-3 rounded-lg
-               {{ request()->is('admin') || request()->is('dashboard') ? 'active' : '' }}">
-                <i class="fas fa-home w-5 text-center text-gray-300"></i>
-                <span class="sidebar-text">Dashboard</span>
-            </a>
+            @php
+                $dashboardDepartment = strtolower((string) (auth()->user()->department_code ?: 'warehouse'));
+                $isSectionHeadRole = auth()->user()->role === 'section_head';
+                $isApprovalRole = in_array(auth()->user()->role, ['approval', 'approval_level1', 'approval2'], true);
+                $isHistoricalImportUser = auth()->user()->role === 'approval'
+                    || ((auth()->user()->role ?? '') === 'user'
+                        && ((auth()->user()->username ?? '') === 'adm-engineering' || $dashboardDepartment === 'engineering'));
+                $hideMyRequests = $isSectionHeadRole || $isApprovalRole || in_array(auth()->user()->username ?? '', ['adm-engineering', 'adm-warehouse'], true);
+                $hideServices = $isSectionHeadRole
+                    || $isApprovalRole
+                    || auth()->user()->role === 'warehouse'
+                    || $dashboardDepartment === 'warehouse'
+                    || (auth()->user()->username ?? '') === 'adm-warehouse';
+                $dashboardLabels = [
+                    'engineering' => 'Engineering Dashboard',
+                    'warehouse' => 'Warehouse Dashboard',
+                    'it' => 'IT Dashboard',
+                    'ga' => 'GA Dashboard',
+                ];
+                $dashboardLabel = $isApprovalRole
+                    ? 'Dashboard'
+                    : ($dashboardLabels[$dashboardDepartment] ?? ucfirst($dashboardDepartment) . ' Dashboard');
+            @endphp
 
-            {{-- ================= OPERASIONAL ================= --}}
-            <div class="px-4 pt-6 pb-2">
-                <div class="text-xs font-medium text-gray-400 uppercase tracking-wider sidebar-text">
-                    Operasional
-                </div>
-            </div>
+            @if($isSectionHeadRole)
+                <a href="{{ route('pb-verification.index') }}"
+                   class="nav-link flex items-center gap-3 px-4 py-3 rounded-lg
+                   {{ request()->is('pb-verification*') ? 'active' : '' }}">
+                    <i class="fas fa-clipboard-list w-5 text-center text-gray-300"></i>
+                    <span class="sidebar-text">Verifikasi PB</span>
+                </a>
 
-            <a href="/transaksi"
-               class="nav-link flex items-center gap-3 px-4 py-3 rounded-lg
-               {{ request()->is('transaksi*') || request()->is('approval*') ? 'active' : '' }}">
-                <i class="fas fa-receipt w-5 text-center text-gray-300"></i>
-                <span class="sidebar-text">Permintaan Barang</span>
-            </a>
-
-            @if(auth()->user()->role !== 'approval2')
-                <a href="/workorder"
+                <a href="{{ route('workorder.index') }}"
                    class="nav-link flex items-center gap-3 px-4 py-3 rounded-lg
                    {{ request()->is('workorder*') ? 'active' : '' }}">
-                    <i class="fas fa-receipt w-5 text-center text-gray-300"></i>
-                    <span class="sidebar-text">Work Order (WO)</span>
+                    <i class="fas fa-clipboard-check w-5 text-center text-gray-300"></i>
+                    <span class="sidebar-text">Work Order</span>
+                </a>
+
+                <a href="/stock-non-sparepart"
+                   class="nav-link flex items-center gap-3 px-4 py-3 rounded-lg
+                   {{ request()->is('stock-non-sparepart*') ? 'active' : '' }}">
+                    <i class="fas fa-box-open w-5 text-center text-gray-300"></i>
+                    <span class="sidebar-text">Stock Non Sparepart</span>
                 </a>
             @endif
 
-            {{-- ================= ADMINISTRASI DATA ================= --}}
-            <div class="px-4 pt-6 pb-2">
-                <div class="text-xs font-medium text-gray-400 uppercase tracking-wider sidebar-text">
-                    Administrasi Data
+            @unless($hideMyRequests)
+                <a href="{{ route('e-requests.index') }}"
+                   class="nav-link flex items-center gap-3 px-4 py-3 rounded-lg
+                   {{ request()->routeIs('e-requests.index') || request()->routeIs('e-requests.show') ? 'active' : '' }}">
+                    <i class="fas fa-inbox w-5 text-center text-gray-300"></i>
+                    <span class="sidebar-text">My Requests</span>
+                </a>
+            @endunless
+
+            {{-- ================= DASHBOARD ================= --}}
+            @unless($isSectionHeadRole)
+                <a href="{{ route('dashboard') }}"
+                   class="nav-link flex items-center gap-3 px-4 py-3 rounded-lg
+                   {{ request()->is('admin') || request()->is('dashboard') ? 'active' : '' }}">
+                    <i class="fas fa-home w-5 text-center text-gray-300"></i>
+                    <span class="sidebar-text">{{ $dashboardLabel }}</span>
+                </a>
+            @endunless
+
+            {{-- ================= OPERASIONAL ================= --}}
+            @unless($hideServices)
+                <div class="px-4 pt-6 pb-2">
+                    <div class="text-xs font-medium text-gray-400 uppercase tracking-wider sidebar-text">
+                        Services
+                    </div>
                 </div>
-            </div>
 
-            <a href="/master"
-               class="nav-link flex items-center gap-3 px-4 py-3 rounded-lg
-               {{ request()->is('master*') || request()->is('admin/mesin*') || request()->is('admin/bangunan*') ? 'active' : '' }}">
-                <i class="fas fa-clipboard-list w-5 text-center text-gray-300"></i>
-                <span class="sidebar-text">Data Master</span>
-            </a>
+                <a href="{{ route('e-requests.create', ['service_key' => 'engineering_warehouse', 'request_type_key' => 'material_request']) }}"
+                   class="nav-link flex items-center gap-3 px-4 py-3 rounded-lg
+                    {{ request('service_key') === 'engineering_warehouse' ? 'active' : '' }}">
+                    <i class="fas fa-receipt w-5 text-center text-gray-300"></i>
+                    <span class="sidebar-text">Warehouse Request</span>
+                </a>
 
-            <a href="/stock"
-               class="nav-link flex items-center gap-3 px-4 py-3 rounded-lg
-               {{ request()->is('stock*') ? 'active' : '' }}">
-                <i class="fas fa-receipt w-5 text-center text-gray-300"></i>
-                <span class="sidebar-text">Stock Sparepart</span>
-            </a>
+                <a href="{{ route('e-requests.create', ['service_key' => 'engineering_service']) }}"
+                   class="nav-link flex items-center gap-3 px-4 py-3 rounded-lg
+                    {{ request('service_key') === 'engineering_service' ? 'active' : '' }}">
+                    <i class="fas fa-screwdriver-wrench w-5 text-center text-gray-300"></i>
+                    <span class="sidebar-text">Engineering Request</span>
+                </a>
+
+                {{-- IT Request and GA Request are disabled for now. --}}
+            @endunless
+
+            {{-- ================= ADMINISTRASI DATA ================= --}}
+            @unless($isSectionHeadRole)
+                <div class="px-4 pt-6 pb-2">
+                    <div class="text-xs font-medium text-gray-400 uppercase tracking-wider sidebar-text">
+                        Administrasi Data
+                    </div>
+                </div>
+
+                <a href="/master"
+                   class="nav-link flex items-center gap-3 px-4 py-3 rounded-lg
+                   {{ request()->is('master*') || request()->is('admin/mesin*') || request()->is('admin/bangunan*') ? 'active' : '' }}">
+                    <i class="fas fa-clipboard-list w-5 text-center text-gray-300"></i>
+                    <span class="sidebar-text">Data Master</span>
+                </a>
+
+                <a href="/stock"
+                   class="nav-link flex items-center gap-3 px-4 py-3 rounded-lg
+                   {{ request()->is('stock') || request()->is('stock/*') ? 'active' : '' }}">
+                    <i class="fas fa-receipt w-5 text-center text-gray-300"></i>
+                    <span class="sidebar-text">Stock Sparepart</span>
+                </a>
+
+                <a href="/stock-non-sparepart"
+                   class="nav-link flex items-center gap-3 px-4 py-3 rounded-lg
+                   {{ request()->is('stock-non-sparepart*') ? 'active' : '' }}">
+                    <i class="fas fa-box-open w-5 text-center text-gray-300"></i>
+                    <span class="sidebar-text">Stock Non Sparepart</span>
+                </a>
+
+                <a href="{{ route('good-issue.index') }}"
+                   class="nav-link flex items-center gap-3 px-4 py-3 rounded-lg
+                   {{ request()->is('good-issue-erp*') ? 'active' : '' }}">
+                    <i class="fas fa-file-invoice w-5 text-center text-gray-300"></i>
+                    <span class="sidebar-text">Good Issue ERP</span>
+                </a>
+
+                @if($isHistoricalImportUser)
+                    <a href="{{ route('historical-import.index') }}"
+                       class="nav-link flex items-center gap-3 px-4 py-3 rounded-lg
+                       {{ request()->is('historical-import*') ? 'active' : '' }}">
+                        <i class="fas fa-file-import w-5 text-center text-gray-300"></i>
+                        <span class="sidebar-text">Historical Import</span>
+                    </a>
+                @endif
+            @endunless
 
             {{-- ================= MONITORING ================= --}}
             @if(in_array(auth()->user()->role, ['admin', 'approval']))
@@ -372,9 +457,16 @@
                     <i class="fas fa-users-cog w-5 text-center text-gray-300"></i>
                     <span class="sidebar-text">User Management</span>
                 </a>
+
+                <a href="{{ route('admin.departments.index') }}"
+                   class="nav-link flex items-center gap-3 px-4 py-3 rounded-lg
+                   {{ request()->is('admin/departments*') ? 'active' : '' }}">
+                    <i class="fas fa-building-user w-5 text-center text-gray-300"></i>
+                    <span class="sidebar-text">Master Departemen</span>
+                </a>
             @endif
 
-            @if(in_array(auth()->user()->role, ['admin', 'warehouse']))
+            @if(auth()->user()->role === 'admin' || (auth()->user()->department_code ?? null) === 'warehouse')
                 {{-- ================= GUDANG UTAMA ================= --}}
                 <div class="px-4 pt-6 pb-2">
                     <div class="text-xs font-medium text-gray-400 uppercase tracking-wider sidebar-text">
@@ -390,7 +482,7 @@
                 </a>
             @endif
 
-            @if(in_array(auth()->user()->role, ['admin', 'user']))
+            @if(in_array(auth()->user()->role, ['admin', 'user', 'warehouse']))
                 {{-- ================= AREA STOCK ================= --}}
                 <div class="px-4 pt-6 pb-2">
                     <div class="text-xs font-medium text-gray-400 uppercase tracking-wider sidebar-text">
@@ -441,7 +533,7 @@
             </div>
             
             <div class="text-xs text-gray-400 sidebar-text">
-                Copyright {{ date('Y') }} Engineering Apps V.1.0
+                Copyright {{ date('Y') }} e-Request
             </div>
         </div>
     </aside>
@@ -463,6 +555,19 @@
                         $path = request()->path();
                         $path = preg_replace('#^(admin|dashboard)/?#', '', $path);
                         $label = ucwords(str_replace(['-', '/'], ' ', $path));
+                        $label = str_replace([
+                            'Warehouse2 Stock',
+                            'Warehouse2 Receiving Create',
+                            'Warehouse2 Receiving',
+                            'Warehouse2 Issuing Create',
+                            'Warehouse2 Issuing',
+                        ], [
+                            'Stock Area',
+                            'Terima dari Gudang Baru',
+                            'Terima dari Gudang',
+                            'Pengeluaran Area Baru',
+                            'Pengeluaran Area',
+                        ], $label);
                     @endphp
 
                     @if($path)
@@ -491,9 +596,19 @@
                              x-cloak
                              @click.outside="open = false"
                              class="absolute right-0 z-[1000] mt-2 w-80 overflow-hidden rounded-xl border border-gray-200 bg-white shadow-xl dark:border-gray-700 dark:bg-gray-900">
-                            <div class="border-b border-gray-100 px-4 py-3 dark:border-gray-700">
-                                <div class="text-sm font-semibold text-gray-900 dark:text-white">Notifikasi Approval L2</div>
-                                <div class="text-xs text-gray-500">PB high value menunggu review</div>
+                            <div class="border-b border-blue-100 bg-blue-50/70 px-4 py-3 dark:border-gray-700 dark:bg-gray-800">
+                                <div class="flex items-start justify-between gap-3">
+                                    <div class="flex items-start gap-3">
+                                        <div class="mt-0.5 flex h-9 w-9 items-center justify-center rounded-lg bg-white text-blue-600 shadow-sm ring-1 ring-blue-100 dark:bg-gray-900 dark:ring-gray-700">
+                                            <i class="fas fa-bell text-sm"></i>
+                                        </div>
+                                        <div>
+                                            <div class="text-sm font-semibold text-gray-900 dark:text-white" x-text="notificationTitle()"></div>
+                                            <div class="mt-0.5 text-xs text-gray-500" x-text="notificationSubtitle()"></div>
+                                        </div>
+                                    </div>
+                                    <span class="shrink-0 rounded-full bg-blue-600 px-2.5 py-1 text-[11px] font-semibold text-white" x-text="taskBadgeLabel()"></span>
+                                </div>
                             </div>
 
                             <div class="max-h-96 overflow-y-auto">
@@ -509,21 +624,24 @@
                                     <a :href="item.url" class="block border-b border-gray-100 px-4 py-3 transition hover:bg-blue-50 dark:border-gray-800 dark:hover:bg-gray-800">
                                         <div class="flex items-start justify-between gap-3">
                                             <div>
-                                                <div class="text-sm font-semibold text-gray-900 dark:text-white" x-text="item.nomor_pb"></div>
+                                                <div class="text-sm font-semibold text-gray-900 dark:text-white" x-text="item.nomor || item.nomor_pb"></div>
+                                                <div class="mt-0.5 text-xs font-medium text-blue-600" x-text="item.title || ''"></div>
                                                 <div class="mt-0.5 text-xs text-gray-500" x-text="item.message"></div>
                                             </div>
-                                            <span class="shrink-0 rounded-full bg-amber-50 px-2 py-0.5 text-[11px] font-semibold text-amber-700">L2</span>
+                                            <span class="shrink-0 rounded-full px-2 py-0.5 text-[11px] font-semibold"
+                                                  :class="item.type === 'WO' ? 'bg-blue-50 text-blue-700' : (item.is_high_value ? 'bg-orange-50 text-orange-700' : 'bg-amber-50 text-amber-700')"
+                                                  x-text="item.type === 'WO' ? 'WO' : (userRole === 'approval2' ? 'L2' : 'PB')"></span>
                                         </div>
                                         <div class="mt-2 flex items-center justify-between text-xs text-gray-500">
                                             <span x-text="formatDue(item)"></span>
-                                            <span class="font-mono font-semibold text-gray-700" x-text="formatCurrency(item.total_value)"></span>
+                                            <span class="font-mono font-semibold text-gray-700" x-text="item.total_value === null ? (item.total_item + ' item') : formatCurrency(item.total_value)"></span>
                                         </div>
                                     </a>
                                 </template>
                             </div>
 
                             <div class="border-t border-gray-100 px-4 py-3 dark:border-gray-700">
-                                <a href="{{ route('transaksi.index') }}" class="block text-center text-sm font-semibold text-blue-600 hover:text-blue-700">Buka Approval PB</a>
+                                <a :href="primaryNotificationUrl()" class="block text-center text-sm font-semibold text-blue-600 hover:text-blue-700" x-text="primaryNotificationLabel()"></a>
                             </div>
                         </div>
                     </div>
@@ -565,9 +683,6 @@
                                         @case('approval2')
                                             Approval L2
                                             @break
-                                        @case('warehouse')
-                                            Warehouse
-                                            @break
                                         @default
                                             {{ ucfirst(auth()->user()->role) }}
                                     @endswitch
@@ -581,10 +696,6 @@
                                 <a href="/settings" class="flex items-center px-3 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded transition-colors duration-150" role="menuitem">
                                     <i class="fas fa-cog mr-2 text-gray-400 w-4 text-center"></i>
                                     Settings
-                                </a>
-                                <a href="/help" class="flex items-center px-3 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded transition-colors duration-150" role="menuitem">
-                                    <i class="fas fa-question-circle mr-2 text-gray-400 w-4 text-center"></i>
-                                    Help & Support
                                 </a>
                                 <div class="border-t border-gray-200 dark:border-gray-700 my-1"></div>
                                 <form action="/logout" method="POST">
@@ -611,7 +722,7 @@
             <div class="flex justify-between items-center">
                 <div>
                     <i class="fas fa-shield-alt mr-1"></i>
-                    Secured by PT. SEKARBUMI TBK - Engineering Apps V.1.0
+                    Secured by PT. SEKARBUMI TBK - e-Request
                 </div>
                 <div>
                     <span class="mr-4">
@@ -760,28 +871,42 @@
                 count: 0,
                 items: [],
                 userRole: '{{ auth()->user()->role }}',
+                userNotificationUrl: '{{ route('notifications.user') }}',
+                approval1Url: '{{ route('notifications.approval1') }}',
+                approval2Url: '{{ route('notifications.approval2') }}',
+                sectionHeadUrl: '{{ route('notifications.section-head') }}',
+                transaksiUrl: '{{ route('transaksi.index') }}',
+                workorderUrl: '{{ route('workorder.index') }}',
+                pbVerificationUrl: '{{ route('pb-verification.index') }}',
+                dashboardUrl: '{{ route('dashboard') }}',
+                readStorageKey: 'sipermata_read_notifications_{{ auth()->id() }}',
                 async init() {
-                    if (this.userRole !== 'approval2') return;
+                    if (!this.isNotificationRole()) return;
                     await this.load();
                     setInterval(() => this.load(), 60000);
                 },
                 async toggle() {
                     this.open = !this.open;
-                    if (this.open) await this.load();
+                    if (this.open) {
+                        await this.load();
+                        if (this.isReadBased()) this.markVisibleAsRead();
+                    }
                 },
                 async load() {
-                    if (this.userRole !== 'approval2') return;
+                    if (!this.isNotificationRole()) return;
                     this.loading = true;
                     try {
-                        const response = await fetch('{{ route('notifications.approval2') }}', {
+                        const response = await fetch(this.notificationEndpoint(), {
                             headers: {
                                 'Accept': 'application/json',
                                 'X-Requested-With': 'XMLHttpRequest'
                             }
                         });
                         const result = await response.json();
-                        this.count = result.success ? Number(result.count || 0) : 0;
                         this.items = result.success && Array.isArray(result.items) ? result.items : [];
+                        this.count = this.isReadBased()
+                            ? this.items.filter(item => !this.readIds().includes(String(item.id))).length
+                            : (result.success ? Number(result.count || 0) : 0);
                     } catch (error) {
                         console.error('Notification load error:', error);
                         this.count = 0;
@@ -790,10 +915,69 @@
                         this.loading = false;
                     }
                 },
+                isNotificationRole() {
+                    return ['user', 'approval', 'approval_level1', 'approval2', 'section_head'].includes(this.userRole);
+                },
+                isReadBased() {
+                    return this.userRole === 'user';
+                },
+                notificationEndpoint() {
+                    if (this.userRole === 'user') return this.userNotificationUrl;
+                    if (this.userRole === 'section_head') return this.sectionHeadUrl;
+                    return this.userRole === 'approval2' ? this.approval2Url : this.approval1Url;
+                },
+                notificationTitle() {
+                    if (this.userRole === 'user') return 'Update Aktivitas';
+                    if (this.userRole === 'section_head') return 'Verifikasi PB Pending';
+                    return this.userRole === 'approval2' ? 'Approval L2 Pending' : 'Approval L1 Pending';
+                },
+                notificationSubtitle() {
+                    if (this.userRole === 'user') return 'Status PB dan WO terbaru';
+                    if (this.userRole === 'section_head') return 'PB menunggu konfirmasi kebutuhan';
+                    return this.userRole === 'approval2'
+                        ? 'PB high value menunggu keputusan'
+                        : 'PB dan WO menunggu keputusan';
+                },
+                taskBadgeLabel() {
+                    const total = Number(this.count || 0);
+                    return this.isReadBased()
+                        ? `${total > 99 ? '99+' : total} baru`
+                        : `${total > 99 ? '99+' : total} task`;
+                },
+                primaryNotificationUrl() {
+                    if (this.userRole === 'user') return this.dashboardUrl;
+                    if (this.userRole === 'section_head') return this.pbVerificationUrl;
+                    return this.userRole === 'approval2' ? this.transaksiUrl : this.dashboardUrl;
+                },
+                primaryNotificationLabel() {
+                    if (this.userRole === 'user') return 'Buka Dashboard';
+                    if (this.userRole === 'section_head') return 'Buka Verifikasi PB';
+                    return this.userRole === 'approval2' ? 'Buka Approval PB' : 'Buka Dashboard Approval';
+                },
+                readIds() {
+                    try {
+                        return JSON.parse(localStorage.getItem(this.readStorageKey) || '[]').map(String);
+                    } catch (error) {
+                        return [];
+                    }
+                },
+                saveReadIds(ids) {
+                    localStorage.setItem(this.readStorageKey, JSON.stringify([...new Set(ids.map(String))].slice(-200)));
+                },
+                markVisibleAsRead() {
+                    const current = this.readIds();
+                    this.saveReadIds([...current, ...this.items.map(item => item.id)]);
+                    this.count = 0;
+                },
                 formatCurrency(value) {
                     return 'Rp ' + Number(value || 0).toLocaleString('id-ID', { maximumFractionDigits: 0 });
                 },
                 formatDue(item) {
+                    if (this.isReadBased()) {
+                        if (!item.event_at) return 'Update terbaru';
+                        return new Date(item.event_at).toLocaleString('id-ID', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+                    }
+                    if (item.type === 'WO') return 'Menunggu approval WO';
                     if (!item.tanggal_diperlukan) return 'Due date belum ada';
                     const date = new Date(item.tanggal_diperlukan).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' });
                     if (item.due_days < 0) return `Overdue ${Math.abs(item.due_days)} hari`;

@@ -178,7 +178,7 @@
     <div class="header">
         <h1>BUKTI TERIMA BARANG</h1>
         <h3>(BTB)</h3>
-        <p>WAREHOUSE 2</p>
+        <p>AREA STOCK</p>
     </div>
 
     <div class="info">
@@ -221,19 +221,15 @@
                 <th width="30%">Nama Barang</th>
                 <th width="10%">Jumlah</th>
                 <th width="8%">Satuan</th>
-                <th width="16%">Harga</th>
-                <th width="16%">Total</th>
             </tr>
         </thead>
         <tbody>
             @php 
                 $totalQty = 0; 
-                $totalValue = 0; 
             @endphp
             @foreach($details as $index => $item)
             @php 
                 $totalQty += $item->quantity;
-                $totalValue += $item->total_price;
             @endphp
             <tr>
                 <td class="center">{{ $index + 1 }}</td>
@@ -241,18 +237,14 @@
                 <td>{{ $item->item_name }}</td>
                 <td class="number">{{ number_format($item->quantity, 2) }}</td>
                 <td class="center">{{ $item->unit }}</td>
-                <td class="number">Rp {{ number_format($item->unit_price, 0) }}</td>
-                <td class="number">Rp {{ number_format($item->total_price, 0) }}</td>
             </tr>
             @endforeach
         </tbody>
         <tfoot>
             <tr>
-                <td colspan="3" style="text-align: right; font-weight: bold;">TOTAL</td>
+                <td colspan="3" style="text-align: right; font-weight: bold;">TOTAL QTY</td>
                 <td class="number" style="font-weight: bold;">{{ number_format($totalQty, 2) }}</td>
                 <td></td>
-                <td></td>
-                <td class="number" style="font-weight: bold;">Rp {{ number_format($totalValue, 0) }}</td>
             </tr>
         </tfoot>
     </table>

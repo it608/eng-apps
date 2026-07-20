@@ -79,6 +79,7 @@ class AuditActionMiddleware
     {
         $path = trim($request->path(), '/');
         $routeName = (string) $request->route()?->getName();
+        $needle = strtolower($path . ' ' . $routeName);
 
         if (str_starts_with($path, 'login') || str_starts_with($path, 'logout')) {
             return 'auth';
@@ -97,7 +98,11 @@ class AuditActionMiddleware
         }
 
         if (str_starts_with($path, 'transaksi') || str_starts_with($path, 'approval')) {
-            return 'transaksi';
+            return 'permintaan_barang';
+        }
+
+        if (str_starts_with($path, 'warehouse/pb')) {
+            return 'pb_fulfillment';
         }
 
         if (str_starts_with($path, 'master') || str_starts_with($path, 'admin/mesin') || str_starts_with($path, 'admin/bangunan')) {
@@ -113,7 +118,19 @@ class AuditActionMiddleware
         }
 
         if (str_starts_with($path, 'warehouse2')) {
-            return 'warehouse2';
+            if (str_contains($needle, 'warehouse2/stock')) {
+                return 'stock_area';
+            }
+
+            if (str_contains($needle, 'warehouse2/receiving')) {
+                return 'terima_dari_gudang';
+            }
+
+            if (str_contains($needle, 'warehouse2/issuing')) {
+                return 'pengeluaran_area';
+            }
+
+            return 'warehouse_area';
         }
 
         if ($routeName !== '') {
@@ -141,6 +158,10 @@ class AuditActionMiddleware
         $needle = strtolower($path . ' ' . $routeName);
 
         foreach ([
+            'erp-reference' => 'update_erp_reference',
+            'pb.items.update' => 'fulfillment_update',
+            'items/' => 'fulfillment_update',
+            'adjust' => 'stock_adjust',
             'bulk-approve' => 'bulk_approve',
             'approve' => 'approve',
             'reject' => 'reject',

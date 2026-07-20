@@ -1,6 +1,6 @@
 @extends('layouts.admin')
 
-@section('title', 'Warehouse 2 - Keluar Barang')
+@section('title', 'Area Stock - Pengeluaran Barang')
 
 @push('styles')
 <style>
@@ -75,17 +75,20 @@
 @endpush
 
 @section('content')
+@php($canManageAreaStock = in_array(auth()->user()->role ?? null, ['warehouse', 'admin'], true))
 <div class="mb-6 flex justify-between items-center">
     <div>
-        <h1 class="text-2xl font-semibold text-gray-800">Warehouse 2 - Keluar Barang</h1>
-        <p class="text-sm text-gray-500 mt-1">Daftar transaksi pengeluaran barang</p>
+        <h1 class="text-2xl font-semibold text-gray-800">Area Stock - Pengeluaran Barang</h1>
+        <p class="text-sm text-gray-500 mt-1">Daftar pemakaian/pengeluaran barang dari area</p>
     </div>
+    @if($canManageAreaStock)
     <a href="{{ route('warehouse2.issuing.create') }}" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2">
         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
         </svg>
         Keluar Barang Baru
     </a>
+    @endif
 </div>
 
 <div class="bg-white rounded-xl shadow-sm border p-6">
@@ -164,7 +167,7 @@
             <button onclick="closeDetailModal()" class="px-4 py-2 bg-gray-200 rounded hover:bg-gray-300">Tutup</button>
         </div>
         
-        <button onclick="closeDetailModal()" class="absolute top-2 right-2 text-gray-400 hover:text-gray-600 font-bold text-xl">×</button>
+        <button onclick="closeDetailModal()" class="absolute top-2 right-2 text-gray-400 hover:text-gray-600 font-bold text-xl">Ã—</button>
     </div>
 </div>
 @endsection

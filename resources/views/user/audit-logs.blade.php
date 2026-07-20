@@ -1,6 +1,6 @@
 @extends('layouts.admin')
 
-@section('title', 'Audit Logs - Engineering Apps')
+@section('title', 'Audit Logs - e-Request')
 
 @section('content')
 <div class="space-y-6" x-data="auditLogsPage()" x-init="init()">

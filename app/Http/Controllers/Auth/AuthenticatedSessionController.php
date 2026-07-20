@@ -29,12 +29,19 @@ class AuthenticatedSessionController extends Controller
         $request->session()->regenerate();
     
         $user = auth()->user();
-    
+
         if ($user->role === 'admin') {
-            return redirect('/admin');
+            return redirect()->route('admin.dashboard');
         }
     
-        return redirect('/dashboard');
+        if (
+            in_array($user->role, ['approval', 'approval_level1', 'approval2'], true)
+            || in_array($user->username, ['adm-engineering', 'adm-warehouse'], true)
+        ) {
+            return redirect()->route('dashboard');
+        }
+
+        return redirect()->route('dashboard');
     }
 
 
@@ -49,6 +56,6 @@ class AuthenticatedSessionController extends Controller
 
         $request->session()->regenerateToken();
 
-        return redirect('/');
+        return redirect()->route('logout.success');
     }
 }

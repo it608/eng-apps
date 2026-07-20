@@ -3,6 +3,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Services\FirebasePushService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -84,11 +85,13 @@ class ApprovalController extends Controller
                 if ($requiredLevel >= self::LEVEL_TWO) {
                     $updateData['approval_current_level'] = self::LEVEL_TWO;
                     $message = 'Approval level 1 berhasil. Permintaan menunggu approval level 2.';
+                    $notifyLevelTwo = true;
                 } else {
                     $updateData['status'] = 'approved';
                     $updateData['approved_at'] = now();
                     $updateData['approved_by'] = auth()->id();
                     $message = 'Permintaan berhasil disetujui';
+                    $notifyLevelTwo = false;
                 }
             } else {
                 $updateData['approval_level_2_at'] = now();
@@ -97,6 +100,7 @@ class ApprovalController extends Controller
                 $updateData['approved_at'] = now();
                 $updateData['approved_by'] = auth()->id();
                 $message = 'Approval level 2 berhasil. Permintaan sudah disetujui.';
+                $notifyLevelTwo = false;
             }
 
             DB::table('trBPB')
@@ -104,6 +108,21 @@ class ApprovalController extends Controller
                 ->update($updateData);
 
             DB::commit();
+
+            if ($notifyLevelTwo && $this->requiresLevelTwo($request)) {
+                app(FirebasePushService::class)->sendToRole(
+                    'approval2',
+                    'PB Menunggu Approval L2',
+                    ($request->nomor_pb ?? 'PB') . ' punya item > 10 juta dan perlu keputusan L2.',
+                    [
+                        'type' => 'PB',
+                        'target' => 'approval',
+                        'record_id' => $id,
+                        'nomor' => $request->nomor_pb ?? '',
+                        'level' => 2,
+                    ]
+                );
+            }
 
             return response()->json([
                 'success' => true,
@@ -221,6 +240,8 @@ class ApprovalController extends Controller
 
             DB::beginTransaction();
 
+            $notifyLevelTwoIds = [];
+
             foreach ($request->ids as $id) {
                 $trbpb = DB::table('trBPB')->where('id', $id)->where('status', 'pending')->lockForUpdate()->first();
 
@@ -247,6 +268,12 @@ class ApprovalController extends Controller
 
                     if ($requiredLevel >= self::LEVEL_TWO) {
                         $updateData['approval_current_level'] = self::LEVEL_TWO;
+                        if ($this->requiresLevelTwo($trbpb)) {
+                            $notifyLevelTwoIds[] = [
+                                'id' => $id,
+                                'nomor' => $trbpb->nomor_pb ?? '',
+                            ];
+                        }
                     } else {
                         $updateData['status'] = 'approved';
                         $updateData['approved_at'] = now();
@@ -264,6 +291,21 @@ class ApprovalController extends Controller
             }
 
             DB::commit();
+
+            foreach ($notifyLevelTwoIds as $pending) {
+                app(FirebasePushService::class)->sendToRole(
+                    'approval2',
+                    'PB Menunggu Approval L2',
+                    ($pending['nomor'] ?: 'PB') . ' punya item > 10 juta dan perlu keputusan L2.',
+                    [
+                        'type' => 'PB',
+                        'target' => 'approval',
+                        'record_id' => $pending['id'],
+                        'nomor' => $pending['nomor'],
+                        'level' => 2,
+                    ]
+                );
+            }
 
             return response()->json([
                 'success' => true,

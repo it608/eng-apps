@@ -2,14 +2,28 @@
 
 namespace App\Http\Controllers;
 
+use App\Services\FirebasePushService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Validation\Rule;
 
 class WorkOrderController extends Controller
 {
+    private function canViewAllWorkOrders($user): bool
+    {
+        if (!$user) {
+            return false;
+        }
+
+        return $user->role === 'admin'
+            || $user->username === 'administrator'
+            || in_array($user->role, ['approval', 'approval_level1'], true);
+    }
+
     /**
      * Display a listing of work orders.
      */
@@ -18,9 +32,11 @@ class WorkOrderController extends Controller
         try {
             $user = auth()->user();
             $isApproval = $user->role === 'approval'; // Sesuaikan dengan role di sistem lo
+            $isSectionHead = $user->role === 'section_head';
+            $canViewAll = $this->canViewAllWorkOrders($user);
             
             // Get counts berdasarkan role
-            if ($isApproval) {
+            if ($canViewAll) {
                 // Approval lihat semua
                 $counts = [
                     'total' => DB::table('trWorkOrder')->count(),
@@ -29,6 +45,16 @@ class WorkOrderController extends Controller
                     'approved' => DB::table('trWorkOrder')->where('status', 'approved')->count(),
                     'rejected' => DB::table('trWorkOrder')->where('status', 'rejected')->count(),
                     'completed' => DB::table('trWorkOrder')->where('status', 'completed')->count(),
+                ];
+            } elseif ($isSectionHead) {
+                $assignedQuery = fn () => DB::table('trWorkOrder')->where('assigned_regu', $user->name);
+                $counts = [
+                    'total' => $assignedQuery()->count(),
+                    'draft' => 0,
+                    'submitted' => 0,
+                    'approved' => $assignedQuery()->where('status', 'approved')->count(),
+                    'rejected' => $assignedQuery()->where('status', 'rejected')->count(),
+                    'completed' => $assignedQuery()->where('progress_status', 'closed')->count(),
                 ];
             } else {
                 // User biasa lihat punya dia aja
@@ -42,7 +68,9 @@ class WorkOrderController extends Controller
                 ];
             }
             
-            return view('user.workorder', compact('counts', 'isApproval'));
+            $pelaksanaOptions = $this->pelaksanaOptions();
+
+            return view('user.workorder', compact('counts', 'isApproval', 'pelaksanaOptions'));
         } catch (\Exception $e) {
             Log::error('WorkOrder index error: ' . $e->getMessage());
             return view('user.workorder')->with('error', 'Gagal memuat halaman: ' . $e->getMessage());
@@ -57,6 +85,8 @@ class WorkOrderController extends Controller
         try {
             $user = auth()->user();
             $isApproval = $user->role === 'approval';
+            $isSectionHead = $user->role === 'section_head';
+            $canViewAll = $this->canViewAllWorkOrders($user);
             
             $query = DB::table('trWorkOrder')
                 ->select([
@@ -71,16 +101,24 @@ class WorkOrderController extends Controller
                     'trWorkOrder.created_at',
                     'trWorkOrder.updated_at',
                     'trWorkOrder.rejection_notes',
+                    'trWorkOrder.assigned_regu',
+                    'trWorkOrder.assigned_at',
                     'users.name as created_by_name',
                     'users.email as created_by_email'
                 ])
                 ->leftJoin('users', 'trWorkOrder.created_by', '=', 'users.id');
 
             // Filter berdasarkan role
-            if (!$isApproval) {
+            if ($isSectionHead) {
+                $query->where('trWorkOrder.assigned_regu', $user->name);
+            } elseif (!$canViewAll) {
                 // User biasa: hanya lihat punya dia
                 $query->where('trWorkOrder.created_by', $user->id);
             }
+
+            // Tab daftar fokus ke WO yang masih menjadi antrian kerja/approval.
+            // Rejected tetap ditampilkan supaya selaras dengan scorecard dan bisa ditindaklanjuti.
+            $query->whereIn('trWorkOrder.status', ['draft', 'submitted', 'rejected']);
 
             // Filter search
             if ($request->filled('search')) {
@@ -142,6 +180,101 @@ class WorkOrderController extends Controller
     }
 
     /**
+     * Get completed approval history for work orders.
+     */
+    public function historyData(Request $request)
+    {
+        try {
+            $user = auth()->user();
+            $isApproval = in_array($user->role, ['approval', 'approval_level1'], true);
+            $isSectionHead = $user->role === 'section_head';
+            $canViewAll = $this->canViewAllWorkOrders($user);
+
+            $query = DB::table('trWorkOrder')
+                ->select([
+                    'trWorkOrder.id',
+                    'trWorkOrder.nomor',
+                    'trWorkOrder.judul',
+                    'trWorkOrder.deskripsi',
+                    'trWorkOrder.file_name',
+                    'trWorkOrder.status',
+                    'trWorkOrder.created_by',
+                    'trWorkOrder.created_at',
+                    'trWorkOrder.submitted_at',
+                    'trWorkOrder.approved_at',
+                    'trWorkOrder.rejected_at',
+                    'trWorkOrder.completed_at',
+                    'trWorkOrder.rejection_notes',
+                    'creator.name as created_by_name',
+                    'approver.name as approved_by_name',
+                    'rejector.name as rejected_by_name',
+                ])
+                ->leftJoin('users as creator', 'trWorkOrder.created_by', '=', 'creator.id')
+                ->leftJoin('users as approver', 'trWorkOrder.approved_by', '=', 'approver.id')
+                ->leftJoin('users as rejector', 'trWorkOrder.rejected_by', '=', 'rejector.id')
+                ->whereIn('trWorkOrder.status', ['approved', 'rejected', 'completed']);
+
+            if ($canViewAll && !$isApproval) {
+                // Administrator bisa melihat semua riwayat WO.
+            } elseif ($isApproval) {
+                $query->where(function ($q) use ($user) {
+                    $q->where('trWorkOrder.approved_by', $user->id)
+                        ->orWhere('trWorkOrder.rejected_by', $user->id);
+                });
+            } elseif ($isSectionHead) {
+                $query->where('trWorkOrder.assigned_regu', $user->name);
+            } else {
+                $query->where('trWorkOrder.created_by', $user->id);
+            }
+
+            if ($request->filled('search')) {
+                $search = $request->search;
+                $query->where(function ($q) use ($search) {
+                    $q->where('trWorkOrder.nomor', 'LIKE', "%{$search}%")
+                        ->orWhere('trWorkOrder.judul', 'LIKE', "%{$search}%")
+                        ->orWhere('trWorkOrder.deskripsi', 'LIKE', "%{$search}%")
+                        ->orWhere('creator.name', 'LIKE', "%{$search}%");
+                });
+            }
+
+            if ($request->filled('status')) {
+                $query->where('trWorkOrder.status', $request->status);
+            }
+
+            if ($request->filled('date_from')) {
+                $query->whereRaw('DATE(COALESCE(trWorkOrder.submitted_at, trWorkOrder.created_at)) >= ?', [$request->date_from]);
+            }
+
+            if ($request->filled('date_to')) {
+                $query->whereRaw('DATE(COALESCE(trWorkOrder.submitted_at, trWorkOrder.created_at)) <= ?', [$request->date_to]);
+            }
+
+            $perPage = (int) $request->get('per_page', 10);
+            $data = $query
+                ->orderByRaw('COALESCE(trWorkOrder.approved_at, trWorkOrder.rejected_at, trWorkOrder.completed_at, trWorkOrder.updated_at) DESC')
+                ->paginate($perPage);
+
+            return response()->json([
+                'success' => true,
+                'data' => $data->items(),
+                'pagination' => [
+                    'current_page' => $data->currentPage(),
+                    'per_page' => $data->perPage(),
+                    'total' => $data->total(),
+                    'last_page' => $data->lastPage(),
+                ],
+            ]);
+        } catch (\Exception $e) {
+            Log::error('WorkOrder historyData error: ' . $e->getMessage());
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Gagal mengambil riwayat WO: ' . $e->getMessage(),
+            ], 500);
+        }
+    }
+
+    /**
      * Get progress data for approved work orders
      */
     public function progressData(Request $request)
@@ -149,6 +282,8 @@ class WorkOrderController extends Controller
         try {
             $user = auth()->user();
             $isApproval = $user->role === 'approval';
+            $isSectionHead = $user->role === 'section_head';
+            $canViewAll = $this->canViewAllWorkOrders($user);
             
             $query = DB::table('trWorkOrder')
                 ->select([
@@ -164,13 +299,20 @@ class WorkOrderController extends Controller
                     'trWorkOrder.created_at',
                     'trWorkOrder.updated_at',
                     'trWorkOrder.approved_at',
+                    'trWorkOrder.rejected_at',
+                    'trWorkOrder.rejection_notes',
+                    'trWorkOrder.assigned_regu',
+                    'trWorkOrder.assigned_at',
+                    'trWorkOrder.delegation_notes',
                     'users.name as created_by_name',
                 ])
                 ->leftJoin('users', 'trWorkOrder.created_by', '=', 'users.id')
-                ->where('trWorkOrder.status', 'approved'); // Hanya yang sudah approved
+                ->whereIn('trWorkOrder.status', ['approved', 'rejected']);
 
             // Filter berdasarkan role
-            if (!$isApproval) {
+            if ($isSectionHead) {
+                $query->where('trWorkOrder.assigned_regu', $user->name);
+            } elseif (!$canViewAll) {
                 // User biasa: hanya lihat punya dia
                 $query->where('trWorkOrder.created_by', $user->id);
             }
@@ -180,38 +322,63 @@ class WorkOrderController extends Controller
                 $search = $request->search;
                 $query->where(function($q) use ($search) {
                     $q->where('trWorkOrder.nomor', 'LIKE', "%{$search}%")
-                      ->orWhere('trWorkOrder.judul', 'LIKE', "%{$search}%");
+                      ->orWhere('trWorkOrder.judul', 'LIKE', "%{$search}%")
+                      ->orWhere('trWorkOrder.assigned_regu', 'LIKE', "%{$search}%");
                 });
             }
 
             // Filter progress status
             if ($request->filled('progress_status')) {
-                if ($request->progress_status === 'open') {
+                if ($request->progress_status === 'rejected') {
+                    $query->where('trWorkOrder.status', 'rejected');
+                } elseif ($request->progress_status === 'open') {
                     // Open: approved tapi belum punya progress_status atau progress_status = 'open'
-                    $query->where(function($q) {
+                    $query->where('trWorkOrder.status', 'approved')
+                        ->where(function($q) {
                         $q->whereNull('trWorkOrder.progress_status')
                           ->orWhere('trWorkOrder.progress_status', 'open');
                     });
                 } else {
-                    $query->where('trWorkOrder.progress_status', $request->progress_status);
+                    $query->where('trWorkOrder.status', 'approved')
+                        ->where('trWorkOrder.progress_status', $request->progress_status);
                 }
             } else {
-                // Default: tampilkan semua yang approved (termasuk yang belum punya progress_status)
-                $query->where(function($q) {
-                    $q->whereNotNull('trWorkOrder.progress_status')
-                      ->orWhereNull('trWorkOrder.progress_status');
-                });
+                // Default: tampilkan WO approved dan rejected agar tidak ada status dari scorecard yang "hilang".
+                $query->whereIn('trWorkOrder.status', ['approved', 'rejected']);
             }
 
             // Pagination
             $perPage = $request->get('per_page', 20);
-            $data = $query->orderBy('trWorkOrder.approved_at', 'desc')->paginate($perPage);
+            $data = $query
+                ->orderByRaw('COALESCE(trWorkOrder.approved_at, trWorkOrder.rejected_at, trWorkOrder.updated_at, trWorkOrder.created_at) DESC')
+                ->paginate($perPage);
 
             // Process data untuk set default progress_status
             $items = collect($data->items())->map(function($item) {
-                if (is_null($item->progress_status)) {
+                if ($item->main_status === 'rejected') {
+                    $item->progress_status = 'rejected';
+                    $item->closed_at = $item->rejected_at ?: $item->updated_at;
+                } elseif (is_null($item->progress_status)) {
                     $item->progress_status = 'open'; // Default untuk yang baru approved
                 }
+                $item->photos = Schema::hasTable('trWorkOrderPhotos')
+                    ? DB::table('trWorkOrderPhotos as p')
+                        ->leftJoin('users as u', 'p.uploaded_by', '=', 'u.id')
+                        ->where('p.work_order_id', $item->id)
+                        ->orderBy('p.created_at')
+                        ->get([
+                            'p.id',
+                            'p.file_name',
+                            'p.file_path',
+                            'p.notes',
+                            'p.created_at',
+                            'u.name as uploaded_by_name',
+                        ])
+                        ->map(function ($photo) {
+                            $photo->url = '/workorder/photo/' . $photo->id;
+                            return $photo;
+                        })
+                    : collect();
                 return $item;
             });
 
@@ -224,21 +391,39 @@ class WorkOrderController extends Controller
                           ->orWhere('progress_status', 'open');
                     })
                     ->when(!$isApproval, function($q) use ($user) {
-                        return $q->where('created_by', $user->id);
+                        if ($this->canViewAllWorkOrders($user)) {
+                            return $q;
+                        }
+
+                        return $user->role === 'section_head'
+                            ? $q->where('assigned_regu', $user->name)
+                            : $q->where('created_by', $user->id);
                     })
                     ->count(),
                 'progress' => DB::table('trWorkOrder')
                     ->where('status', 'approved')
                     ->where('progress_status', 'progress')
                     ->when(!$isApproval, function($q) use ($user) {
-                        return $q->where('created_by', $user->id);
+                        if ($this->canViewAllWorkOrders($user)) {
+                            return $q;
+                        }
+
+                        return $user->role === 'section_head'
+                            ? $q->where('assigned_regu', $user->name)
+                            : $q->where('created_by', $user->id);
                     })
                     ->count(),
                 'closed' => DB::table('trWorkOrder')
                     ->where('status', 'approved')
                     ->where('progress_status', 'closed')
                     ->when(!$isApproval, function($q) use ($user) {
-                        return $q->where('created_by', $user->id);
+                        if ($this->canViewAllWorkOrders($user)) {
+                            return $q;
+                        }
+
+                        return $user->role === 'section_head'
+                            ? $q->where('assigned_regu', $user->name)
+                            : $q->where('created_by', $user->id);
                     })
                     ->count(),
             ];
@@ -263,6 +448,33 @@ class WorkOrderController extends Controller
                 'message' => 'Gagal mengambil data progress: ' . $e->getMessage()
             ], 500);
         }
+    }
+
+    public function photo($id)
+    {
+        abort_unless(Schema::hasTable('trWorkOrderPhotos'), 404);
+
+        $photo = DB::table('trWorkOrderPhotos')->where('id', $id)->first();
+        abort_unless($photo, 404);
+
+        $user = auth()->user();
+        if ($user && $user->role === 'section_head') {
+            $allowed = DB::table('trWorkOrder')
+                ->where('id', $photo->work_order_id)
+                ->where('assigned_regu', $user->name)
+                ->exists();
+            abort_unless($allowed, 403);
+        }
+
+        $path = storage_path('app/public/' . ltrim($photo->file_path, '/'));
+        abort_unless(is_file($path), 404);
+
+        $mime = mime_content_type($path) ?: 'image/jpeg';
+
+        return response()->file($path, [
+            'Content-Type' => $mime,
+            'Cache-Control' => 'private, max-age=3600',
+        ]);
     }
 
     /**
@@ -291,6 +503,14 @@ class WorkOrderController extends Controller
                     'success' => false,
                     'message' => 'Work Order tidak ditemukan'
                 ], 404);
+            }
+
+            $user = auth()->user();
+            if ($user->role === 'section_head' && $wo->assigned_regu !== $user->name) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Work Order ini bukan assignment Anda'
+                ], 403);
             }
 
             // Cek apakah sudah approved
@@ -400,6 +620,14 @@ class WorkOrderController extends Controller
                 ], 404);
             }
 
+            $user = auth()->user();
+            if ($user->role === 'section_head' && $wo->assigned_regu !== $user->name) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Work Order ini bukan assignment Anda'
+                ], 403);
+            }
+
             return response()->json([
                 'success' => true,
                 'data' => $wo
@@ -421,12 +649,44 @@ class WorkOrderController extends Controller
     public function store(Request $request)
     {
         try {
+            $id = $request->filled('id') ? (int) $request->id : null;
+            $existingWo = null;
+
+            if ($id) {
+                $existingWo = DB::table('trWorkOrder')->where('id', $id)->first();
+
+                if (!$existingWo) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'Work Order tidak ditemukan'
+                    ], 404);
+                }
+
+                if ($existingWo->created_by != auth()->id()) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'Anda tidak berhak mengubah work order ini'
+                    ], 403);
+                }
+
+                if ($existingWo->status !== 'draft') {
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'Hanya work order dengan status draft yang bisa diedit'
+                    ], 422);
+                }
+
+                $request->merge(['nomor' => $existingWo->nomor]);
+            } else {
+                $request->merge(['nomor' => $this->generateNomorWorkOrder()]);
+            }
+
             // Validasi input
             $validator = Validator::make($request->all(), [
-                'nomor' => 'required|string|max:50|unique:trWorkOrder,nomor',
+                'nomor' => 'required|string|max:50|unique:trWorkOrder,nomor' . ($id ? ',' . $id : ''),
                 'judul' => 'required|string|max:200',
                 'deskripsi' => 'nullable|string',
-                'dokumen' => 'required|file|mimes:pdf|max:10240',
+                'dokumen' => ($id ? 'nullable' : 'required') . '|file|mimes:pdf,jpg,jpeg,png,webp|max:10240',
             ]);
 
             if ($validator->fails()) {
@@ -437,28 +697,44 @@ class WorkOrderController extends Controller
                 ], 422);
             }
 
-            // Upload file
-            $file = $request->file('dokumen');
-            $extension = $file->getClientOriginalExtension();
-            $fileName = $request->nomor . '.' . $extension;
-            
-            $path = $file->storeAs('work-orders', $fileName, 'public');
-
-            $id = DB::table('trWorkOrder')->insertGetId([
+            $payload = [
                 'nomor' => $request->nomor,
                 'judul' => $request->judul,
                 'deskripsi' => $request->deskripsi,
-                'file_path' => $path,
-                'file_name' => $fileName,
-                'status' => 'draft',
-                'created_by' => auth()->id(),
                 'created_at' => now(),
                 'updated_at' => now()
-            ]);
+            ];
+
+            if ($id) {
+                unset($payload['created_at']);
+            } else {
+                $payload['status'] = 'draft';
+                $payload['created_by'] = auth()->id();
+            }
+
+            if ($request->hasFile('dokumen')) {
+                if ($existingWo && $existingWo->file_path && Storage::disk('public')->exists($existingWo->file_path)) {
+                    Storage::disk('public')->delete($existingWo->file_path);
+                }
+
+                $file = $request->file('dokumen');
+                $extension = $file->getClientOriginalExtension();
+                $fileName = $request->nomor . '.' . $extension;
+                $path = $file->storeAs('work-orders', $fileName, 'public');
+
+                $payload['file_path'] = $path;
+                $payload['file_name'] = $fileName;
+            }
+
+            if ($id) {
+                DB::table('trWorkOrder')->where('id', $id)->update($payload);
+            } else {
+                $id = DB::table('trWorkOrder')->insertGetId($payload);
+            }
 
             return response()->json([
                 'success' => true,
-                'message' => 'Work Order berhasil disimpan',
+                'message' => $existingWo ? 'Work Order berhasil diperbarui' : 'Work Order berhasil disimpan',
                 'data' => [
                     'id' => $id,
                     'nomor' => $request->nomor
@@ -473,6 +749,37 @@ class WorkOrderController extends Controller
                 'message' => 'Gagal menyimpan: ' . $e->getMessage()
             ], 500);
         }
+    }
+
+    public function generateNomor()
+    {
+        return response()->json([
+            'success' => true,
+            'nomor' => $this->generateNomorWorkOrder(),
+        ]);
+    }
+
+    private function generateNomorWorkOrder(): string
+    {
+        $prefix = 'WO-' . now()->format('Ymd') . '-';
+
+        $last = DB::table('trWorkOrder')
+            ->where('nomor', 'like', $prefix . '%')
+            ->orderByDesc('nomor')
+            ->value('nomor');
+
+        $next = 1;
+        if ($last && preg_match('/-(\d+)$/', $last, $matches)) {
+            $next = ((int) $matches[1]) + 1;
+        }
+
+        do {
+            $nomor = $prefix . str_pad((string) $next, 3, '0', STR_PAD_LEFT);
+            $exists = DB::table('trWorkOrder')->where('nomor', $nomor)->exists();
+            $next++;
+        } while ($exists);
+
+        return $nomor;
     }
 
     /**
@@ -518,6 +825,18 @@ class WorkOrderController extends Controller
                     'updated_at' => now()
                 ]);
 
+            app(FirebasePushService::class)->sendToRole(
+                'approval',
+                'WO Menunggu Approval',
+                ($wo->nomor ?? 'WO') . ' perlu keputusan Approval Level 1.',
+                [
+                    'type' => 'WO',
+                    'target' => 'approval_wo',
+                    'record_id' => $id,
+                    'nomor' => $wo->nomor ?? '',
+                ]
+            );
+
             return response()->json([
                 'success' => true,
                 'message' => 'Work Order berhasil disubmit'
@@ -536,11 +855,12 @@ class WorkOrderController extends Controller
     /**
      * Approve work order (HANYA UNTUK APPROVAL)
      */
-    public function approve($id)
+    public function approve(Request $request, $id)
     {
         try {
             $user = auth()->user();
             $isApproval = $user->role === 'approval';
+            $isSectionHead = $user->role === 'section_head';
 
             // Validasi: hanya approval yang bisa approve
             if (!$isApproval) {
@@ -548,6 +868,25 @@ class WorkOrderController extends Controller
                     'success' => false,
                     'message' => 'Hanya approval yang bisa approve work order'
                 ], 403);
+            }
+
+            $pelaksanaOptions = $this->pelaksanaOptions();
+
+            $validator = Validator::make($request->all(), [
+                'assigned_regu' => ['required', 'string', Rule::in($pelaksanaOptions)],
+                'delegation_notes' => ['required', 'string', 'max:1000'],
+            ], [
+                'assigned_regu.required' => 'Pelaksana wajib dipilih sebelum approve WO.',
+                'assigned_regu.in' => 'Pelaksana tidak valid.',
+                'delegation_notes.required' => 'Catatan delegasi wajib diisi sebelum approve WO.',
+            ]);
+
+            if ($validator->fails()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => $validator->errors()->first(),
+                    'errors' => $validator->errors(),
+                ], 422);
             }
 
             $wo = DB::table('trWorkOrder')->where('id', $id)->first();
@@ -575,12 +914,29 @@ class WorkOrderController extends Controller
                     'approved_at' => now(),
                     'progress_status' => 'open', // Set default ke OPEN saat approve
                     'open_at' => now(), // Timestamp open
+                    'assigned_regu' => $request->assigned_regu,
+                    'assigned_by' => auth()->id(),
+                    'assigned_at' => now(),
+                    'delegation_notes' => $request->delegation_notes,
                     'updated_at' => now()
                 ]);
 
+            app(FirebasePushService::class)->sendToUserName(
+                $request->assigned_regu,
+                'WO Assigned',
+                ($wo->nomor ?? 'WO') . ' diassign ke ' . $request->assigned_regu . '.',
+                [
+                    'type' => 'WO',
+                    'target' => 'section_wo',
+                    'record_id' => $id,
+                    'nomor' => $wo->nomor ?? '',
+                    'sound_type' => 'work_order',
+                ]
+            );
+
             return response()->json([
                 'success' => true,
-                'message' => 'Work Order berhasil diapprove dan siap untuk diproses'
+                'message' => 'Work Order berhasil diapprove dan diassign ke pelaksana ' . $request->assigned_regu
             ]);
 
         } catch (\Exception $e) {
@@ -591,6 +947,19 @@ class WorkOrderController extends Controller
                 'message' => 'Gagal approve: ' . $e->getMessage()
             ], 500);
         }
+    }
+
+    private function pelaksanaOptions(): array
+    {
+        if (! Schema::hasTable('mtWorkOrderPelaksana')) {
+            return [];
+        }
+
+        return DB::table('mtWorkOrderPelaksana')
+            ->where('is_active', true)
+            ->orderBy('nama')
+            ->pluck('nama')
+            ->all();
     }
 
     /**
@@ -648,6 +1017,17 @@ class WorkOrderController extends Controller
                     'rejection_notes' => $request->rejection_notes,
                     'updated_at' => now()
                 ]);
+
+            app(FirebasePushService::class)->sendToUserName(
+                $request->assigned_regu,
+                'WO Assigned',
+                ($wo->nomor ?? 'WO') . ' diassign ke ' . $request->assigned_regu . '.',
+                [
+                    'type' => 'WO',
+                    'record_id' => $id,
+                    'nomor' => $wo->nomor ?? '',
+                ]
+            );
 
             return response()->json([
                 'success' => true,
@@ -734,7 +1114,14 @@ class WorkOrderController extends Controller
             }
 
             // Validasi akses
-            if (!$isApproval && $wo->created_by != $user->id) {
+            if ($isSectionHead && $wo->assigned_regu !== $user->name) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Anda tidak berhak mendownload file ini'
+                ], 403);
+            }
+
+            if (!$isApproval && !$isSectionHead && $wo->created_by != $user->id) {
                 return response()->json([
                     'success' => false,
                     'message' => 'Anda tidak berhak mendownload file ini'
@@ -756,6 +1143,66 @@ class WorkOrderController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => 'Gagal download: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Preview work order document inline.
+     */
+    public function preview($id)
+    {
+        try {
+            $user = auth()->user();
+            $canReviewAll = in_array($user->role, ['admin', 'approval', 'approval2'], true);
+            $isSectionHead = $user->role === 'section_head';
+
+            $wo = DB::table('trWorkOrder')->where('id', $id)->first();
+
+            if (!$wo || !$wo->file_path) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'File tidak ditemukan'
+                ], 404);
+            }
+
+            if ($isSectionHead && $wo->assigned_regu !== $user->name) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Anda tidak berhak melihat file ini'
+                ], 403);
+            }
+
+            if (!$canReviewAll && !$isSectionHead && $wo->created_by != $user->id) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Anda tidak berhak melihat file ini'
+                ], 403);
+            }
+
+            if (!Storage::disk('public')->exists($wo->file_path)) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'File fisik tidak ditemukan'
+                ], 404);
+            }
+
+            $fullPath = Storage::disk('public')->path($wo->file_path);
+            $mimeType = Storage::disk('public')->mimeType($wo->file_path) ?: 'application/octet-stream';
+            $fileName = $wo->file_name ?: basename($wo->file_path);
+
+            return response()->file($fullPath, [
+                'Content-Type' => $mimeType,
+                'Content-Disposition' => 'inline; filename="' . addslashes($fileName) . '"',
+                'X-Content-Type-Options' => 'nosniff',
+            ]);
+
+        } catch (\Exception $e) {
+            Log::error('WorkOrder preview error: ' . $e->getMessage());
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Gagal preview: ' . $e->getMessage()
             ], 500);
         }
     }
