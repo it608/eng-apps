@@ -969,22 +969,35 @@ function reportCenter() {
             }
 
             const labels = this.costCenter.labels || [];
-            const markers = [];
-            let lastMonth = '';
+            const monthRanges = [];
 
             labels.forEach((label, index) => {
                 const parts = String(label || '').split(' ');
                 const month = parts.slice(1).join(' ');
 
-                if (month && month !== lastMonth) {
-                    markers.push({ index, label: month });
-                    lastMonth = month;
+                if (!month) {
+                    return;
+                }
+
+                const current = monthRanges[monthRanges.length - 1];
+
+                if (!current || current.label !== month) {
+                    monthRanges.push({ label: month, start: index, end: index });
+                } else {
+                    current.end = index;
                 }
             });
 
-            return markers.map(marker => `
-                <text x="${this.chartX(marker.index)}" y="328" text-anchor="start" fill="#94a3b8" font-size="10" font-weight="600">${this.escapeSvg(marker.label)}</text>
-            `).join('');
+            return monthRanges.map(range => {
+                const startX = this.chartX(range.start);
+                const endX = this.chartX(range.end);
+                const centerX = startX + ((endX - startX) / 2);
+
+                return `
+                    <line x1="${startX}" x2="${endX}" y1="318" y2="318" stroke="#e2e8f0" stroke-width="1"></line>
+                    <text x="${centerX}" y="335" text-anchor="middle" fill="#94a3b8" font-size="10" font-weight="600">${this.escapeSvg(range.label)}</text>
+                `;
+            }).join('');
         },
 
         chartSvg() {
