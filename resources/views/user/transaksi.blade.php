@@ -1394,7 +1394,7 @@
                                 PB Backdate
                             </label>
                             <p class="mt-1 text-xs text-amber-800">
-                                Gunakan hanya untuk PB yang terlewat input. Maksimal kemarin atau lusa, dan wajib alasan.
+                                Gunakan hanya untuk PB yang terlewat input. Maksimal 1 minggu ke belakang, dan wajib alasan.
                             </p>
 
                             <div x-show="formData.is_backdate" x-transition class="mt-3 grid grid-cols-1 gap-3 md:grid-cols-2">
@@ -1409,7 +1409,7 @@
                                            :max="maxBackdateDate"
                                            class="w-full h-[38px] px-3 border border-amber-300 rounded-md focus:outline-none focus:ring-2 focus:ring-amber-500 text-sm compact-input bg-white">
                                     <p class="mt-0.5 text-xs text-amber-700">
-                                        Pilihan tersedia hanya kemarin atau lusa.
+                                        Pilihan tersedia dari 7 hari lalu sampai kemarin.
                                     </p>
                                 </div>
                                 <div>
@@ -3587,7 +3587,7 @@ function transaksiApp() {
                 }
 
                 if (this.formData.tanggal_permintaan < this.minBackdateDate || this.formData.tanggal_permintaan > this.maxBackdateDate) {
-                    alert('Tanggal PB backdate hanya bisa dipilih untuk kemarin atau lusa');
+                    alert('Tanggal PB backdate hanya bisa dipilih maksimal 1 minggu ke belakang');
                     return false;
                 }
 
@@ -4565,13 +4565,13 @@ ${detail.untuk_info ? `
         async init() {
             console.log('?? Initializing app...');
             
-            this.tanggalHariIni = new Date().toISOString().split('T')[0];
+            this.tanggalHariIni = this.dateInputValue(new Date());
             const yesterday = new Date();
             yesterday.setDate(yesterday.getDate() - 1);
-            const twoDaysAgo = new Date();
-            twoDaysAgo.setDate(twoDaysAgo.getDate() - 2);
+            const sevenDaysAgo = new Date();
+            sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
             this.maxBackdateDate = this.dateInputValue(yesterday);
-            this.minBackdateDate = this.dateInputValue(twoDaysAgo);
+            this.minBackdateDate = this.dateInputValue(sevenDaysAgo);
             this.tanggalFormat = this.formatDate();
             this.formData.tanggal_diperlukan = this.getDefaultRequiredDate();
             

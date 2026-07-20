@@ -97,11 +97,11 @@ class TransaksiController extends Controller
             if ($isBackdate) {
                 $tanggalPermintaan = Carbon::parse($request->tanggal_permintaan)->startOfDay();
                 $today = now()->startOfDay();
-                $minimumBackdate = now()->subDays(2)->startOfDay();
+                $minimumBackdate = now()->subDays(7)->startOfDay();
 
                 if ($tanggalPermintaan->lt($minimumBackdate) || $tanggalPermintaan->gte($today)) {
                     throw ValidationException::withMessages([
-                        'tanggal_permintaan' => ['Tanggal PB backdate hanya bisa dipilih untuk kemarin atau lusa.'],
+                        'tanggal_permintaan' => ['Tanggal PB backdate hanya bisa dipilih maksimal 1 minggu ke belakang.'],
                     ]);
                 }
 
