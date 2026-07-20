@@ -131,8 +131,11 @@
             </div>
         </div>
 
-        <div class="mb-4 rounded-lg border border-blue-100 bg-blue-50 px-4 py-3 text-xs text-blue-800">
-            Data dibaca dari ERP secara read-only. Filter default hanya menampilkan Cost Center Engineering.
+        <div class="mb-4 flex flex-col gap-3 rounded-lg border border-blue-100 bg-blue-50 px-4 py-3 text-xs text-blue-800 sm:flex-row sm:items-center sm:justify-between">
+            <span>Data dibaca dari ERP secara read-only. Filter default hanya menampilkan Cost Center Engineering.</span>
+            <button type="button" onclick="exportGoodIssueXlsx()" class="inline-flex h-9 items-center justify-center rounded-lg bg-emerald-600 px-4 text-sm font-semibold text-white hover:bg-emerald-700">
+                Export XLSX
+            </button>
         </div>
 
         <div class="overflow-x-auto border rounded-lg">
@@ -338,6 +341,28 @@ function resetGoodIssueFilters() {
     document.getElementById('giSearch').value = '';
     document.getElementById('giPerPage').value = '20';
     loadGoodIssue(1);
+}
+
+function exportGoodIssueXlsx() {
+    const minTotal = parseRupiahInput(document.getElementById('giMinTotal').value);
+    const maxTotal = parseRupiahInput(document.getElementById('giMaxTotal').value);
+
+    if (minTotal !== null && maxTotal !== null && maxTotal < minTotal) {
+        alert('Total nilai sampai tidak boleh lebih kecil dari total nilai dari.');
+        return;
+    }
+
+    const params = new URLSearchParams({
+        start_date: document.getElementById('giStartDate').value,
+        end_date: document.getElementById('giEndDate').value,
+        material_type: document.getElementById('giMaterialType').value,
+        cost_center: document.getElementById('giCostCenter').value.trim(),
+        min_total: minTotal === null ? '' : String(minTotal),
+        max_total: maxTotal === null ? '' : String(maxTotal),
+        search: document.getElementById('giSearch').value.trim(),
+    });
+
+    window.location.href = `{{ route('stock.good-issue.export') }}?${params.toString()}`;
 }
 
 document.addEventListener('DOMContentLoaded', () => {

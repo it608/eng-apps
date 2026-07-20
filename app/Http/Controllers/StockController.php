@@ -1033,6 +1033,70 @@ return $sql;
         }
     }
 
+    public function exportGoodIssue(Request $request)
+    {
+        try {
+            if (!class_exists(\ZipArchive::class)) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Gagal export XLSX: ekstensi PHP ZipArchive belum aktif di server.',
+                ], 500);
+            }
+
+            $documents = [];
+            $summary = [];
+            $page = 1;
+            $lastPage = 1;
+
+            do {
+                $pageRequest = Request::create('/stock/good-issue', 'GET', array_merge($request->query(), [
+                    'page' => $page,
+                    'per_page' => 100,
+                ]));
+
+                $response = $this->getGoodIssue($pageRequest);
+                $payload = json_decode($response->getContent(), true);
+
+                if ($response->getStatusCode() !== 200 || !($payload['success'] ?? false)) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => $payload['message'] ?? 'Gagal mengambil data Good Issue untuk export.',
+                        'errors' => $payload['errors'] ?? null,
+                    ], $response->getStatusCode());
+                }
+
+                if ($page === 1) {
+                    $summary = $payload['summary'] ?? [];
+                    $lastPage = max((int) ($payload['pagination']['last_page'] ?? 1), 1);
+                }
+
+                $documents = array_merge($documents, $payload['data'] ?? []);
+                $page++;
+            } while ($page <= $lastPage);
+
+            $exportDir = storage_path('app/exports');
+            if (!is_dir($exportDir)) {
+                mkdir($exportDir, 0775, true);
+            }
+
+            $filename = 'good_issue_erp_' . date('Ymd_His') . '.xlsx';
+            $filePath = $exportDir . DIRECTORY_SEPARATOR . $filename;
+
+            $this->createGoodIssueXlsx($filePath, $documents, $summary, $request->query());
+
+            return response()->download($filePath, $filename, [
+                'Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            ])->deleteFileAfterSend(true);
+        } catch (\Exception $e) {
+            Log::error('Good Issue export XLSX error: ' . $e->getMessage());
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Gagal export Good Issue XLSX: ' . $e->getMessage(),
+            ], 500);
+        }
+    }
+
     /**
      * Detail sparepart + histori transaksi 30 hari terakhir.
      *
@@ -1457,6 +1521,157 @@ return $sql;
     /**
      * Generate file XLSX sederhana dengan format kolom rapi.
      */
+    private function createGoodIssueXlsx(string $filePath, array $documents, array $summary, array $filters): void
+    {
+        $tempDir = storage_path('app/exports/xlsx_' . uniqid('', true));
+        $this->ensureDirectory($tempDir . '/_rels');
+        $this->ensureDirectory($tempDir . '/docProps');
+        $this->ensureDirectory($tempDir . '/xl/_rels');
+        $this->ensureDirectory($tempDir . '/xl/worksheets');
+
+        $columns = [
+            ['title' => 'No', 'width' => 7, 'type' => 'integer'],
+            ['title' => 'Tanggal GI', 'width' => 14, 'type' => 'string'],
+            ['title' => 'No GI', 'width' => 24, 'type' => 'string'],
+            ['title' => 'Cost Center', 'width' => 30, 'type' => 'string'],
+            ['title' => 'Kode Cost Center', 'width' => 18, 'type' => 'string'],
+            ['title' => 'Kode GL', 'width' => 14, 'type' => 'string'],
+            ['title' => 'Jenis Material', 'width' => 16, 'type' => 'string'],
+            ['title' => 'Kode Material', 'width' => 18, 'type' => 'string'],
+            ['title' => 'Nama Material', 'width' => 46, 'type' => 'string'],
+            ['title' => 'Lokasi', 'width' => 18, 'type' => 'string'],
+            ['title' => 'Qty', 'width' => 12, 'type' => 'decimal'],
+            ['title' => 'Satuan', 'width' => 10, 'type' => 'string'],
+            ['title' => 'Nilai Item', 'width' => 18, 'type' => 'money'],
+            ['title' => 'Total Dokumen GI', 'width' => 20, 'type' => 'money'],
+            ['title' => 'User ERP', 'width' => 16, 'type' => 'string'],
+        ];
+
+        $sheetPath = $tempDir . '/xl/worksheets/sheet1.xml';
+        $sheet = fopen($sheetPath, 'w');
+
+        if (!$sheet) {
+            throw new \RuntimeException('Tidak bisa membuat worksheet export Good Issue.');
+        }
+
+        fwrite($sheet, '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' . PHP_EOL);
+        fwrite($sheet, '<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">' . PHP_EOL);
+        fwrite($sheet, '<sheetViews><sheetView workbookViewId="0"><pane ySplit="8" topLeftCell="A9" activePane="bottomLeft" state="frozen"/></sheetView></sheetViews>' . PHP_EOL);
+        fwrite($sheet, '<cols>' . PHP_EOL);
+
+        foreach ($columns as $index => $column) {
+            $colNumber = $index + 1;
+            fwrite($sheet, '<col min="' . $colNumber . '" max="' . $colNumber . '" width="' . (float) $column['width'] . '" customWidth="1"/>' . PHP_EOL);
+        }
+
+        fwrite($sheet, '</cols>' . PHP_EOL);
+        fwrite($sheet, '<sheetData>' . PHP_EOL);
+
+        $rowNumber = 1;
+        fwrite($sheet, '<row r="' . $rowNumber . '" ht="24" customHeight="1">');
+        $this->writeInlineStringCell($sheet, 'A1', 'GOOD ISSUE ERP - ENGINEERING', 1);
+        fwrite($sheet, '</row>' . PHP_EOL);
+
+        $filterLabels = [
+            'Periode' => ($filters['start_date'] ?? '-') . ' s/d ' . ($filters['end_date'] ?? '-'),
+            'Jenis Material' => $filters['material_type'] ?? 'all',
+            'Cost Center' => ($filters['cost_center'] ?? '') !== '' ? $filters['cost_center'] : 'Semua Cost Center',
+            'Range Total Nilai' => $this->formatExportRange($filters['min_total'] ?? null, $filters['max_total'] ?? null),
+            'Search' => ($filters['search'] ?? '') !== '' ? $filters['search'] : '-',
+        ];
+
+        foreach ($filterLabels as $label => $value) {
+            $rowNumber++;
+            fwrite($sheet, '<row r="' . $rowNumber . '">');
+            $this->writeInlineStringCell($sheet, 'A' . $rowNumber, $label, 1);
+            $this->writeInlineStringCell($sheet, 'B' . $rowNumber, (string) $value, 0);
+            fwrite($sheet, '</row>' . PHP_EOL);
+        }
+
+        $rowNumber++;
+        fwrite($sheet, '<row r="' . $rowNumber . '">');
+        $this->writeInlineStringCell($sheet, 'A' . $rowNumber, 'Total GI: ' . number_format((float) ($summary['total_gi'] ?? 0), 0, ',', '.'), 1);
+        $this->writeInlineStringCell($sheet, 'B' . $rowNumber, 'Total Item: ' . number_format((float) ($summary['total_item'] ?? 0), 0, ',', '.'), 1);
+        $this->writeInlineStringCell($sheet, 'C' . $rowNumber, 'Total Qty: ' . number_format((float) ($summary['total_qty'] ?? 0), 2, ',', '.'), 1);
+        $this->writeInlineStringCell($sheet, 'D' . $rowNumber, 'Total Nilai: Rp ' . number_format((float) ($summary['total_nilai'] ?? 0), 0, ',', '.'), 1);
+        fwrite($sheet, '</row>' . PHP_EOL);
+
+        $rowNumber++;
+        fwrite($sheet, '<row r="' . $rowNumber . '" ht="22" customHeight="1">');
+        foreach ($columns as $index => $column) {
+            $this->writeInlineStringCell($sheet, $this->cellRef($index + 1, $rowNumber), $column['title'], 1);
+        }
+        fwrite($sheet, '</row>' . PHP_EOL);
+
+        $headerRow = $rowNumber;
+        $no = 1;
+
+        foreach ($documents as $document) {
+            foreach (($document['items'] ?? []) as $item) {
+                $rowNumber++;
+                $values = [
+                    $no,
+                    $document['tanggal'] ?? '-',
+                    $document['nomor_gi'] ?? '-',
+                    $document['cost_centre'] ?? '-',
+                    $document['kode_cost_center'] ?? '-',
+                    $item['kode_gl'] ?? $document['kode_gl'] ?? '-',
+                    $item['jenis_material'] ?? '-',
+                    $item['kode_material'] ?? '-',
+                    $item['nama_material'] ?? '-',
+                    $item['lokasi'] ?? '-',
+                    (float) ($item['quantity'] ?? 0),
+                    $item['satuan'] ?? '-',
+                    (float) ($item['nilai'] ?? 0),
+                    (float) ($document['total_nilai'] ?? 0),
+                    $document['user_erp'] ?? '-',
+                ];
+
+                fwrite($sheet, '<row r="' . $rowNumber . '">');
+                foreach ($values as $index => $value) {
+                    $column = $columns[$index];
+                    $cellRef = $this->cellRef($index + 1, $rowNumber);
+
+                    if (in_array($column['type'], ['integer', 'number', 'decimal', 'money'], true)) {
+                        $style = match ($column['type']) {
+                            'integer' => 4,
+                            'money' => 3,
+                            default => 2,
+                        };
+                        $this->writeNumberCell($sheet, $cellRef, (float) $value, $style);
+                    } else {
+                        $this->writeInlineStringCell($sheet, $cellRef, (string) $value, 0);
+                    }
+                }
+                fwrite($sheet, '</row>' . PHP_EOL);
+
+                $no++;
+            }
+        }
+
+        fwrite($sheet, '</sheetData>' . PHP_EOL);
+        fwrite($sheet, '<autoFilter ref="A' . $headerRow . ':' . $this->cellRef(count($columns), max($rowNumber, $headerRow)) . '"/>' . PHP_EOL);
+        fwrite($sheet, '<pageMargins left="0.5" right="0.5" top="0.75" bottom="0.75" header="0.3" footer="0.3"/>' . PHP_EOL);
+        fwrite($sheet, '</worksheet>');
+        fclose($sheet);
+
+        $this->writeXlsxStaticFiles($tempDir, 'Good Issue ERP');
+        $this->zipXlsxDirectory($tempDir, $filePath);
+        $this->deleteDirectory($tempDir);
+    }
+
+    private function formatExportRange($min, $max): string
+    {
+        $min = is_numeric($min) ? 'Rp ' . number_format((float) $min, 0, ',', '.') : null;
+        $max = is_numeric($max) ? 'Rp ' . number_format((float) $max, 0, ',', '.') : null;
+
+        if ($min && $max) {
+            return $min . ' s/d ' . $max;
+        }
+
+        return $min ?: ($max ? 'Sampai ' . $max : '-');
+    }
+
     private function createStockXlsx(string $filePath, string $sql): void
     {
         $tempDir = storage_path('app/exports/xlsx_' . uniqid('', true));
@@ -1592,8 +1807,10 @@ return $sql;
         return 'AMAN';
     }
 
-    private function writeXlsxStaticFiles(string $tempDir): void
+    private function writeXlsxStaticFiles(string $tempDir, string $sheetName = 'Stock Sparepart'): void
     {
+        $safeSheetName = htmlspecialchars($sheetName, ENT_QUOTES | ENT_XML1, 'UTF-8');
+
         file_put_contents($tempDir . '/[Content_Types].xml', '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
     <Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>
@@ -1628,7 +1845,7 @@ return $sql;
         file_put_contents($tempDir . '/xl/workbook.xml', '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">
     <sheets>
-        <sheet name="Stock Sparepart" sheetId="1" r:id="rId1"/>
+        <sheet name="' . $safeSheetName . '" sheetId="1" r:id="rId1"/>
     </sheets>
 </workbook>');
 

@@ -133,6 +133,7 @@ Route::middleware(['auth'])->prefix('stock')->name('stock.')->group(function () 
     Route::get('/detail/{id}', [StockController::class, 'getDetail'])->name('detail');
     Route::get('/movement', [StockController::class, 'getMovement'])->name('movement');
     Route::get('/good-issue', [StockController::class, 'getGoodIssue'])->name('good-issue');
+    Route::get('/good-issue/export', [StockController::class, 'exportGoodIssue'])->name('good-issue.export');
     Route::post('/opname', [StockController::class, 'saveOpname'])->name('opname');
     Route::get('/export', [StockController::class, 'export'])->name('export');
     Route::get('/by-location/{location?}', [StockController::class, 'getByLocation'])->name('by-location');
