@@ -977,6 +977,7 @@ return $sql;
                 if (!isset($grouped[$nomorGi])) {
                     $grouped[$nomorGi] = [
                         'tanggal' => $item->doc_tanggal ? date('Y-m-d', strtotime($item->doc_tanggal)) : '-',
+                        'posting_at' => $item->doc_tanggal ? date('Y-m-d H:i:s', strtotime($item->doc_tanggal)) : null,
                         'nomor_gi' => $nomorGi,
                         'item_count' => (int) ($item->item_count ?? 0),
                         'total_qty' => (float) ($item->total_qty ?? 0),
@@ -985,6 +986,8 @@ return $sql;
                         'kode_cost_center' => $this->cleanUtf8($item->doc_kode_cost_center ?? '-'),
                         'cost_centre' => $this->cleanUtf8($item->doc_cost_centre ?? '-'),
                         'user_erp' => $this->cleanUtf8($item->doc_user_erp ?? '-'),
+                        'first_seen_at' => null,
+                        'last_seen_at' => null,
                         'items' => [],
                     ];
                 }
@@ -1003,6 +1006,7 @@ return $sql;
                 ];
             }
 
+            $grouped = $this->attachGoodIssueSeenLogs($grouped);
             $formatted = array_values($grouped);
 
             return response()->json([
@@ -1031,6 +1035,46 @@ return $sql;
                 'data' => [],
             ], 500);
         }
+    }
+
+    private function attachGoodIssueSeenLogs(array $grouped): array
+    {
+        if (!$grouped) {
+            return $grouped;
+        }
+
+        try {
+            $logs = DB::table('erp_gi_seen_logs')
+                ->select(
+                    'gi_number',
+                    DB::raw('MIN(first_seen_at) AS first_seen_at'),
+                    DB::raw('MAX(last_seen_at) AS last_seen_at')
+                )
+                ->whereIn('gi_number', array_keys($grouped))
+                ->groupBy('gi_number')
+                ->get()
+                ->keyBy('gi_number');
+
+            foreach ($grouped as $giNumber => &$document) {
+                $log = $logs->get($giNumber);
+
+                if (!$log) {
+                    continue;
+                }
+
+                $document['first_seen_at'] = $log->first_seen_at
+                    ? date('Y-m-d H:i:s', strtotime($log->first_seen_at))
+                    : null;
+                $document['last_seen_at'] = $log->last_seen_at
+                    ? date('Y-m-d H:i:s', strtotime($log->last_seen_at))
+                    : null;
+            }
+            unset($document);
+        } catch (\Throwable $e) {
+            Log::warning('Good Issue seen log lookup error: ' . $e->getMessage());
+        }
+
+        return $grouped;
     }
 
     public function exportGoodIssue(Request $request)
@@ -1532,6 +1576,9 @@ return $sql;
         $columns = [
             ['title' => 'No', 'width' => 7, 'type' => 'integer'],
             ['title' => 'Tanggal GI', 'width' => 14, 'type' => 'string'],
+            ['title' => 'Waktu Posting ERP', 'width' => 22, 'type' => 'string'],
+            ['title' => 'Pertama Terlihat e-Request', 'width' => 24, 'type' => 'string'],
+            ['title' => 'Terakhir Terlihat e-Request', 'width' => 24, 'type' => 'string'],
             ['title' => 'No GI', 'width' => 24, 'type' => 'string'],
             ['title' => 'Cost Center', 'width' => 30, 'type' => 'string'],
             ['title' => 'Kode Cost Center', 'width' => 18, 'type' => 'string'],
@@ -1612,6 +1659,9 @@ return $sql;
                 $values = [
                     $no,
                     $document['tanggal'] ?? '-',
+                    $document['posting_at'] ?? '-',
+                    $document['first_seen_at'] ?? '-',
+                    $document['last_seen_at'] ?? '-',
                     $document['nomor_gi'] ?? '-',
                     $document['cost_centre'] ?? '-',
                     $document['kode_cost_center'] ?? '-',

@@ -142,7 +142,7 @@
             <table class="min-w-full text-sm">
                 <thead class="bg-gray-50 text-xs uppercase tracking-wide text-gray-600">
                     <tr>
-                        <th class="px-4 py-3 text-left">Tanggal</th>
+                        <th class="px-4 py-3 text-left">Waktu</th>
                         <th class="px-4 py-3 text-left">No. GI</th>
                         <th class="px-4 py-3 text-left">Cost Center</th>
                         <th class="px-4 py-3 text-left">Ringkasan</th>
@@ -250,7 +250,12 @@ function renderRows(rows = []) {
 
         return `
             <tr class="align-top">
-                <td class="px-4 py-4 whitespace-nowrap">${escapeHtml(row.tanggal)}</td>
+                <td class="px-4 py-4 min-w-[180px]">
+                    <div class="font-semibold text-gray-900">${escapeHtml(row.tanggal)}</div>
+                    <div class="mt-1 text-xs text-gray-500">Posting ERP: ${escapeHtml(row.posting_at || '-')}</div>
+                    <div class="text-xs text-emerald-700">Terlihat: ${escapeHtml(row.first_seen_at || '-')}</div>
+                    <div class="text-xs text-gray-400">Update cek: ${escapeHtml(row.last_seen_at || '-')}</div>
+                </td>
                 <td class="px-4 py-4">
                     <div class="font-semibold text-gray-900">${escapeHtml(row.nomor_gi)}</div>
                     <div class="text-xs text-gray-500">${formatNumber(row.item_count)} item</div>
