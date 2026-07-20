@@ -75,19 +75,19 @@
             </div>
 
             <div class="grid grid-cols-1 gap-3 lg:grid-cols-12 lg:items-end">
-                <div>
-                    <label class="block text-xs font-semibold text-gray-500 uppercase mb-1">Total Nilai Dari</label>
+                <div class="lg:col-span-2 xl:col-span-2">
+                    <label class="block whitespace-nowrap text-xs font-semibold text-gray-500 uppercase mb-1">Total Nilai Dari</label>
                     <input id="giMinTotal" type="number" min="0" step="1" class="w-full border rounded-lg px-3 py-2 text-sm" placeholder="0">
                 </div>
-                <div>
-                    <label class="block text-xs font-semibold text-gray-500 uppercase mb-1">Total Nilai Sampai</label>
+                <div class="lg:col-span-2 xl:col-span-2">
+                    <label class="block whitespace-nowrap text-xs font-semibold text-gray-500 uppercase mb-1">Total Nilai Sampai</label>
                     <input id="giMaxTotal" type="number" min="0" step="1" class="w-full border rounded-lg px-3 py-2 text-sm" placeholder="Contoh: 1000000">
                 </div>
-                <div class="lg:col-span-5 xl:col-span-6">
+                <div class="lg:col-span-4 xl:col-span-4">
                     <label class="block text-xs font-semibold text-gray-500 uppercase mb-1">Cari</label>
                     <input id="giSearch" type="text" class="w-full border rounded-lg px-3 py-2 text-sm" placeholder="No GI, kode, nama material, lokasi...">
                 </div>
-                <div class="flex gap-2 lg:col-span-5 xl:col-span-4">
+                <div class="flex gap-2 lg:col-span-4 xl:col-span-4">
                     <div class="w-24">
                         <label class="block text-xs font-semibold text-gray-500 uppercase mb-1">Baris</label>
                         <select id="giPerPage" class="w-full border rounded-lg px-3 py-2 text-sm bg-white">
