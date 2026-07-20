@@ -2199,10 +2199,12 @@ function transaksiApp() {
         searchQuery: '',
         statusFilter: '',
         dateFilter: '',
+        highValueFilter: false,
         historySearchQuery: '',
         historyStatusFilter: '',
         historyDateFrom: '',
         historyDateTo: '',
+        historyDateBasis: 'request',
         isSearchingTransaksi: false,
         isSearchFocused: false,
         
@@ -2333,6 +2335,10 @@ function transaksiApp() {
             
             if (this.statusFilter) {
                 result = result.filter(tr => tr.status === this.statusFilter);
+            }
+
+            if (this.highValueFilter) {
+                result = result.filter(tr => Boolean(parseInt(tr.has_high_value_item || 0, 10)));
             }
             
             if (this.dateFilter) {
@@ -2640,8 +2646,48 @@ function transaksiApp() {
             this.searchQuery = '';
             this.statusFilter = '';
             this.dateFilter = '';
+            this.highValueFilter = false;
             this.currentPage = 1;
             this.loadData();
+        },
+
+        applyUrlFilters() {
+            const params = new URLSearchParams(window.location.search);
+            const targetTab = params.get('tab');
+
+            if (targetTab === 'history' || targetTab === 'done') {
+                this.tab = 'done';
+            }
+
+            if (params.has('status')) {
+                this.statusFilter = params.get('status') || '';
+            }
+
+            if (params.has('date')) {
+                this.dateFilter = params.get('date') || '';
+            }
+
+            if (params.get('high_value') === '1') {
+                this.highValueFilter = true;
+            }
+
+            if (params.has('history_status')) {
+                this.historyStatusFilter = params.get('history_status') || '';
+            }
+
+            if (params.has('date_from')) {
+                this.historyDateFrom = params.get('date_from') || '';
+            }
+
+            if (params.has('date_to')) {
+                this.historyDateTo = params.get('date_to') || '';
+            }
+
+            if (params.get('date_basis') === 'process') {
+                this.historyDateBasis = 'process';
+            }
+
+            this.currentPage = 1;
         },
 
         resetHistoryFilters() {
@@ -3299,7 +3345,9 @@ function transaksiApp() {
         },
 
         isWithinHistoryDateRange(tr) {
-            const processTime = tr?.tanggal_permintaan || tr?.created_at;
+            const processTime = this.historyDateBasis === 'process'
+                ? (this.getHistoryProcessTime(tr) || tr?.updated_at || tr?.tanggal_permintaan || tr?.created_at)
+                : (tr?.tanggal_permintaan || tr?.created_at);
             if (!processTime) return !this.historyDateFrom && !this.historyDateTo;
 
             const processDate = new Date(processTime);
@@ -4581,6 +4629,7 @@ ${detail.untuk_info ? `
             console.log('?? User Role:', this.userRole);
             
             window.notificationApp = document.querySelector('[x-data="notificationApp()"]')?.__x?.$data;
+            this.applyUrlFilters();
             
             await this.loadData();
             

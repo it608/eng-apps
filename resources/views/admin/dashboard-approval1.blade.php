@@ -32,6 +32,44 @@
     $warehouseIssuedItemRate = ($budget['warehouse_total_items'] ?? 0) > 0
         ? min(100, round(((float) ($budget['warehouse_issued_items'] ?? 0) / (float) $budget['warehouse_total_items']) * 100, 1))
         : 0;
+    $today = now()->toDateString();
+    $dashboardCards = [
+        [
+            'label' => 'PB Menunggu L1',
+            'value' => $summary['pending_pb'],
+            'description' => 'Butuh keputusan PB',
+            'color' => 'text-yellow-600',
+            'url' => route('transaksi.index', ['status' => 'pending']),
+        ],
+        [
+            'label' => 'WO Menunggu L1',
+            'value' => $summary['pending_wo'],
+            'description' => 'Submitted work order',
+            'color' => 'text-blue-600',
+            'url' => route('workorder.index', ['status' => 'submitted']) . '#list-wo',
+        ],
+        [
+            'label' => 'Approved Hari Ini',
+            'value' => $summary['approved_today'],
+            'description' => 'PB history hari ini',
+            'color' => 'text-green-600',
+            'url' => route('transaksi.index', ['tab' => 'history', 'history_status' => 'approved', 'date_from' => $today, 'date_to' => $today, 'date_basis' => 'process']),
+        ],
+        [
+            'label' => 'Rejected Hari Ini',
+            'value' => $summary['rejected_today'],
+            'description' => 'Ditolak hari ini',
+            'color' => 'text-red-600',
+            'url' => route('transaksi.index', ['tab' => 'history', 'history_status' => 'rejected', 'date_from' => $today, 'date_to' => $today, 'date_basis' => 'process']),
+        ],
+        [
+            'label' => 'High Value PB',
+            'value' => $summary['high_value_to_l2'],
+            'description' => 'Akan lanjut L2',
+            'color' => 'text-orange-600',
+            'url' => route('transaksi.index', ['status' => 'pending', 'high_value' => 1]),
+        ],
+    ];
 @endphp
 
 <div class="space-y-6">
@@ -54,32 +92,21 @@
         </div>
     </div>
 
-    <div class="grid grid-cols-2 gap-5 lg:grid-cols-5">
-        <div>
-            <div class="text-sm font-medium text-gray-900">PB Menunggu L1</div>
-            <div class="mt-1 text-xl font-semibold text-yellow-600">{{ $formatNumber($summary['pending_pb']) }}</div>
-            <div class="text-xs text-gray-400">Butuh keputusan PB</div>
-        </div>
-        <div>
-            <div class="text-sm font-medium text-gray-900">WO Menunggu L1</div>
-            <div class="mt-1 text-xl font-semibold text-blue-600">{{ $formatNumber($summary['pending_wo']) }}</div>
-            <div class="text-xs text-gray-400">Submitted work order</div>
-        </div>
-        <div>
-            <div class="text-sm font-medium text-gray-900">Approved Hari Ini</div>
-            <div class="mt-1 text-xl font-semibold text-green-600">{{ $formatNumber($summary['approved_today']) }}</div>
-            <div class="text-xs text-gray-400">PB dan WO</div>
-        </div>
-        <div>
-            <div class="text-sm font-medium text-gray-900">Rejected Hari Ini</div>
-            <div class="mt-1 text-xl font-semibold text-red-600">{{ $formatNumber($summary['rejected_today']) }}</div>
-            <div class="text-xs text-gray-400">Ditolak oleh saya</div>
-        </div>
-        <div>
-            <div class="text-sm font-medium text-gray-900">High Value PB</div>
-            <div class="mt-1 text-xl font-semibold text-orange-600">{{ $formatNumber($summary['high_value_to_l2']) }}</div>
-            <div class="text-xs text-gray-400">Akan lanjut L2</div>
-        </div>
+    <div class="grid grid-cols-2 gap-4 lg:grid-cols-5">
+        @foreach($dashboardCards as $card)
+            <a href="{{ $card['url'] }}"
+               class="group rounded-xl border border-transparent p-4 transition hover:border-blue-200 hover:bg-white hover:shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-200"
+               aria-label="Buka {{ $card['label'] }}">
+                <div class="flex items-start justify-between gap-3">
+                    <div>
+                        <div class="text-sm font-medium text-gray-900 group-hover:text-blue-700">{{ $card['label'] }}</div>
+                        <div class="mt-1 text-xl font-semibold {{ $card['color'] }}">{{ $formatNumber($card['value']) }}</div>
+                        <div class="text-xs text-gray-400">{{ $card['description'] }}</div>
+                    </div>
+                    <span class="mt-0.5 text-gray-300 transition group-hover:translate-x-0.5 group-hover:text-blue-500">›</span>
+                </div>
+            </a>
+        @endforeach
     </div>
 
     <div class="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">

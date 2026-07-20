@@ -1361,6 +1361,7 @@ let progressFilters = {};
 // Initialize on load
 document.addEventListener('DOMContentLoaded', function() {
     restoreActiveWorkOrderTab();
+    applyWorkOrderUrlFilters();
     loadData();
     initEventListeners();
     initFileUpload();
@@ -1399,8 +1400,9 @@ function activateWorkOrderTab(tabId, shouldLoad = true) {
     });
 
     localStorage.setItem('workOrderActiveTab', target.id);
-    if (window.location.hash !== `#${target.id}`) {
-        history.replaceState(null, '', `#${target.id}`);
+    const nextUrl = `${window.location.pathname}${window.location.search}#${target.id}`;
+    if (`${window.location.pathname}${window.location.search}${window.location.hash}` !== nextUrl) {
+        history.replaceState(null, '', nextUrl);
     }
 
     if (shouldLoad && target.id === 'progress-wo') {
@@ -1460,6 +1462,26 @@ function initEventListeners() {
         progressPage = 1;
         loadProgressData();
     });
+}
+
+function applyWorkOrderUrlFilters() {
+    const params = new URLSearchParams(window.location.search);
+
+    if (params.has('search')) {
+        document.getElementById('woSearch').value = params.get('search') || '';
+    }
+
+    if (params.has('status')) {
+        document.getElementById('woStatus').value = params.get('status') || '';
+    }
+
+    if (params.has('per_page')) {
+        const perPageValue = params.get('per_page') || '20';
+        document.getElementById('woPerPage').value = perPageValue;
+        perPage = parseInt(perPageValue, 10) || 20;
+    }
+
+    currentPage = 1;
 }
 
 function debounce(func, wait) {
