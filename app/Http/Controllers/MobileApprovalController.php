@@ -3754,8 +3754,8 @@ class MobileApprovalController extends Controller
         $pbProgress = DB::table('trBPB')
             ->when($user->role === 'approval', fn ($q) => $q->where('approval_level_1_by', $user->id))
             ->when($user->role === 'approval2', fn ($q) => $q->where('approval_level_2_by', $user->id))
-            ->whereIn('status', ['in_progress', 'progress'])
-            ->whereBetween('updated_at', [$start, $end])
+            ->whereIn('status', ['approved', 'in_progress', 'progress'])
+            ->whereRaw('COALESCE(approval_level_2_at, approval_level_1_at, approved_at) BETWEEN ? AND ?', [$start, $end])
             ->count();
 
         $pbDone = DB::table('trBPB')
@@ -3848,8 +3848,8 @@ class MobileApprovalController extends Controller
                     $this->applyPbWorkOrderSourceFilter($query, $source);
                 }
             } elseif ($status === 'progress') {
-                $query->whereIn('trBPB.status', ['in_progress', 'progress'])
-                    ->whereBetween('trBPB.updated_at', [$start, $end]);
+                $query->whereIn('trBPB.status', ['approved', 'in_progress', 'progress'])
+                    ->whereRaw('COALESCE(trBPB.approval_level_2_at, trBPB.approval_level_1_at, trBPB.approved_at) BETWEEN ? AND ?', [$start, $end]);
             } elseif ($status === 'done') {
                 $query->whereIn('trBPB.status', ['completed', 'done', 'fulfilled'])
                     ->whereBetween('trBPB.updated_at', [$start, $end]);
