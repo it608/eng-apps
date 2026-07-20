@@ -92,16 +92,16 @@
                     </div>
                 </section>
 
-                <section class="rounded-lg border border-slate-200 bg-white p-3 xl:col-span-4">
-                    <div class="mb-2 text-xs font-bold uppercase tracking-wide text-slate-500">Range Total Nilai</div>
+                <section class="rounded-lg border border-emerald-200 bg-emerald-50 p-3 xl:col-span-4">
+                    <div class="mb-2 text-xs font-bold uppercase tracking-wide text-emerald-700">Range Total Nilai</div>
                     <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
                         <div>
-                            <label class="mb-1 block whitespace-nowrap text-xs font-semibold text-gray-500 uppercase">Dari Nilai</label>
-                            <input id="giMinTotal" type="number" min="0" step="1" class="h-10 w-full border rounded-lg px-3 text-sm" placeholder="0">
+                            <label class="mb-1 block whitespace-nowrap text-xs font-semibold text-emerald-800 uppercase">Dari Nilai</label>
+                            <input id="giMinTotal" type="text" inputmode="numeric" class="h-10 w-full border border-emerald-200 rounded-lg bg-white px-3 text-sm" placeholder="0">
                         </div>
                         <div>
-                            <label class="mb-1 block whitespace-nowrap text-xs font-semibold text-gray-500 uppercase">Sampai Nilai</label>
-                            <input id="giMaxTotal" type="number" min="0" step="1" class="h-10 w-full border rounded-lg px-3 text-sm" placeholder="Contoh: 1000000">
+                            <label class="mb-1 block whitespace-nowrap text-xs font-semibold text-emerald-800 uppercase">Sampai Nilai</label>
+                            <input id="giMaxTotal" type="text" inputmode="numeric" class="h-10 w-full border border-emerald-200 rounded-lg bg-white px-3 text-sm" placeholder="Contoh: 1.000.000">
                         </div>
                     </div>
                 </section>
@@ -176,6 +176,22 @@ function formatRupiah(value) {
 
 function formatNumber(value) {
     return new Intl.NumberFormat('id-ID', { maximumFractionDigits: 2 }).format(Number(value || 0));
+}
+
+function parseRupiahInput(value) {
+    const digits = String(value || '').replace(/[^\d]/g, '');
+    return digits === '' ? null : Number(digits);
+}
+
+function formatRupiahInputValue(value) {
+    const parsed = parseRupiahInput(value);
+    return parsed === null ? '' : new Intl.NumberFormat('id-ID', { maximumFractionDigits: 0 }).format(parsed);
+}
+
+function setupRupiahInput(input) {
+    input.addEventListener('input', () => {
+        input.value = formatRupiahInputValue(input.value);
+    });
 }
 
 function escapeHtml(value) {
@@ -267,8 +283,8 @@ async function loadGoodIssue(page = 1) {
     const body = document.getElementById('goodIssueBody');
     const minTotalInput = document.getElementById('giMinTotal');
     const maxTotalInput = document.getElementById('giMaxTotal');
-    const minTotal = minTotalInput.value !== '' ? Number(minTotalInput.value) : null;
-    const maxTotal = maxTotalInput.value !== '' ? Number(maxTotalInput.value) : null;
+    const minTotal = parseRupiahInput(minTotalInput.value);
+    const maxTotal = parseRupiahInput(maxTotalInput.value);
 
     if ((minTotal !== null && minTotal < 0) || (maxTotal !== null && maxTotal < 0)) {
         body.innerHTML = '<tr><td colspan="7" class="px-4 py-10 text-center text-red-600">Range total nilai tidak boleh minus.</td></tr>';
@@ -287,8 +303,8 @@ async function loadGoodIssue(page = 1) {
         end_date: document.getElementById('giEndDate').value,
         material_type: document.getElementById('giMaterialType').value,
         cost_center: document.getElementById('giCostCenter').value.trim(),
-        min_total: minTotalInput.value.trim(),
-        max_total: maxTotalInput.value.trim(),
+        min_total: minTotal === null ? '' : String(minTotal),
+        max_total: maxTotal === null ? '' : String(maxTotal),
         search: document.getElementById('giSearch').value.trim(),
         per_page: document.getElementById('giPerPage').value,
         page: page,
@@ -327,6 +343,8 @@ function resetGoodIssueFilters() {
 document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('goodIssuePrev').addEventListener('click', () => loadGoodIssue(goodIssuePage - 1));
     document.getElementById('goodIssueNext').addEventListener('click', () => loadGoodIssue(goodIssuePage + 1));
+    setupRupiahInput(document.getElementById('giMinTotal'));
+    setupRupiahInput(document.getElementById('giMaxTotal'));
 
     ['giSearch', 'giCostCenter', 'giMinTotal', 'giMaxTotal'].forEach(id => {
         document.getElementById(id).addEventListener('keydown', event => {
