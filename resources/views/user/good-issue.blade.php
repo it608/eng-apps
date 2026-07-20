@@ -206,6 +206,18 @@ function escapeHtml(value) {
         .replace(/'/g, '&#039;');
 }
 
+function toggleGiTimeDetail(button) {
+    const detail = document.getElementById(button.dataset.target);
+
+    if (!detail) {
+        return;
+    }
+
+    const isHidden = detail.classList.toggle('hidden');
+    button.setAttribute('aria-expanded', String(!isHidden));
+    button.textContent = isHidden ? 'Detail waktu' : 'Tutup detail';
+}
+
 function renderSummary(summary = {}) {
     document.getElementById('summaryGi').textContent = formatNumber(summary.total_gi || 0);
     document.getElementById('summaryItem').textContent = formatNumber(summary.total_item || 0);
@@ -222,7 +234,8 @@ function renderRows(rows = []) {
         return;
     }
 
-    body.innerHTML = rows.map(row => {
+    body.innerHTML = rows.map((row, index) => {
+        const timeDetailId = `gi-time-detail-${goodIssuePage}-${index}`;
         const items = (row.items || []).map(item => {
             const materialType = String(item.jenis_material || '').toUpperCase();
             const materialBadgeClass = materialType === 'SPAREPART'
@@ -252,9 +265,18 @@ function renderRows(rows = []) {
             <tr class="align-top">
                 <td class="px-4 py-4 min-w-[180px]">
                     <div class="font-semibold text-gray-900">${escapeHtml(row.tanggal)}</div>
-                    <div class="mt-1 text-xs text-gray-500">Posting ERP: ${escapeHtml(row.posting_at || '-')}</div>
-                    <div class="text-xs text-emerald-700">Terlihat: ${escapeHtml(row.first_seen_at || '-')}</div>
-                    <div class="text-xs text-gray-400">Update cek: ${escapeHtml(row.last_seen_at || '-')}</div>
+                    <button type="button"
+                        class="mt-2 inline-flex rounded-full border border-slate-200 bg-white px-2.5 py-1 text-[11px] font-semibold text-slate-600 hover:border-blue-200 hover:bg-blue-50 hover:text-blue-700"
+                        data-target="${timeDetailId}"
+                        aria-expanded="false"
+                        onclick="toggleGiTimeDetail(this)">
+                        Detail waktu
+                    </button>
+                    <div id="${timeDetailId}" class="hidden mt-2 rounded-lg border border-slate-200 bg-slate-50 p-2 text-xs leading-5">
+                        <div class="text-gray-600">Posting ERP: <span class="font-medium text-gray-800">${escapeHtml(row.posting_at || '-')}</span></div>
+                        <div class="text-emerald-700">Terlihat: <span class="font-medium">${escapeHtml(row.first_seen_at || '-')}</span></div>
+                        <div class="text-gray-500">Update cek: <span class="font-medium">${escapeHtml(row.last_seen_at || '-')}</span></div>
+                    </div>
                 </td>
                 <td class="px-4 py-4">
                     <div class="font-semibold text-gray-900">${escapeHtml(row.nomor_gi)}</div>
