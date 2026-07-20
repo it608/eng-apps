@@ -328,7 +328,7 @@ class MobileApprovalController extends Controller
             </div>
             ' . $metric('PB Menunggu', $summary['pb_pending'], 'waiting', 'Butuh keputusan', 'PB', 'pending') . '
             ' . $metric('PB Approved', $summary['pb_approved'], 'approved', 'Disetujui', 'PB', 'approved') . '
-            ' . $metric('PB Progress', $summary['pb_progress'], 'progress', 'Diproses', 'PB', 'progress') . '
+            ' . $metric('PB Fulfillment', $summary['pb_progress'], 'progress', 'Proses warehouse', 'PB', 'progress') . '
             ' . $metric('PB Done', $summary['pb_done'], 'done', 'Selesai', 'PB', 'done') . '
             ' . $metric('PB Rejected', $summary['pb_rejected'], 'rejected', 'Ditolak', 'PB', 'rejected') . '
         </section>';
@@ -348,7 +348,7 @@ class MobileApprovalController extends Controller
 
         $factoryPbMetrics = $metric('PB Menunggu', $summary['pb_pending'], 'waiting', 'Butuh keputusan L2', 'PB', 'pending') . '
             ' . $metric('PB Approved', $summary['pb_approved'], 'approved', 'Sudah disetujui', 'PB', 'approved') . '
-            ' . $metric('PB Progress', $summary['pb_progress'], 'progress', 'Diproses gudang', 'PB', 'progress') . '
+            ' . $metric('PB Fulfillment', $summary['pb_progress'], 'progress', 'Proses warehouse', 'PB', 'progress') . '
             ' . $metric('PB Done', $summary['pb_done'], 'done', 'Selesai', 'PB', 'done') . '
             ' . $metric('PB Rejected', $summary['pb_rejected'], 'rejected', 'Ditolak', 'PB', 'rejected');
 
@@ -1535,7 +1535,7 @@ class MobileApprovalController extends Controller
                     </div>
                     <div class="status-stack">
                         ' . ($pbIsBackdate ? '<span class="status pending">Backdate</span>' : '') . '
-                        <span class="status ' . e($this->mobileStatusClass($status)) . '">' . e($this->mobileStatusLabel($status)) . '</span>
+                        <span class="status ' . e($this->mobileStatusClass($status)) . '">' . e($this->mobileStatusLabelForType($status, 'PB')) . '</span>
                     </div>
                 </div>
                 <div class="meta-grid">
@@ -3920,6 +3920,10 @@ class MobileApprovalController extends Controller
 
     private function mobileDashboardDetailTitle(string $type, string $status): string
     {
+        if ($type === 'PB' && $status === 'progress') {
+            return 'PB Fulfillment';
+        }
+
         $labels = [
             'pending' => 'Menunggu',
             'approved' => 'Approved',
@@ -4520,7 +4524,7 @@ class MobileApprovalController extends Controller
         return '<a class="history-card" href="' . e($url) . '" data-type="' . e($type) . '" data-date="' . e($dateKey) . '" data-text="' . e($searchText) . '">
             <div class="card-top">
                 <span class="type-pill ' . e(strtolower($type)) . '">' . e($type) . '</span>
-                <span class="card-statuses">' . $backdateBadge . '<span class="status ' . e($this->mobileStatusClass($status)) . '">' . e($this->mobileStatusLabel($status)) . '</span></span>
+                <span class="card-statuses">' . $backdateBadge . '<span class="status ' . e($this->mobileStatusClass($status)) . '">' . e($this->mobileStatusLabelForType($status, $type)) . '</span></span>
             </div>
             <h2>' . e($number) . '</h2>
             <p>' . e($title) . '</p>
@@ -4617,7 +4621,7 @@ class MobileApprovalController extends Controller
     {
         $status = $pb->status === 'pending'
             ? 'Menunggu L' . (int) ($pb->approval_current_level ?: 1)
-            : $this->mobileStatusLabel($pb->status);
+            : $this->mobileStatusLabelForType($pb->status, 'PB');
         $search = trim($pb->nomor_pb . ' ' . $pb->tujuan_nama . ' ' . $pb->status . ' ' . $pb->jenis_pekerjaan);
         $backdateBadge = !empty($pb->is_backdate) ? '<span class="status pending">Backdate</span>' : '';
 
@@ -5772,7 +5776,7 @@ JS;
     private function mobileStatusLabel(?string $status): string
     {
         return match (strtolower((string) $status)) {
-            'closed', 'completed' => 'Done',
+            'closed', 'completed', 'fulfilled' => 'Done',
             'progress', 'in_progress' => 'In Progress',
             'approved' => 'Approved',
             'verified' => 'Terverifikasi',
@@ -5782,6 +5786,17 @@ JS;
             'open' => 'Open',
             default => ucfirst((string) ($status ?: '-')),
         };
+    }
+
+    private function mobileStatusLabelForType(?string $status, string $type): string
+    {
+        $normalized = strtolower((string) $status);
+
+        if (strtoupper($type) === 'PB' && in_array($normalized, ['progress', 'in_progress'], true)) {
+            return 'Fulfillment';
+        }
+
+        return $this->mobileStatusLabel($status);
     }
 
     private function mobileDateTime($value): string
