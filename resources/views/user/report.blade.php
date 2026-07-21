@@ -1268,8 +1268,9 @@ function reportCenter() {
                 const realizedY = bottom - realizedHeight;
                 const gapY = topY;
                 const labelText = `${label}: PB Masuk ${this.formatNumber(total)}, GI ${this.formatNumber(realized)}, Belum GI ${this.formatNumber(gap)}`;
+                const totalLabelY = Math.max(16, topY - 8);
                 const totalLabel = total > 0 && groupWidth >= 38
-                    ? `<text x="${centerX}" y="${Math.max(top + 12, topY - 7)}" text-anchor="middle" fill="#334155" font-size="10" font-weight="700">${this.escapeSvg(this.formatNumber(total))}</text>`
+                    ? `<text x="${centerX}" y="${totalLabelY}" text-anchor="middle" fill="#334155" font-size="10" font-weight="700">${this.escapeSvg(this.formatNumber(total))}</text>`
                     : '';
                 const gapRect = gap > 0
                     ? `<rect x="${x}" y="${gapY}" width="${barWidth}" height="${gapHeight}" rx="5" fill="#f97316"><title>${this.escapeSvg(labelText)}</title></rect>`
