@@ -73,7 +73,7 @@
                         <div>
                             <label class="mb-1 block text-xs font-semibold text-gray-500 uppercase">Cost Center</label>
                             <select id="giCostCenter" class="h-10 w-full border rounded-lg px-3 text-sm bg-white">
-                                <option value="">Semua Cost Center</option>
+                                <option value="">Semua Cost Center Engineering</option>
                                 @foreach(($costCenters ?? []) as $costCenter)
                                     <option value="{{ $costCenter['value'] }}">{{ $costCenter['label'] }}</option>
                                 @endforeach
