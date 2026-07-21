@@ -793,6 +793,37 @@
                                 Belum ada spend GI untuk periode ini.
                             </div>
                         </div>
+
+                        <div class="mt-5 rounded-xl border border-blue-100 bg-blue-50 p-4">
+                            <div class="text-xs font-semibold uppercase tracking-wide text-blue-700">Rata-rata Spend</div>
+                            <div class="mt-3 space-y-3 text-sm">
+                                <div class="flex items-start justify-between gap-3">
+                                    <div>
+                                        <div class="font-medium text-gray-700">Per hari kalender</div>
+                                        <div class="text-xs text-gray-500">Termasuk tanggal dengan nilai 0</div>
+                                    </div>
+                                    <div class="font-mono font-semibold text-blue-900" x-text="formatCurrency(burnRate.totals.average_daily)"></div>
+                                </div>
+                                <div class="flex items-start justify-between gap-3">
+                                    <div>
+                                        <div class="font-medium text-gray-700">Per hari aktif</div>
+                                        <div class="text-xs text-gray-500">
+                                            <span x-text="formatNumber(burnRate.totals.active_periods)"></span> hari ada GI
+                                        </div>
+                                    </div>
+                                    <div class="font-mono font-semibold text-blue-900" x-text="formatCurrency(averageActiveBurn())"></div>
+                                </div>
+                                <div class="flex items-start justify-between gap-3">
+                                    <div>
+                                        <div class="font-medium text-gray-700">Per dokumen GI</div>
+                                        <div class="text-xs text-gray-500">
+                                            <span x-text="formatNumber(burnRate.totals.documents)"></span> dokumen
+                                        </div>
+                                    </div>
+                                    <div class="font-mono font-semibold text-blue-900" x-text="formatCurrency(averageDocumentBurn())"></div>
+                                </div>
+                            </div>
+                        </div>
                     </div>
 
                     <div class="overflow-x-auto rounded-xl border border-gray-200 xl:col-span-2">
@@ -1176,6 +1207,20 @@ function reportCenter() {
 
         formatCurrency(value) {
             return 'Rp ' + new Intl.NumberFormat('id-ID', { maximumFractionDigits: 0 }).format(Number(value || 0));
+        },
+
+        averageActiveBurn() {
+            const activePeriods = Number(this.burnRate.totals?.active_periods || 0);
+            const totalSpend = Number(this.burnRate.totals?.total_spend || 0);
+
+            return activePeriods > 0 ? totalSpend / activePeriods : 0;
+        },
+
+        averageDocumentBurn() {
+            const documents = Number(this.burnRate.totals?.documents || 0);
+            const totalSpend = Number(this.burnRate.totals?.total_spend || 0);
+
+            return documents > 0 ? totalSpend / documents : 0;
         },
 
         formatCurrencyShort(value) {
