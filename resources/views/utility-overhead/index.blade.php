@@ -120,7 +120,7 @@
                 <div class="flex flex-col gap-1 md:flex-row md:items-center md:justify-between">
                     <div>
                         <h3 class="text-sm font-semibold text-blue-950">Periode & Baseline</h3>
-                        <p class="text-xs text-blue-700">Isi periode bulan, output produksi, dan budget pembanding index.</p>
+                        <p class="text-xs text-blue-700">Isi periode bulan, output produksi, dan target pembanding index. Total dan index realisasi dihitung otomatis.</p>
                     </div>
                     <span class="mt-1 text-xs font-semibold text-blue-700 md:mt-0">Skala data: {{ $year }}</span>
                 </div>
@@ -143,8 +143,9 @@
                         <input name="output_produksi_kg" value="{{ $fieldValue('output_produksi_kg') }}" inputmode="decimal" class="{{ $inputClass }}">
                     </div>
                     <div>
-                        <label class="block text-xs font-semibold uppercase tracking-wide text-blue-800">Index Budget</label>
+                        <label class="block text-xs font-semibold uppercase tracking-wide text-blue-800">Target Index Rp/Kg</label>
                         <input name="index_budget" value="{{ $fieldValue('index_budget', 2500) }}" inputmode="decimal" class="{{ $inputClass }}">
+                        <p class="mt-1 text-[11px] text-blue-700">Target/budget pembanding, bukan hasil rumus.</p>
                     </div>
                 </div>
             </section>
@@ -220,7 +221,7 @@
                         <th class="px-4 py-3 text-right">Molases Rp</th>
                         <th class="px-4 py-3 text-right">Total Rp</th>
                         <th class="px-4 py-3 text-right">Index Rp/Kg</th>
-                        <th class="px-4 py-3 text-right">Budget</th>
+                        <th class="px-4 py-3 text-right">Target Index</th>
                         <th class="px-4 py-3 text-left">Aksi</th>
                     </tr>
                 </thead>
