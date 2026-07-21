@@ -146,55 +146,65 @@
         </div>
 
         <div class="bg-white rounded-xl shadow-sm border p-6">
-            <div class="mb-4 border-b border-gray-200 flex justify-between items-center">
-                <div class="flex -mb-px text-sm font-medium">
-                    <button
-                        type="button"
-                        @click="changeTab('overview')"
-                        :class="activeTab === 'overview' ? 'text-blue-600 border-blue-600 bg-blue-50/50' : 'text-gray-600 border-transparent hover:text-blue-600'"
-                        class="report-tab-btn">
-                        Overview
-                    </button>
+            <div class="mb-4 border-b border-gray-200 pb-4 flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
+                <div class="flex flex-col gap-3 lg:flex-row lg:items-end">
+                    <div>
+                        <div class="mb-1 text-[11px] font-semibold uppercase tracking-wide text-gray-500">Visual Analytics</div>
+                        <div class="flex flex-wrap gap-1 rounded-lg bg-gray-50 p-1 text-sm font-medium">
+                            <button
+                                type="button"
+                                @click="changeTab('overview')"
+                                :class="activeTab === 'overview' ? 'text-blue-700 bg-white shadow-sm border-gray-200' : 'text-gray-600 border-transparent hover:text-blue-600 hover:bg-white'"
+                                class="rounded-md border px-3 py-2 transition">
+                                Overview
+                            </button>
 
-                    <button
-                        type="button"
-                        @click="changeTab('transaksi')"
-                        :class="activeTab === 'transaksi' ? 'text-blue-600 border-blue-600 bg-blue-50/50' : 'text-gray-600 border-transparent hover:text-blue-600'"
-                        class="report-tab-btn">
-                        Transaksi
-                    </button>
+                            <button
+                                type="button"
+                                @click="changeTab('costcenter')"
+                                :class="activeTab === 'costcenter' ? 'text-blue-700 bg-white shadow-sm border-gray-200' : 'text-gray-600 border-transparent hover:text-blue-600 hover:bg-white'"
+                                class="rounded-md border px-3 py-2 transition">
+                                Cost Center
+                            </button>
 
-                    <button
-                        type="button"
-                        @click="changeTab('workorder')"
-                        :class="activeTab === 'workorder' ? 'text-blue-600 border-blue-600 bg-blue-50/50' : 'text-gray-600 border-transparent hover:text-blue-600'"
-                        class="report-tab-btn">
-                        Work Order
-                    </button>
+                            <button
+                                type="button"
+                                @click="changeTab('pbgi')"
+                                :class="activeTab === 'pbgi' ? 'text-blue-700 bg-white shadow-sm border-gray-200' : 'text-gray-600 border-transparent hover:text-blue-600 hover:bg-white'"
+                                class="rounded-md border px-3 py-2 transition">
+                                PB vs GI
+                            </button>
 
-                    <button
-                        type="button"
-                        @click="changeTab('costcenter')"
-                        :class="activeTab === 'costcenter' ? 'text-blue-600 border-blue-600 bg-blue-50/50' : 'text-gray-600 border-transparent hover:text-blue-600'"
-                        class="report-tab-btn">
-                        Cost Center
-                    </button>
+                            <button
+                                type="button"
+                                @click="changeTab('burnrate')"
+                                :class="activeTab === 'burnrate' ? 'text-blue-700 bg-white shadow-sm border-gray-200' : 'text-gray-600 border-transparent hover:text-blue-600 hover:bg-white'"
+                                class="rounded-md border px-3 py-2 transition">
+                                Budget Burn
+                            </button>
+                        </div>
+                    </div>
 
-                    <button
-                        type="button"
-                        @click="changeTab('pbgi')"
-                        :class="activeTab === 'pbgi' ? 'text-blue-600 border-blue-600 bg-blue-50/50' : 'text-gray-600 border-transparent hover:text-blue-600'"
-                        class="report-tab-btn">
-                        PB vs GI
-                    </button>
+                    <div>
+                        <div class="mb-1 text-[11px] font-semibold uppercase tracking-wide text-gray-500">Row Data</div>
+                        <div class="flex flex-wrap gap-1 rounded-lg bg-gray-50 p-1 text-sm font-medium">
+                            <button
+                                type="button"
+                                @click="changeTab('transaksi')"
+                                :class="activeTab === 'transaksi' ? 'text-blue-700 bg-white shadow-sm border-gray-200' : 'text-gray-600 border-transparent hover:text-blue-600 hover:bg-white'"
+                                class="rounded-md border px-3 py-2 transition">
+                                Transaksi PB
+                            </button>
 
-                    <button
-                        type="button"
-                        @click="changeTab('burnrate')"
-                        :class="activeTab === 'burnrate' ? 'text-blue-600 border-blue-600 bg-blue-50/50' : 'text-gray-600 border-transparent hover:text-blue-600'"
-                        class="report-tab-btn">
-                        Budget Burn
-                    </button>
+                            <button
+                                type="button"
+                                @click="changeTab('workorder')"
+                                :class="activeTab === 'workorder' ? 'text-blue-700 bg-white shadow-sm border-gray-200' : 'text-gray-600 border-transparent hover:text-blue-600 hover:bg-white'"
+                                class="rounded-md border px-3 py-2 transition">
+                                Work Order
+                            </button>
+                        </div>
+                    </div>
                 </div>
 
                 <button
