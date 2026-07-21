@@ -179,6 +179,14 @@
                         class="report-tab-btn">
                         Cost Center
                     </button>
+
+                    <button
+                        type="button"
+                        @click="changeTab('pbgi')"
+                        :class="activeTab === 'pbgi' ? 'text-blue-600 border-blue-600 bg-blue-50/50' : 'text-gray-600 border-transparent hover:text-blue-600'"
+                        class="report-tab-btn">
+                        PB vs GI
+                    </button>
                 </div>
 
                 <button
@@ -290,7 +298,7 @@
                     </div>
                 </div>
 
-                <div x-show="activeTab === 'costcenter'" class="grid grid-cols-1 md:grid-cols-3 gap-3 mt-4">
+                <div x-show="['costcenter', 'pbgi'].includes(activeTab)" class="grid grid-cols-1 md:grid-cols-3 gap-3 mt-4">
                     <div>
                         <label class="block text-xs font-medium text-gray-500 mb-1">Mode Trend</label>
                         <select
@@ -317,7 +325,8 @@
                 <div>
                     <span x-show="pagination" x-text="`${formatNumber(pagination?.total || 0)} data ditemukan`"></span>
                     <span x-show="activeTab === 'costcenter'">Sumber: ERP Good Issue read-only</span>
-                    <span x-show="!pagination && activeTab !== 'costcenter'">Ringkasan berdasarkan filter periode aktif</span>
+                    <span x-show="activeTab === 'pbgi'">Sumber: DB e-Request fulfillment</span>
+                    <span x-show="!pagination && !['costcenter', 'pbgi'].includes(activeTab)">Ringkasan berdasarkan filter periode aktif</span>
                 </div>
             </div>
 
@@ -593,7 +602,101 @@
                 </div>
             </div>
 
-            <div x-show="pagination && !['overview', 'costcenter'].includes(activeTab)" class="px-6 py-4 border-t border-gray-200 flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+            {{-- PB vs GI Realization --}}
+            <div x-show="activeTab === 'pbgi'" class="space-y-5">
+                <div class="grid grid-cols-1 gap-4 md:grid-cols-4">
+                    <div class="rounded-xl border border-blue-200 bg-blue-50 p-4">
+                        <div class="text-xs font-semibold uppercase tracking-wide text-blue-700">PB Masuk Fulfillment</div>
+                        <div class="mt-1 text-2xl font-semibold text-blue-900" x-text="formatNumber(pbGi.totals.pb_count)"></div>
+                        <div class="mt-2 text-xs text-blue-700" x-text="formatCurrency(pbGi.totals.pb_value)"></div>
+                    </div>
+
+                    <div class="rounded-xl border border-emerald-200 bg-emerald-50 p-4">
+                        <div class="text-xs font-semibold uppercase tracking-wide text-emerald-700">PB Realized GI</div>
+                        <div class="mt-1 text-2xl font-semibold text-emerald-900" x-text="formatNumber(pbGi.totals.realized_count)"></div>
+                        <div class="mt-2 text-xs text-emerald-700" x-text="formatCurrency(pbGi.totals.realized_value)"></div>
+                    </div>
+
+                    <div class="rounded-xl border border-amber-200 bg-amber-50 p-4">
+                        <div class="text-xs font-semibold uppercase tracking-wide text-amber-700">Belum GI</div>
+                        <div class="mt-1 text-2xl font-semibold text-amber-900" x-text="formatNumber(pbGi.totals.gap_count)"></div>
+                        <div class="mt-2 text-xs text-amber-700" x-text="formatCurrency(pbGi.totals.gap_value)"></div>
+                    </div>
+
+                    <div class="rounded-xl border border-gray-200 bg-white p-4">
+                        <div class="text-xs font-semibold uppercase tracking-wide text-gray-500">Realization Rate</div>
+                        <div class="mt-1 text-2xl font-semibold text-gray-900">
+                            <span x-text="formatNumber(pbGi.totals.realization_rate)"></span>%
+                        </div>
+                        <div class="mt-2 text-xs text-gray-500">
+                            <span x-text="formatNumber(pbGi.totals.realized_items)"></span> /
+                            <span x-text="formatNumber(pbGi.totals.item_count)"></span> item
+                        </div>
+                    </div>
+                </div>
+
+                <div class="cost-chart-panel p-5">
+                    <div class="mb-4 flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+                        <div>
+                            <h3 class="text-base font-semibold text-gray-900">PB vs GI Realization</h3>
+                            <p class="mt-1 text-sm text-gray-500">
+                                Perbandingan <span x-text="(pbGi.grouping_label || 'Bulanan').toLowerCase()"></span> PB yang masuk fulfillment, PB yang sudah terealisasi GI, dan gap yang belum GI.
+                            </p>
+                        </div>
+                        <div class="flex flex-wrap gap-3 text-xs">
+                            <template x-for="serie in pbGi.series" :key="`pbgi-legend-${serie.key}`">
+                                <div class="inline-flex items-center gap-2 rounded-full border border-gray-200 px-3 py-1.5">
+                                    <span class="h-2.5 w-2.5 rounded-full" :style="`background:${serie.color}`"></span>
+                                    <span class="font-medium text-gray-700" x-text="serie.label"></span>
+                                </div>
+                            </template>
+                        </div>
+                    </div>
+
+                    <div class="overflow-x-auto">
+                        <div class="min-w-[760px]" x-html="pbGiChartSvg()"></div>
+                    </div>
+                </div>
+
+                <div class="overflow-x-auto rounded-xl border border-gray-200">
+                    <table class="w-full text-sm">
+                        <thead class="bg-gray-50 text-xs uppercase tracking-wide text-gray-600">
+                            <tr>
+                                <th class="px-4 py-3 text-left">Periode</th>
+                                <th class="px-4 py-3 text-right">PB Masuk</th>
+                                <th class="px-4 py-3 text-right">Realized GI</th>
+                                <th class="px-4 py-3 text-right">Belum GI</th>
+                                <th class="px-4 py-3 text-right">Nilai PB</th>
+                                <th class="px-4 py-3 text-right">Nilai Realized</th>
+                                <th class="px-4 py-3 text-right">Rate</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-gray-100">
+                            <template x-for="row in pbGi.rows" :key="`pbgi-row-${row.period_key}`">
+                                <tr>
+                                    <td class="px-4 py-3 font-semibold text-gray-900" x-text="row.label"></td>
+                                    <td class="px-4 py-3 text-right" x-text="formatNumber(row.pb_count)"></td>
+                                    <td class="px-4 py-3 text-right text-emerald-700" x-text="formatNumber(row.realized_count)"></td>
+                                    <td class="px-4 py-3 text-right text-amber-700" x-text="formatNumber(row.gap_count)"></td>
+                                    <td class="px-4 py-3 text-right font-mono" x-text="formatCurrency(row.pb_value)"></td>
+                                    <td class="px-4 py-3 text-right font-mono" x-text="formatCurrency(row.realized_value)"></td>
+                                    <td class="px-4 py-3 text-right font-semibold">
+                                        <span x-text="formatNumber(row.realization_rate)"></span>%
+                                    </td>
+                                </tr>
+                            </template>
+
+                            <tr x-show="!loading && pbGi.rows.length === 0">
+                                <td colspan="7" class="px-4 py-10 text-center text-gray-500">
+                                    Belum ada data PB fulfillment untuk periode ini.
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div x-show="pagination && !['overview', 'costcenter', 'pbgi'].includes(activeTab)" class="px-6 py-4 border-t border-gray-200 flex flex-col md:flex-row md:items-center md:justify-between gap-3">
                 <div class="text-sm text-gray-500">
                     Halaman <span x-text="pagination?.current_page || 1"></span> dari <span x-text="pagination?.last_page || 1"></span>
                 </div>
@@ -645,6 +748,26 @@ function reportCenter() {
                 items: 0,
                 quantity: 0,
                 total_value: 0
+            }
+        },
+        pbGi: {
+            period: { start: '-', end: '-' },
+            grouping: 'monthly',
+            grouping_label: 'Bulanan',
+            labels: [],
+            series: [],
+            rows: [],
+            max_value: 1,
+            totals: {
+                pb_count: 0,
+                realized_count: 0,
+                gap_count: 0,
+                item_count: 0,
+                realized_items: 0,
+                pb_value: 0,
+                realized_value: 0,
+                gap_value: 0,
+                realization_rate: 0
             }
         },
         pagination: null,
@@ -710,6 +833,9 @@ function reportCenter() {
             ],
             costcenter: [
                 { value: 'all', label: 'Semua Status' }
+            ],
+            pbgi: [
+                { value: 'all', label: 'Semua Status' }
             ]
         },
 
@@ -768,6 +894,10 @@ function reportCenter() {
                     this.pagination = null;
                 } else if (this.activeTab === 'costcenter') {
                     this.costCenter = result.data || this.costCenter;
+                    this.rows = [];
+                    this.pagination = null;
+                } else if (this.activeTab === 'pbgi') {
+                    this.pbGi = result.data || this.pbGi;
                     this.rows = [];
                     this.pagination = null;
                 } else {
@@ -1053,6 +1183,104 @@ function reportCenter() {
                     ${lines}
                     ${axisLabels}
                     ${monthMarkers}
+                </svg>
+            `;
+        },
+
+        pbGiChartLabelIndexes() {
+            const labels = this.pbGi.labels || [];
+            const total = labels.length;
+
+            if (total <= 14) {
+                return labels.map((_, index) => index);
+            }
+
+            const step = Math.ceil(total / 8);
+            const indexes = new Set([0, total - 1]);
+
+            for (let index = 0; index < total; index += step) {
+                indexes.add(index);
+            }
+
+            return Array.from(indexes).sort((a, b) => a - b);
+        },
+
+        pbGiAxisLabel(label) {
+            if (this.pbGi.grouping === 'daily') {
+                return String(label || '').split(' ')[0];
+            }
+
+            return label;
+        },
+
+        pbGiChartSvg() {
+            const labels = this.pbGi.labels || [];
+            const series = this.pbGi.series || [];
+            const totalPb = Number(this.pbGi.totals?.pb_count || 0);
+
+            if (!labels.length || !series.length || totalPb <= 0) {
+                return `
+                    <div class="flex h-[320px] items-center justify-center rounded-lg border border-dashed border-gray-200 text-sm text-gray-500">
+                        Belum ada data PB fulfillment untuk periode ini.
+                    </div>
+                `;
+            }
+
+            const chartMax = Math.max(Number(this.pbGi.max_value || 0), 1);
+            const left = 72;
+            const right = 890;
+            const top = 42;
+            const bottom = 270;
+            const plotHeight = bottom - top;
+            const groupWidth = (right - left) / Math.max(labels.length, 1);
+            const barGap = 4;
+            const barWidth = Math.max(5, Math.min(24, (groupWidth - 12) / Math.max(series.length, 1) - barGap));
+            const groupBarsWidth = (barWidth * series.length) + (barGap * (series.length - 1));
+
+            const yFor = value => bottom - ((Number(value || 0) / chartMax) * plotHeight);
+            const ticks = [0, 1, 2, 3, 4].map(index => {
+                const value = Math.ceil(chartMax * ((4 - index) / 4));
+                const y = top + (index * (plotHeight / 4));
+
+                return `
+                    <g>
+                        <line x1="${left}" x2="${right}" y1="${y}" y2="${y}" stroke="#e5e7eb" stroke-width="1"></line>
+                        <text x="${left - 10}" y="${y + 4}" text-anchor="end" fill="#6b7280" font-size="11">${this.escapeSvg(this.formatNumber(value))}</text>
+                    </g>
+                `;
+            }).join('');
+
+            const bars = labels.map((label, labelIndex) => {
+                const centerX = left + (labelIndex * groupWidth) + (groupWidth / 2);
+                const startX = centerX - (groupBarsWidth / 2);
+
+                return series.map((serie, serieIndex) => {
+                    const value = Number((serie.values || [])[labelIndex] || 0);
+                    const y = yFor(value);
+                    const height = Math.max(0, bottom - y);
+                    const x = startX + (serieIndex * (barWidth + barGap));
+
+                    return `
+                        <rect x="${x}" y="${y}" width="${barWidth}" height="${height}" rx="4" fill="${serie.color}">
+                            <title>${this.escapeSvg(`${serie.label} ${label}: ${this.formatNumber(value)} PB`)}</title>
+                        </rect>
+                    `;
+                }).join('');
+            }).join('');
+
+            const axisLabels = this.pbGiChartLabelIndexes().map(index => {
+                const x = left + (index * groupWidth) + (groupWidth / 2);
+
+                return `<text x="${x}" y="304" text-anchor="middle" fill="#64748b" font-size="10.5" font-weight="500">${this.escapeSvg(this.pbGiAxisLabel(labels[index]))}</text>`;
+            }).join('');
+
+            return `
+                <svg class="cost-chart-svg" viewBox="0 0 920 330" role="img" aria-label="Bar chart PB vs GI realization">
+                    ${ticks}
+                    <line x1="${left}" x2="${right}" y1="${bottom}" y2="${bottom}" stroke="#cbd5e1" stroke-width="1.2"></line>
+                    <line x1="${left}" x2="${left}" y1="${top}" y2="${bottom}" stroke="#cbd5e1" stroke-width="1.2"></line>
+                    ${bars}
+                    ${axisLabels}
                 </svg>
             `;
         },

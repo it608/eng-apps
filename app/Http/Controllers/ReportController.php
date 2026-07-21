@@ -26,6 +26,8 @@ class ReportController extends Controller
                 $payload = $this->getWorkOrderData($request);
             } elseif ($tab === 'costcenter') {
                 $payload = $this->getCostCenterData($request);
+            } elseif ($tab === 'pbgi') {
+                $payload = $this->getPbGiData($request);
             } else {
                 $payload = $this->getOverviewData($request);
             }
@@ -63,6 +65,9 @@ class ReportController extends Controller
             } elseif ($tab === 'costcenter') {
                 [$headers, $rows, $sheetName] = $this->buildCostCenterExport($request);
                 $filename = "report_cost_center_engineering_{$timestamp}.xlsx";
+            } elseif ($tab === 'pbgi') {
+                [$headers, $rows, $sheetName] = $this->buildPbGiExport($request);
+                $filename = "report_pb_vs_gi_realization_{$timestamp}.xlsx";
             } else {
                 [$headers, $rows, $sheetName] = $this->buildOverviewExport($request);
                 $filename = "report_overview_{$timestamp}.xlsx";
@@ -95,7 +100,7 @@ class ReportController extends Controller
     {
         $tab = strtolower((string) $tab);
 
-        return in_array($tab, ['overview', 'transaksi', 'workorder', 'costcenter'], true)
+        return in_array($tab, ['overview', 'transaksi', 'workorder', 'costcenter', 'pbgi'], true)
             ? $tab
             : 'overview';
     }
@@ -367,6 +372,161 @@ class ReportController extends Controller
                 'mode' => 'costcenter',
                 'grouping' => $grouping,
                 'source' => 'ERP Good Issue read-only',
+            ],
+        ];
+    }
+
+    private function getPbGiData(Request $request): array
+    {
+        [$start, $end] = $this->costCenterPeriod($request);
+        $grouping = $this->costCenterGrouping($request, $start, $end);
+        $buckets = $this->costCenterBuckets($start, $end, $grouping);
+        $bucketIndex = array_flip(array_column($buckets, 'key'));
+
+        $rows = DB::table('trBPB as pb')
+            ->leftJoin('trBPBDetail as d', 'd.trbpb_id', '=', 'pb.id')
+            ->select([
+                'pb.id',
+                'pb.nomor_pb',
+                'pb.tanggal_permintaan',
+                'pb.status',
+                DB::raw('COUNT(d.id) as item_count'),
+                DB::raw("SUM(CASE WHEN d.fulfillment_status = 'checked' OR (d.erp_gi_number IS NOT NULL AND d.erp_gi_number <> '') THEN 1 ELSE 0 END) as realized_items"),
+                DB::raw('COALESCE(SUM(d.total_price), 0) as pb_value'),
+                DB::raw("COALESCE(SUM(CASE WHEN d.fulfillment_status = 'checked' OR (d.erp_gi_number IS NOT NULL AND d.erp_gi_number <> '') THEN d.total_price ELSE 0 END), 0) as realized_value"),
+            ])
+            ->whereIn('pb.status', ['approved', 'completed'])
+            ->whereDate('pb.tanggal_permintaan', '>=', $start->toDateString())
+            ->whereDate('pb.tanggal_permintaan', '<=', $end->toDateString())
+            ->when($request->filled('search'), function ($query) use ($request) {
+                $search = trim((string) $request->get('search'));
+
+                $query->where(function ($q) use ($search) {
+                    $q->where('pb.nomor_pb', 'LIKE', "%{$search}%")
+                        ->orWhere('pb.jenis_pekerjaan', 'LIKE', "%{$search}%")
+                        ->orWhere('pb.keterangan', 'LIKE', "%{$search}%")
+                        ->orWhere('d.nama_barang', 'LIKE', "%{$search}%")
+                        ->orWhere('d.kode_barang', 'LIKE', "%{$search}%")
+                        ->orWhere('d.erp_gi_number', 'LIKE', "%{$search}%");
+                });
+            })
+            ->groupBy('pb.id', 'pb.nomor_pb', 'pb.tanggal_permintaan', 'pb.status')
+            ->orderBy('pb.tanggal_permintaan')
+            ->get();
+
+        $periodRows = collect($buckets)->mapWithKeys(fn ($bucket) => [$bucket['key'] => [
+            'period_key' => $bucket['key'],
+            'label' => $bucket['label'],
+            'pb_count' => 0,
+            'realized_count' => 0,
+            'gap_count' => 0,
+            'item_count' => 0,
+            'realized_items' => 0,
+            'pb_value' => 0.0,
+            'realized_value' => 0.0,
+            'gap_value' => 0.0,
+            'realization_rate' => 0.0,
+        ]])->all();
+
+        foreach ($rows as $row) {
+            $date = Carbon::parse($row->tanggal_permintaan);
+            $bucketKey = $grouping === 'daily' ? $date->format('Y-m-d') : $date->format('Y-m');
+
+            if (!isset($bucketIndex[$bucketKey])) {
+                continue;
+            }
+
+            $itemCount = (int) ($row->item_count ?? 0);
+            $realizedItems = (int) ($row->realized_items ?? 0);
+            $pbValue = (float) ($row->pb_value ?? 0);
+            $realizedValue = (float) ($row->realized_value ?? 0);
+            $isRealized = $row->status === 'completed' || ($itemCount > 0 && $realizedItems >= $itemCount);
+
+            if ($isRealized && $realizedValue <= 0) {
+                $realizedValue = $pbValue;
+            }
+
+            $periodRows[$bucketKey]['pb_count']++;
+            $periodRows[$bucketKey]['item_count'] += $itemCount;
+            $periodRows[$bucketKey]['realized_items'] += $isRealized ? $itemCount : $realizedItems;
+            $periodRows[$bucketKey]['pb_value'] += $pbValue;
+            $periodRows[$bucketKey]['realized_value'] += $realizedValue;
+
+            if ($isRealized) {
+                $periodRows[$bucketKey]['realized_count']++;
+            } else {
+                $periodRows[$bucketKey]['gap_count']++;
+                $periodRows[$bucketKey]['gap_value'] += max($pbValue - $realizedValue, 0);
+            }
+        }
+
+        $periodRows = array_map(function ($row) {
+            $row['realization_rate'] = $row['pb_count'] > 0
+                ? round(($row['realized_count'] / $row['pb_count']) * 100, 2)
+                : 0.0;
+
+            return $row;
+        }, array_values($periodRows));
+
+        $series = [
+            [
+                'key' => 'pb',
+                'label' => 'PB Masuk Fulfillment',
+                'color' => '#2563eb',
+                'values' => array_column($periodRows, 'pb_count'),
+            ],
+            [
+                'key' => 'gi',
+                'label' => 'PB Realized GI',
+                'color' => '#059669',
+                'values' => array_column($periodRows, 'realized_count'),
+            ],
+            [
+                'key' => 'gap',
+                'label' => 'Belum GI',
+                'color' => '#f97316',
+                'values' => array_column($periodRows, 'gap_count'),
+            ],
+        ];
+
+        $totals = [
+            'pb_count' => array_sum(array_column($periodRows, 'pb_count')),
+            'realized_count' => array_sum(array_column($periodRows, 'realized_count')),
+            'gap_count' => array_sum(array_column($periodRows, 'gap_count')),
+            'item_count' => array_sum(array_column($periodRows, 'item_count')),
+            'realized_items' => array_sum(array_column($periodRows, 'realized_items')),
+            'pb_value' => array_sum(array_column($periodRows, 'pb_value')),
+            'realized_value' => array_sum(array_column($periodRows, 'realized_value')),
+            'gap_value' => array_sum(array_column($periodRows, 'gap_value')),
+        ];
+        $totals['realization_rate'] = $totals['pb_count'] > 0
+            ? round(($totals['realized_count'] / $totals['pb_count']) * 100, 2)
+            : 0.0;
+
+        $maxValue = max(1, ...array_merge(
+            array_column($periodRows, 'pb_count'),
+            array_column($periodRows, 'realized_count'),
+            array_column($periodRows, 'gap_count')
+        ));
+
+        return [
+            'data' => [
+                'period' => [
+                    'start' => $start->format('d/m/Y'),
+                    'end' => $end->format('d/m/Y'),
+                ],
+                'grouping' => $grouping,
+                'grouping_label' => $grouping === 'daily' ? 'Harian' : 'Bulanan',
+                'labels' => array_column($buckets, 'label'),
+                'series' => $series,
+                'rows' => $periodRows,
+                'max_value' => $maxValue,
+                'totals' => $totals,
+            ],
+            'meta' => [
+                'mode' => 'pbgi',
+                'grouping' => $grouping,
+                'source' => 'DB e-Request fulfillment',
             ],
         ];
     }
@@ -769,6 +929,41 @@ class ReportController extends Controller
             'Total Item',
             'Total Qty',
         ], $rows, 'Cost Center'];
+    }
+
+    private function buildPbGiExport(Request $request): array
+    {
+        $payload = $this->getPbGiData($request)['data'];
+        $rows = collect($payload['rows'])
+            ->map(fn ($row, $index) => [
+                $index + 1,
+                $row['label'],
+                (int) $row['pb_count'],
+                (int) $row['realized_count'],
+                (int) $row['gap_count'],
+                (int) $row['item_count'],
+                (int) $row['realized_items'],
+                (float) $row['pb_value'],
+                (float) $row['realized_value'],
+                (float) $row['gap_value'],
+                (float) $row['realization_rate'],
+            ])
+            ->values()
+            ->all();
+
+        return [[
+            'No',
+            'Periode',
+            'PB Masuk Fulfillment',
+            'PB Realized GI',
+            'Belum GI',
+            'Total Item PB',
+            'Item Realized',
+            'Nilai PB',
+            'Nilai Realized',
+            'Nilai Gap',
+            'Realization Rate (%)',
+        ], $rows, 'PB vs GI'];
     }
 
     private function buildOverviewExport(Request $request): array
