@@ -342,73 +342,123 @@
 
             {{-- Overview --}}
             <div x-show="activeTab === 'overview'" class="pt-0">
-                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                    <div class="border border-gray-200 rounded-xl overflow-hidden">
-                        <div class="px-4 py-3 border-b border-gray-200 bg-gray-50">
-                            <h3 class="font-semibold text-gray-900">Status Permintaan Barang</h3>
-                        </div>
-                        <div class="divide-y divide-gray-100">
-                            <template x-for="row in overview.pb_status" :key="row.raw">
-                                <div class="px-4 py-3 flex items-center justify-between">
-                                    <span class="text-sm text-gray-700" x-text="row.label"></span>
-                                    <span class="text-sm font-semibold text-gray-900" x-text="formatNumber(row.total)"></span>
+                <div class="space-y-5">
+                    <div class="grid grid-cols-1 gap-5 xl:grid-cols-2">
+                        <section class="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
+                            <div class="flex items-start justify-between gap-4">
+                                <div>
+                                    <div class="text-xs font-semibold uppercase tracking-wide text-blue-700">Permintaan Barang</div>
+                                    <h3 class="mt-1 text-base font-semibold text-gray-900">Status PB</h3>
                                 </div>
-                            </template>
-                            <div x-show="overview.pb_status.length === 0" class="px-4 py-8 text-center text-sm text-gray-500">
-                                Belum ada data PB.
+                                <div class="text-right">
+                                    <div class="font-mono text-2xl font-semibold text-blue-700" x-text="formatNumber(overviewTotal(overview.pb_status))"></div>
+                                    <div class="text-xs text-gray-500">total PB</div>
+                                </div>
                             </div>
-                        </div>
+
+                            <div class="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
+                                <template x-for="row in overview.pb_status" :key="row.raw">
+                                    <div class="rounded-lg border border-gray-200 bg-gray-50 p-3">
+                                        <div class="flex items-start justify-between gap-3">
+                                            <div class="min-w-0">
+                                                <div class="flex items-center gap-2">
+                                                    <span class="h-2.5 w-2.5 shrink-0 rounded-full" :style="overviewAccentStyle(row.label)"></span>
+                                                    <span class="truncate text-sm font-medium text-gray-700" x-text="row.label"></span>
+                                                </div>
+                                                <div class="mt-2 h-1.5 rounded-full bg-white">
+                                                    <div class="h-1.5 rounded-full" :style="overviewBarStyle(row, overview.pb_status)"></div>
+                                                </div>
+                                            </div>
+                                            <div class="font-mono text-lg font-semibold text-gray-900" x-text="formatNumber(row.total)"></div>
+                                        </div>
+                                        <div class="mt-1 text-xs text-gray-500" x-text="`${formatNumber(overviewShare(row, overview.pb_status))}% dari PB`"></div>
+                                    </div>
+                                </template>
+                                <div x-show="overview.pb_status.length === 0" class="rounded-lg border border-dashed border-gray-200 px-4 py-8 text-center text-sm text-gray-500 sm:col-span-2">
+                                    Belum ada data PB.
+                                </div>
+                            </div>
+                        </section>
+
+                        <section class="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
+                            <div class="flex items-start justify-between gap-4">
+                                <div>
+                                    <div class="text-xs font-semibold uppercase tracking-wide text-emerald-700">Work Order</div>
+                                    <h3 class="mt-1 text-base font-semibold text-gray-900">Status WO</h3>
+                                </div>
+                                <div class="text-right">
+                                    <div class="font-mono text-2xl font-semibold text-emerald-700" x-text="formatNumber(overviewTotal(overview.wo_status))"></div>
+                                    <div class="text-xs text-gray-500">total WO</div>
+                                </div>
+                            </div>
+
+                            <div class="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
+                                <template x-for="row in overview.wo_status" :key="row.raw">
+                                    <div class="rounded-lg border border-gray-200 bg-gray-50 p-3">
+                                        <div class="flex items-start justify-between gap-3">
+                                            <div class="min-w-0">
+                                                <div class="flex items-center gap-2">
+                                                    <span class="h-2.5 w-2.5 shrink-0 rounded-full" :style="overviewAccentStyle(row.label)"></span>
+                                                    <span class="truncate text-sm font-medium text-gray-700" x-text="row.label"></span>
+                                                </div>
+                                                <div class="mt-2 h-1.5 rounded-full bg-white">
+                                                    <div class="h-1.5 rounded-full" :style="overviewBarStyle(row, overview.wo_status)"></div>
+                                                </div>
+                                            </div>
+                                            <div class="font-mono text-lg font-semibold text-gray-900" x-text="formatNumber(row.total)"></div>
+                                        </div>
+                                        <div class="mt-1 text-xs text-gray-500" x-text="`${formatNumber(overviewShare(row, overview.wo_status))}% dari WO`"></div>
+                                    </div>
+                                </template>
+                                <div x-show="overview.wo_status.length === 0" class="rounded-lg border border-dashed border-gray-200 px-4 py-8 text-center text-sm text-gray-500 sm:col-span-2">
+                                    Belum ada data WO.
+                                </div>
+                            </div>
+                        </section>
                     </div>
 
-                    <div class="border border-gray-200 rounded-xl overflow-hidden">
-                        <div class="px-4 py-3 border-b border-gray-200 bg-gray-50">
-                            <h3 class="font-semibold text-gray-900">Status Work Order</h3>
-                        </div>
-                        <div class="divide-y divide-gray-100">
-                            <template x-for="row in overview.wo_status" :key="row.raw">
-                                <div class="px-4 py-3 flex items-center justify-between">
-                                    <span class="text-sm text-gray-700" x-text="row.label"></span>
-                                    <span class="text-sm font-semibold text-gray-900" x-text="formatNumber(row.total)"></span>
+                    <div class="grid grid-cols-1 gap-5 xl:grid-cols-2">
+                        <section class="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
+                            <h3 class="text-base font-semibold text-gray-900">PB Berdasarkan Jenis Pekerjaan</h3>
+                            <div class="mt-4 space-y-4">
+                                <template x-for="row in overview.pb_jenis" :key="row.label">
+                                    <div>
+                                        <div class="flex items-center justify-between gap-3 text-sm">
+                                            <span class="font-medium text-gray-700" x-text="row.label"></span>
+                                            <span class="font-mono font-semibold text-gray-900" x-text="formatNumber(row.total)"></span>
+                                        </div>
+                                        <div class="mt-2 h-2 rounded-full bg-gray-100">
+                                            <div class="h-2 rounded-full" :style="overviewBarStyle(row, overview.pb_jenis)"></div>
+                                        </div>
+                                        <div class="mt-1 text-xs text-gray-500" x-text="`${formatNumber(overviewShare(row, overview.pb_jenis))}% dari PB`"></div>
+                                    </div>
+                                </template>
+                                <div x-show="overview.pb_jenis.length === 0" class="rounded-lg border border-dashed border-gray-200 px-4 py-8 text-center text-sm text-gray-500">
+                                    Belum ada data jenis pekerjaan.
                                 </div>
-                            </template>
-                            <div x-show="overview.wo_status.length === 0" class="px-4 py-8 text-center text-sm text-gray-500">
-                                Belum ada data WO.
                             </div>
-                        </div>
-                    </div>
+                        </section>
 
-                    <div class="border border-gray-200 rounded-xl overflow-hidden">
-                        <div class="px-4 py-3 border-b border-gray-200 bg-gray-50">
-                            <h3 class="font-semibold text-gray-900">PB Berdasarkan Jenis Pekerjaan</h3>
-                        </div>
-                        <div class="divide-y divide-gray-100">
-                            <template x-for="row in overview.pb_jenis" :key="row.label">
-                                <div class="px-4 py-3 flex items-center justify-between">
-                                    <span class="text-sm text-gray-700" x-text="row.label"></span>
-                                    <span class="text-sm font-semibold text-gray-900" x-text="formatNumber(row.total)"></span>
+                        <section class="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
+                            <h3 class="text-base font-semibold text-gray-900">PB Berdasarkan Tujuan</h3>
+                            <div class="mt-4 space-y-4">
+                                <template x-for="row in overview.pb_untuk" :key="row.label">
+                                    <div>
+                                        <div class="flex items-center justify-between gap-3 text-sm">
+                                            <span class="font-medium text-gray-700" x-text="row.label"></span>
+                                            <span class="font-mono font-semibold text-gray-900" x-text="formatNumber(row.total)"></span>
+                                        </div>
+                                        <div class="mt-2 h-2 rounded-full bg-gray-100">
+                                            <div class="h-2 rounded-full" :style="overviewBarStyle(row, overview.pb_untuk)"></div>
+                                        </div>
+                                        <div class="mt-1 text-xs text-gray-500" x-text="`${formatNumber(overviewShare(row, overview.pb_untuk))}% dari PB`"></div>
+                                    </div>
+                                </template>
+                                <div x-show="overview.pb_untuk.length === 0" class="rounded-lg border border-dashed border-gray-200 px-4 py-8 text-center text-sm text-gray-500">
+                                    Belum ada data tujuan.
                                 </div>
-                            </template>
-                            <div x-show="overview.pb_jenis.length === 0" class="px-4 py-8 text-center text-sm text-gray-500">
-                                Belum ada data jenis pekerjaan.
                             </div>
-                        </div>
-                    </div>
-
-                    <div class="border border-gray-200 rounded-xl overflow-hidden">
-                        <div class="px-4 py-3 border-b border-gray-200 bg-gray-50">
-                            <h3 class="font-semibold text-gray-900">PB Berdasarkan Tujuan</h3>
-                        </div>
-                        <div class="divide-y divide-gray-100">
-                            <template x-for="row in overview.pb_untuk" :key="row.label">
-                                <div class="px-4 py-3 flex items-center justify-between">
-                                    <span class="text-sm text-gray-700" x-text="row.label"></span>
-                                    <span class="text-sm font-semibold text-gray-900" x-text="formatNumber(row.total)"></span>
-                                </div>
-                            </template>
-                            <div x-show="overview.pb_untuk.length === 0" class="px-4 py-8 text-center text-sm text-gray-500">
-                                Belum ada data tujuan.
-                            </div>
-                        </div>
+                        </section>
                     </div>
                 </div>
             </div>
@@ -1207,6 +1257,39 @@ function reportCenter() {
 
         formatCurrency(value) {
             return 'Rp ' + new Intl.NumberFormat('id-ID', { maximumFractionDigits: 0 }).format(Number(value || 0));
+        },
+
+        overviewTotal(rows) {
+            return (rows || []).reduce((total, row) => total + Number(row.total || 0), 0);
+        },
+
+        overviewShare(row, rows) {
+            const total = this.overviewTotal(rows);
+
+            return total > 0 ? Math.round((Number(row.total || 0) / total) * 100) : 0;
+        },
+
+        overviewAccentColor(label) {
+            const value = String(label || '').toLowerCase();
+
+            if (value.includes('reject') || value.includes('tolak')) return '#ef4444';
+            if (value.includes('pending') || value.includes('submit') || value.includes('verification')) return '#f59e0b';
+            if (value.includes('progress')) return '#2563eb';
+            if (value.includes('complete') || value.includes('closed') || value.includes('approved')) return '#10b981';
+            if (value.includes('repair')) return '#0f766e';
+            if (value.includes('maintenance')) return '#2563eb';
+            if (value.includes('utility')) return '#d97706';
+            if (value.includes('project')) return '#7c3aed';
+
+            return '#64748b';
+        },
+
+        overviewAccentStyle(label) {
+            return `background-color: ${this.overviewAccentColor(label)}`;
+        },
+
+        overviewBarStyle(row, rows) {
+            return `width: ${this.overviewShare(row, rows)}%; background-color: ${this.overviewAccentColor(row.label)}`;
         },
 
         averageActiveBurn() {
