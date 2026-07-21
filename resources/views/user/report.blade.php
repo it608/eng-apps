@@ -1475,6 +1475,10 @@ function reportCenter() {
             const labels = this.burnRate.labels || [];
             const total = labels.length;
 
+            if (this.burnRate.grouping === 'daily') {
+                return labels.map((_, index) => index);
+            }
+
             if (total <= 12) {
                 return labels.map((_, index) => index);
             }
@@ -1500,9 +1504,8 @@ function reportCenter() {
         burnRateChartSvg() {
             const labels = this.burnRate.labels || [];
             const rows = this.burnRate.rows || [];
-            const totalSpend = Number(this.burnRate.totals?.total_spend || 0);
 
-            if (!labels.length || !rows.length || totalSpend <= 0) {
+            if (!labels.length || !rows.length) {
                 return `
                     <div class="flex h-[320px] items-center justify-center rounded-lg border border-dashed border-gray-200 text-sm text-gray-500">
                         Belum ada data GI Engineering untuk periode ini.
@@ -1563,8 +1566,9 @@ function reportCenter() {
 
             const axisLabels = this.burnRateChartLabelIndexes().map(index => {
                 const x = left + (index * groupWidth) + (groupWidth / 2);
+                const fontSize = labels.length > 24 ? 9 : 10.5;
 
-                return `<text x="${x}" y="304" text-anchor="middle" fill="#64748b" font-size="10.5" font-weight="500">${this.escapeSvg(this.burnRateAxisLabel(labels[index]))}</text>`;
+                return `<text x="${x}" y="304" text-anchor="middle" fill="#64748b" font-size="${fontSize}" font-weight="500">${this.escapeSvg(this.burnRateAxisLabel(labels[index]))}</text>`;
             }).join('');
 
             return `
