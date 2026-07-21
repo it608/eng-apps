@@ -644,12 +644,18 @@
                             </p>
                         </div>
                         <div class="flex flex-wrap gap-3 text-xs">
-                            <template x-for="serie in pbGi.series" :key="`pbgi-legend-${serie.key}`">
-                                <div class="inline-flex items-center gap-2 rounded-full border border-gray-200 px-3 py-1.5">
-                                    <span class="h-2.5 w-2.5 rounded-full" :style="`background:${serie.color}`"></span>
-                                    <span class="font-medium text-gray-700" x-text="serie.label"></span>
-                                </div>
-                            </template>
+                            <div class="inline-flex items-center gap-2 rounded-full border border-gray-200 px-3 py-1.5">
+                                <span class="h-2.5 w-2.5 rounded-full bg-emerald-600"></span>
+                                <span class="font-medium text-gray-700">PB Realized GI</span>
+                            </div>
+                            <div class="inline-flex items-center gap-2 rounded-full border border-gray-200 px-3 py-1.5">
+                                <span class="h-2.5 w-2.5 rounded-full bg-orange-500"></span>
+                                <span class="font-medium text-gray-700">Belum GI</span>
+                            </div>
+                            <div class="inline-flex items-center gap-2 rounded-full border border-dashed border-gray-300 px-3 py-1.5 text-gray-500">
+                                <span class="h-2.5 w-2.5 rounded-full border border-gray-400"></span>
+                                <span class="font-medium">Total batang = PB Masuk</span>
+                            </div>
                         </div>
                     </div>
 
@@ -1215,10 +1221,10 @@ function reportCenter() {
 
         pbGiChartSvg() {
             const labels = this.pbGi.labels || [];
-            const series = this.pbGi.series || [];
+            const rows = this.pbGi.rows || [];
             const totalPb = Number(this.pbGi.totals?.pb_count || 0);
 
-            if (!labels.length || !series.length || totalPb <= 0) {
+            if (!labels.length || !rows.length || totalPb <= 0) {
                 return `
                     <div class="flex h-[320px] items-center justify-center rounded-lg border border-dashed border-gray-200 text-sm text-gray-500">
                         Belum ada data PB fulfillment untuk periode ini.
@@ -1233,9 +1239,7 @@ function reportCenter() {
             const bottom = 270;
             const plotHeight = bottom - top;
             const groupWidth = (right - left) / Math.max(labels.length, 1);
-            const barGap = 4;
-            const barWidth = Math.max(5, Math.min(24, (groupWidth - 12) / Math.max(series.length, 1) - barGap));
-            const groupBarsWidth = (barWidth * series.length) + (barGap * (series.length - 1));
+            const barWidth = Math.max(12, Math.min(34, groupWidth * 0.44));
 
             const yFor = value => bottom - ((Number(value || 0) / chartMax) * plotHeight);
             const ticks = [0, 1, 2, 3, 4].map(index => {
@@ -1251,21 +1255,36 @@ function reportCenter() {
             }).join('');
 
             const bars = labels.map((label, labelIndex) => {
+                const row = rows[labelIndex] || {};
+                const realized = Number(row.realized_count || 0);
+                const gap = Number(row.gap_count || 0);
+                const total = Math.max(Number(row.pb_count || 0), realized + gap);
                 const centerX = left + (labelIndex * groupWidth) + (groupWidth / 2);
-                const startX = centerX - (groupBarsWidth / 2);
+                const x = centerX - (barWidth / 2);
+                const realizedHeight = Math.max(0, bottom - yFor(realized));
+                const gapHeight = Math.max(0, bottom - yFor(gap));
+                const totalHeight = Math.max(0, bottom - yFor(total));
+                const topY = bottom - totalHeight;
+                const realizedY = bottom - realizedHeight;
+                const gapY = topY;
+                const labelText = `${label}: PB Masuk ${this.formatNumber(total)}, GI ${this.formatNumber(realized)}, Belum GI ${this.formatNumber(gap)}`;
+                const totalLabel = total > 0 && groupWidth >= 38
+                    ? `<text x="${centerX}" y="${Math.max(top + 12, topY - 7)}" text-anchor="middle" fill="#334155" font-size="10" font-weight="700">${this.escapeSvg(this.formatNumber(total))}</text>`
+                    : '';
+                const gapRect = gap > 0
+                    ? `<rect x="${x}" y="${gapY}" width="${barWidth}" height="${gapHeight}" rx="5" fill="#f97316"><title>${this.escapeSvg(labelText)}</title></rect>`
+                    : '';
+                const realizedRect = realized > 0
+                    ? `<rect x="${x}" y="${realizedY}" width="${barWidth}" height="${realizedHeight}" rx="${gap > 0 ? 0 : 5}" fill="#059669"><title>${this.escapeSvg(labelText)}</title></rect>`
+                    : '';
 
-                return series.map((serie, serieIndex) => {
-                    const value = Number((serie.values || [])[labelIndex] || 0);
-                    const y = yFor(value);
-                    const height = Math.max(0, bottom - y);
-                    const x = startX + (serieIndex * (barWidth + barGap));
-
-                    return `
-                        <rect x="${x}" y="${y}" width="${barWidth}" height="${height}" rx="4" fill="${serie.color}">
-                            <title>${this.escapeSvg(`${serie.label} ${label}: ${this.formatNumber(value)} PB`)}</title>
-                        </rect>
-                    `;
-                }).join('');
+                return `
+                    <g>
+                        ${gapRect}
+                        ${realizedRect}
+                        ${totalLabel}
+                    </g>
+                `;
             }).join('');
 
             const axisLabels = this.pbGiChartLabelIndexes().map(index => {
