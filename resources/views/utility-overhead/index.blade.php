@@ -12,6 +12,23 @@
         return $editing->{$field} ?? $default;
     };
     $fmt = fn ($value, int $decimals = 0) => number_format((float) $value, $decimals, ',', '.');
+    $inputClass = 'mt-1 w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 shadow-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-500';
+    $utilityGroups = [
+        ['PLN', 'Biaya listrik dan pemakaian kWh', 'blue', [['pln_rp', 'PLN (Rp)'], ['pln_kwh', 'PLN (kWh)']]],
+        ['Air', 'Biaya air dan total pemakaian M3', 'cyan', [['air_rp', 'AIR (Rp)'], ['air_bpu_m3', 'AIR BPU (M3)'], ['air_skb_m3', 'AIR SKB (M3)']]],
+        ['Solar', 'Biaya solar dan konsumsi liter', 'amber', [['solar_rp', 'SOLAR (Rp)'], ['solar_ltr', 'SOLAR (Ltr)']]],
+        ['Batu Bara', 'Biaya dan konsumsi tonase', 'slate', [['batu_bara_rp', 'BATU BARA (Rp)'], ['batu_bara_ton', 'BATU BARA (Ton)']]],
+        ['Cangkang', 'Biaya dan konsumsi kilogram', 'emerald', [['cangkang_rp', 'CANGKANG (Rp)'], ['cangkang_kg', 'CANGKANG (Kg)']]],
+        ['Lainnya', 'Amoniak dan molases', 'purple', [['amoniak_rp', 'AMONIAK (Rp)'], ['amoniak_kg', 'AMONIAK (Kg)'], ['molases_rp', 'MOLASES (Rp)'], ['molases_kg', 'MOLASES (Kg)']]],
+    ];
+    $tone = [
+        'blue' => 'border-blue-100 bg-blue-50 text-blue-700',
+        'cyan' => 'border-cyan-100 bg-cyan-50 text-cyan-700',
+        'amber' => 'border-amber-100 bg-amber-50 text-amber-700',
+        'slate' => 'border-slate-200 bg-slate-50 text-slate-700',
+        'emerald' => 'border-emerald-100 bg-emerald-50 text-emerald-700',
+        'purple' => 'border-purple-100 bg-purple-50 text-purple-700',
+    ];
 @endphp
 
 @section('content')
@@ -82,67 +99,90 @@
         </div>
     </div>
 
-    <div class="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
-        <div class="flex flex-col gap-1 border-b border-gray-100 pb-4">
-            <h2 class="text-lg font-semibold text-gray-900">{{ $editing ? 'Edit Utility Overhead' : 'Input Utility Overhead' }}</h2>
-            <p class="text-sm text-gray-500">Sumber data: input manual e-Request, mengacu format Excel Utility consumptions.</p>
+    <div class="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
+        <div class="flex flex-col gap-3 border-b border-gray-100 bg-gray-50 px-5 py-4 lg:flex-row lg:items-center lg:justify-between">
+            <div>
+                <h2 class="text-lg font-semibold text-gray-900">{{ $editing ? 'Edit Utility Overhead' : 'Input Utility Overhead' }}</h2>
+                <p class="mt-1 text-sm text-gray-500">Sumber data: input manual e-Request, mengacu format Excel Utility consumptions.</p>
+            </div>
+            <div class="rounded-full border border-blue-200 bg-white px-3 py-1 text-xs font-semibold text-blue-700">
+                1 record = 1 bulan, laporan ditampilkan per tahun
+            </div>
         </div>
 
-        <form method="POST" action="{{ $editing ? route('utility-overhead.update', $editingId) : route('utility-overhead.store') }}" class="mt-5 space-y-5">
+        <form method="POST" action="{{ $editing ? route('utility-overhead.update', $editingId) : route('utility-overhead.store') }}" class="space-y-5 p-5">
             @csrf
             @if($editing)
                 @method('PUT')
             @endif
 
-            <div class="grid grid-cols-1 gap-4 md:grid-cols-4">
-                <div>
-                    <label class="block text-xs font-semibold uppercase tracking-wide text-gray-500">Tahun</label>
-                    <input name="year" value="{{ $fieldValue('year', $year) }}" inputmode="numeric" class="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-500">
+            <section class="rounded-xl border border-blue-100 bg-blue-50 p-4">
+                <div class="flex flex-col gap-1 md:flex-row md:items-center md:justify-between">
+                    <div>
+                        <h3 class="text-sm font-semibold text-blue-950">Periode & Baseline</h3>
+                        <p class="text-xs text-blue-700">Isi periode bulan, output produksi, dan budget pembanding index.</p>
+                    </div>
+                    <span class="mt-1 text-xs font-semibold text-blue-700 md:mt-0">Skala data: {{ $year }}</span>
                 </div>
-                <div>
-                    <label class="block text-xs font-semibold uppercase tracking-wide text-gray-500">Bulan</label>
-                    <select name="month" class="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-500">
-                        @foreach($months as $number => $label)
-                            <option value="{{ $number }}" @selected((int) $fieldValue('month', now()->month) === $number)>{{ $label }}</option>
-                        @endforeach
-                    </select>
-                </div>
-                <div>
-                    <label class="block text-xs font-semibold uppercase tracking-wide text-gray-500">Output Produksi (Kg)</label>
-                    <input name="output_produksi_kg" value="{{ $fieldValue('output_produksi_kg') }}" inputmode="decimal" class="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-500">
-                </div>
-                <div>
-                    <label class="block text-xs font-semibold uppercase tracking-wide text-gray-500">Index Budget</label>
-                    <input name="index_budget" value="{{ $fieldValue('index_budget', 2500) }}" inputmode="decimal" class="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-500">
-                </div>
-            </div>
 
-            <div class="grid grid-cols-1 gap-4 xl:grid-cols-2">
-                @foreach([
-                    ['PLN', [['pln_rp', 'PLN (Rp)'], ['pln_kwh', 'PLN (kWh)']]],
-                    ['Air', [['air_rp', 'AIR (Rp)'], ['air_bpu_m3', 'AIR BPU (M3)'], ['air_skb_m3', 'AIR SKB (M3)']]],
-                    ['Solar', [['solar_rp', 'SOLAR (Rp)'], ['solar_ltr', 'SOLAR (Ltr)']]],
-                    ['Batu Bara', [['batu_bara_rp', 'BATU BARA (Rp)'], ['batu_bara_ton', 'BATU BARA (Ton)']]],
-                    ['Cangkang', [['cangkang_rp', 'CANGKANG (Rp)'], ['cangkang_kg', 'CANGKANG (Kg)']]],
-                    ['Lainnya', [['amoniak_rp', 'AMONIAK (Rp)'], ['amoniak_kg', 'AMONIAK (Kg)'], ['molases_rp', 'MOLASES (Rp)'], ['molases_kg', 'MOLASES (Kg)']]],
-                ] as [$group, $fields])
-                    <fieldset class="rounded-xl border border-gray-200 p-4">
-                        <legend class="px-2 text-sm font-semibold text-gray-900">{{ $group }}</legend>
-                        <div class="grid grid-cols-1 gap-3 md:grid-cols-2">
+                <div class="mt-4 grid grid-cols-1 gap-3 md:grid-cols-4">
+                    <div>
+                        <label class="block text-xs font-semibold uppercase tracking-wide text-blue-800">Tahun</label>
+                        <input name="year" value="{{ $fieldValue('year', $year) }}" inputmode="numeric" class="{{ $inputClass }}">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold uppercase tracking-wide text-blue-800">Bulan</label>
+                        <select name="month" class="{{ $inputClass }}">
+                            @foreach($months as $number => $label)
+                                <option value="{{ $number }}" @selected((int) $fieldValue('month', now()->month) === $number)>{{ $label }}</option>
+                            @endforeach
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold uppercase tracking-wide text-blue-800">Output Produksi (Kg)</label>
+                        <input name="output_produksi_kg" value="{{ $fieldValue('output_produksi_kg') }}" inputmode="decimal" class="{{ $inputClass }}">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold uppercase tracking-wide text-blue-800">Index Budget</label>
+                        <input name="index_budget" value="{{ $fieldValue('index_budget', 2500) }}" inputmode="decimal" class="{{ $inputClass }}">
+                    </div>
+                </div>
+            </section>
+
+            <section>
+                <div class="mb-3 flex items-center justify-between">
+                    <div>
+                        <h3 class="text-sm font-semibold text-gray-900">Komponen Utility</h3>
+                        <p class="text-xs text-gray-500">Kosongkan field yang tidak ada pemakaian pada bulan tersebut.</p>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 gap-4 xl:grid-cols-3">
+                    @foreach($utilityGroups as [$group, $description, $color, $fields])
+                        <div class="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
+                            <div class="mb-3 flex items-start justify-between gap-3">
+                                <div>
+                                    <h4 class="text-sm font-semibold text-gray-900">{{ $group }}</h4>
+                                    <p class="mt-0.5 text-xs text-gray-500">{{ $description }}</p>
+                                </div>
+                                <span class="rounded-full border px-2.5 py-1 text-[11px] font-semibold {{ $tone[$color] }}">{{ count($fields) }} field</span>
+                            </div>
+                            <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
                             @foreach($fields as [$field, $label])
                                 <div>
                                     <label class="block text-xs font-semibold uppercase tracking-wide text-gray-500">{{ $label }}</label>
-                                    <input name="{{ $field }}" value="{{ $fieldValue($field) }}" inputmode="decimal" class="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-500">
+                                    <input name="{{ $field }}" value="{{ $fieldValue($field) }}" inputmode="decimal" placeholder="0" class="{{ $inputClass }}">
                                 </div>
                             @endforeach
+                            </div>
                         </div>
-                    </fieldset>
-                @endforeach
-            </div>
+                    @endforeach
+                </div>
+            </section>
 
             <div>
                 <label class="block text-xs font-semibold uppercase tracking-wide text-gray-500">Catatan</label>
-                <textarea name="notes" rows="3" class="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-500">{{ $fieldValue('notes') }}</textarea>
+                <textarea name="notes" rows="2" class="{{ $inputClass }}">{{ $fieldValue('notes') }}</textarea>
             </div>
 
             <div class="flex flex-col gap-2 border-t border-gray-100 pt-4 md:flex-row md:justify-end">
