@@ -13,6 +13,7 @@ use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\ReportController;
 use App\Http\Controllers\StockController;
 use App\Http\Controllers\TransaksiController;
+use App\Http\Controllers\UtilityOverheadController;
 use App\Http\Controllers\WarehouseController;
 use App\Http\Controllers\WorkOrderController;
 use App\Http\Controllers\Warehouse2\DashboardController as Warehouse2DashboardController;
@@ -115,6 +116,15 @@ Route::middleware(['auth'])->group(function () {
 
 // ============= ROUTE GOOD ISSUE ERP (READ-ONLY) =============
 Route::middleware(['auth'])->get('/good-issue-erp', [StockController::class, 'goodIssueIndex'])->name('good-issue.index');
+
+// ============= ROUTE UTILITY OVERHEAD =============
+Route::middleware(['auth'])->prefix('utility-overhead')->name('utility-overhead.')->group(function () {
+    Route::get('/', [UtilityOverheadController::class, 'index'])->name('index');
+    Route::post('/', [UtilityOverheadController::class, 'store'])->name('store');
+    Route::get('/{record}/edit', [UtilityOverheadController::class, 'edit'])->whereNumber('record')->name('edit');
+    Route::put('/{record}', [UtilityOverheadController::class, 'update'])->whereNumber('record')->name('update');
+    Route::delete('/{record}', [UtilityOverheadController::class, 'destroy'])->whereNumber('record')->name('destroy');
+});
 
 // ============= ROUTE HISTORICAL IMPORT PB & WO =============
 Route::middleware(['auth'])->prefix('historical-import')->name('historical-import.')->group(function () {

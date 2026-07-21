@@ -418,6 +418,15 @@
                         <span class="sidebar-text">Historical Import</span>
                     </a>
                 @endif
+
+                @if((auth()->user()->username ?? '') === 'adm-engineering')
+                    <a href="{{ route('utility-overhead.index') }}"
+                       class="nav-link flex items-center gap-3 px-4 py-3 rounded-lg
+                       {{ request()->is('utility-overhead*') ? 'active' : '' }}">
+                        <i class="fas fa-bolt w-5 text-center text-gray-300"></i>
+                        <span class="sidebar-text">Utility Overhead</span>
+                    </a>
+                @endif
             @endunless
 
             {{-- ================= MONITORING ================= --}}
