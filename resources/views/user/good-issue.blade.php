@@ -57,6 +57,17 @@
             <div class="grid grid-cols-1 gap-4 xl:grid-cols-12">
                 <section class="rounded-lg border border-slate-200 bg-white p-3 xl:col-span-4">
                     <div class="mb-2 text-xs font-bold uppercase tracking-wide text-slate-500">Periode</div>
+                    @if(in_array(strtolower((string) (auth()->user()->role ?? '')), ['admin', 'administrator', 'approval', 'approval_level1'], true))
+                        <div class="mb-3">
+                            <label class="mb-1 block text-xs font-semibold text-gray-500 uppercase">Mode Tanggal</label>
+                            <select id="giDateMode" class="h-10 w-full border rounded-lg px-3 text-sm bg-white">
+                                <option value="posting">Posting ERP</option>
+                                <option value="seen">Terlihat di e-Request</option>
+                            </select>
+                        </div>
+                    @else
+                        <input id="giDateMode" type="hidden" value="posting">
+                    @endif
                     <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
                         <div>
                             <label class="mb-1 block text-xs font-semibold text-gray-500 uppercase">Dari Tanggal</label>
@@ -338,6 +349,7 @@ async function loadGoodIssue(page = 1) {
     const params = new URLSearchParams({
         start_date: document.getElementById('giStartDate').value,
         end_date: document.getElementById('giEndDate').value,
+        date_mode: document.getElementById('giDateMode').value,
         material_type: document.getElementById('giMaterialType').value,
         cost_center: document.getElementById('giCostCenter').value.trim(),
         min_total: minTotal === null ? '' : String(minTotal),
@@ -368,6 +380,7 @@ async function loadGoodIssue(page = 1) {
 function resetGoodIssueFilters() {
     document.getElementById('giStartDate').value = '{{ $defaultStart }}';
     document.getElementById('giEndDate').value = '{{ $defaultEnd }}';
+    document.getElementById('giDateMode').value = 'posting';
     document.getElementById('giMaterialType').value = 'all';
     document.getElementById('giCostCenter').value = '';
     document.getElementById('giMinTotal').value = '';
@@ -389,6 +402,7 @@ function exportGoodIssueXlsx() {
     const params = new URLSearchParams({
         start_date: document.getElementById('giStartDate').value,
         end_date: document.getElementById('giEndDate').value,
+        date_mode: document.getElementById('giDateMode').value,
         material_type: document.getElementById('giMaterialType').value,
         cost_center: document.getElementById('giCostCenter').value.trim(),
         min_total: minTotal === null ? '' : String(minTotal),

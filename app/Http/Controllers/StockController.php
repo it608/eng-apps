@@ -719,6 +719,7 @@ return $sql;
             $validator = Validator::make($request->all(), [
                 'start_date' => 'required|date',
                 'end_date' => 'required|date|after_or_equal:start_date',
+                'date_mode' => 'nullable|in:posting,seen',
                 'material_type' => 'nullable|in:all,sparepart,non_sparepart',
                 'cost_center' => 'nullable|string|max:150',
                 'min_total' => 'nullable|numeric|min:0',
@@ -740,10 +741,13 @@ return $sql;
             $perPage = min(max((int) $request->input('per_page', 20), 10), 100);
             $offset = ($page - 1) * $perPage;
             $materialType = $request->input('material_type', 'all');
+            $dateMode = $request->input('date_mode', 'posting');
             $search = trim((string) $request->input('search', ''));
             $costCenter = trim((string) $request->input('cost_center', ''));
             $minTotal = $request->filled('min_total') ? (float) $request->input('min_total') : null;
             $maxTotal = $request->filled('max_total') ? (float) $request->input('max_total') : null;
+            $startAt = date('Y-m-d 00:00:00', strtotime($request->start_date));
+            $endAt = date('Y-m-d 23:59:59', strtotime($request->end_date));
 
             if ($minTotal !== null && $maxTotal !== null && $maxTotal < $minTotal) {
                 return response()->json([
@@ -761,10 +765,44 @@ return $sql;
                 default => '1 = 1',
             };
 
-            $params = [$request->start_date, $request->end_date];
+            $canViewSeenAudit = $this->canViewGoodIssueSeenAudit();
+            $seenGiNumbers = [];
+
+            if ($dateMode === 'seen') {
+                if (!$canViewSeenAudit) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'Filter Tanggal Terlihat hanya tersedia untuk Administrator dan Approval Level 1.',
+                        'data' => [],
+                    ], 403);
+                }
+
+                $seenGiNumbers = $this->goodIssueNumbersSeenBetween($request->start_date, $request->end_date);
+
+                if (!$seenGiNumbers) {
+                    return response()->json([
+                        'success' => true,
+                        'summary' => [
+                            'total_gi' => 0,
+                            'total_item' => 0,
+                            'total_qty' => 0,
+                            'total_nilai' => 0,
+                            'total_cost_center' => 0,
+                        ],
+                        'data' => [],
+                        'pagination' => [
+                            'current_page' => $page,
+                            'per_page' => $perPage,
+                            'total' => 0,
+                            'last_page' => 0,
+                        ],
+                    ]);
+                }
+            }
+
+            $params = $dateMode === 'seen' ? [] : [$startAt, $endAt];
             $whereSql = "
-                b.budat BETWEEN ? AND ?
-                AND d.bwart = '201'
+                d.bwart = '201'
                 AND COALESCE(d.saknr, 0) <> 7755
                 AND {$scopeSql}
                 AND (
@@ -773,6 +811,13 @@ return $sql;
                     OR UPPER(COALESCE(cc.code_costctr, '')) LIKE 'ENGINEERING%'
                 )
             ";
+
+            if ($dateMode === 'seen') {
+                $whereSql .= ' AND b.mblnr IN (' . implode(',', array_fill(0, count($seenGiNumbers), '?')) . ')';
+                array_push($params, ...$seenGiNumbers);
+            } else {
+                $whereSql .= ' AND b.budat BETWEEN ? AND ?';
+            }
 
             if ($search !== '') {
                 $whereSql .= "
@@ -1006,8 +1051,6 @@ return $sql;
                 ];
             }
 
-            $canViewSeenAudit = $this->canViewGoodIssueSeenAudit();
-
             if ($canViewSeenAudit) {
                 $grouped = $this->attachGoodIssueSeenLogs($grouped);
             } else {
@@ -1091,6 +1134,22 @@ return $sql;
         $role = strtolower((string) (Auth::user()->role ?? ''));
 
         return in_array($role, ['admin', 'administrator', 'approval', 'approval_level1'], true);
+    }
+
+    private function goodIssueNumbersSeenBetween(string $startDate, string $endDate): array
+    {
+        $startAt = date('Y-m-d 00:00:00', strtotime($startDate));
+        $endAt = date('Y-m-d 23:59:59', strtotime($endDate));
+
+        return DB::table('erp_gi_seen_logs')
+            ->select('gi_number')
+            ->whereBetween('first_seen_at', [$startAt, $endAt])
+            ->groupBy('gi_number')
+            ->orderByRaw('MIN(first_seen_at) DESC')
+            ->pluck('gi_number')
+            ->map(fn ($giNumber) => (string) $giNumber)
+            ->values()
+            ->all();
     }
 
     public function exportGoodIssue(Request $request)
@@ -1642,6 +1701,7 @@ return $sql;
         fwrite($sheet, '</row>' . PHP_EOL);
 
         $filterLabels = [
+            'Mode Tanggal' => ($filters['date_mode'] ?? 'posting') === 'seen' ? 'Terlihat di e-Request' : 'Posting ERP',
             'Periode' => ($filters['start_date'] ?? '-') . ' s/d ' . ($filters['end_date'] ?? '-'),
             'Jenis Material' => $filters['material_type'] ?? 'all',
             'Cost Center' => ($filters['cost_center'] ?? '') !== '' ? $filters['cost_center'] : 'Semua Cost Center',
