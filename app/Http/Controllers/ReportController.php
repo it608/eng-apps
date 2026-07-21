@@ -292,7 +292,7 @@ class ReportController extends Controller
                 JOIN tb_skb008_2dmseg d ON d.idmse = b.idmse
                 LEFT JOIN tb_skb051_1mcostctr cc
                     ON cc.id_costctr = COALESCE(NULLIF(d.kostl, 0), NULLIF(b.kostl, 0))
-                WHERE b.budat BETWEEN ? AND ?
+                WHERE b.budat::date BETWEEN ?::date AND ?::date
                   AND d.bwart = '201'
                   AND COALESCE(d.saknr, 0) <> 7755
             )
@@ -561,7 +561,7 @@ class ReportController extends Controller
                 JOIN tb_skb008_2dmseg d ON d.idmse = b.idmse
                 LEFT JOIN tb_skb051_1mcostctr cc
                     ON cc.id_costctr = COALESCE(NULLIF(d.kostl, 0), NULLIF(b.kostl, 0))
-                WHERE b.budat BETWEEN ? AND ?
+                WHERE b.budat::date BETWEEN ?::date AND ?::date
                   AND d.bwart = '201'
                   AND COALESCE(d.saknr, 0) <> 7755
             )
@@ -589,7 +589,7 @@ class ReportController extends Controller
                 JOIN tb_skb008_2dmseg d ON d.idmse = b.idmse
                 LEFT JOIN tb_skb051_1mcostctr cc
                     ON cc.id_costctr = COALESCE(NULLIF(d.kostl, 0), NULLIF(b.kostl, 0))
-                WHERE b.budat BETWEEN ? AND ?
+                WHERE b.budat::date BETWEEN ?::date AND ?::date
                   AND d.bwart = '201'
                   AND COALESCE(d.saknr, 0) <> 7755
             )
