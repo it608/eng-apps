@@ -330,11 +330,12 @@
                     <span>Terakhir diperbarui: <strong x-text="lastUpdated">-</strong></span>
                 </div>
 
-                <div>
+                <div class="flex flex-wrap items-center justify-end gap-2">
                     <span x-show="pagination" x-text="`${formatNumber(pagination?.total || 0)} data ditemukan`"></span>
-                    <span x-show="activeTab === 'costcenter'">Sumber: ERP Good Issue read-only</span>
-                    <span x-show="activeTab === 'pbgi'">Sumber: DB e-Request fulfillment</span>
-                    <span x-show="activeTab === 'burnrate'">Sumber: ERP Good Issue read-only</span>
+                    <span class="inline-flex items-center gap-1.5 rounded-full border border-blue-200 bg-blue-50 px-2.5 py-1 font-semibold text-blue-700">
+                        <span>Sumber data:</span>
+                        <span x-text="reportSourceLabel()"></span>
+                    </span>
                     <span x-show="!pagination && !['costcenter', 'pbgi', 'burnrate'].includes(activeTab)">Ringkasan berdasarkan filter periode aktif</span>
                 </div>
             </div>
@@ -566,6 +567,7 @@
                             <p class="mt-1 text-sm text-gray-500">
                                 Perbandingan <span x-text="(costCenter.grouping_label || 'Bulanan').toLowerCase()"></span> Civil, Maintenance, dan Repair berdasarkan transaksi Good Issue ERP.
                             </p>
+                            <p class="mt-1 text-xs font-semibold uppercase tracking-wide text-blue-600">Sumber data: ERP Good Issue, read-only</p>
                         </div>
                         <div class="flex flex-wrap gap-3 text-xs">
                             <template x-for="serie in costCenter.series" :key="`legend-${serie.key}`">
@@ -651,6 +653,7 @@
                             <p class="mt-1 text-sm text-gray-500">
                                 Perbandingan <span x-text="(pbGi.grouping_label || 'Bulanan').toLowerCase()"></span> PB yang masuk fulfillment, PB yang sudah terealisasi GI, dan gap yang belum GI.
                             </p>
+                            <p class="mt-1 text-xs font-semibold uppercase tracking-wide text-blue-600">Sumber data: e-Request fulfillment</p>
                         </div>
                         <div class="flex flex-wrap gap-3 text-xs">
                             <div class="inline-flex items-center gap-2 rounded-full border border-gray-200 px-3 py-1.5">
@@ -748,6 +751,7 @@
                             <p class="mt-1 text-sm text-gray-500">
                                 Bar menunjukkan spend GI per <span x-text="(burnRate.grouping_label || 'Bulanan').toLowerCase()"></span>, garis menunjukkan cumulative spend.
                             </p>
+                            <p class="mt-1 text-xs font-semibold uppercase tracking-wide text-blue-600">Sumber data: ERP Good Issue, read-only</p>
                         </div>
                         <div class="flex flex-wrap gap-3 text-xs">
                             <div class="inline-flex items-center gap-2 rounded-full border border-gray-200 px-3 py-1.5">
@@ -996,6 +1000,19 @@ function reportCenter() {
 
         get statusOptions() {
             return this.statusSets[this.activeTab] || this.statusSets.overview;
+        },
+
+        reportSourceLabel() {
+            const map = {
+                overview: 'e-Request',
+                transaksi: 'e-Request PB',
+                workorder: 'e-Request WO',
+                costcenter: 'ERP Good Issue, read-only',
+                pbgi: 'e-Request fulfillment',
+                burnrate: 'ERP Good Issue, read-only'
+            };
+
+            return map[this.activeTab] || 'e-Request';
         },
 
         changeTab(tab) {
