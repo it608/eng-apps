@@ -54,33 +54,12 @@
                 <div class="text-xs font-medium text-blue-700">Read-only ERP data</div>
             </div>
 
-            <div class="grid grid-cols-1 gap-4 xl:grid-cols-12">
-                <section class="rounded-lg border border-slate-200 bg-white p-3 xl:col-span-4">
-                    <div class="mb-2 text-xs font-bold uppercase tracking-wide text-slate-500">Periode</div>
-                    @if(in_array(strtolower((string) (auth()->user()->role ?? '')), ['admin', 'administrator', 'approval', 'approval_level1'], true))
-                        <div class="mb-3">
-                            <label class="mb-1 block text-xs font-semibold text-gray-500 uppercase">Mode Tanggal</label>
-                            <select id="giDateMode" class="h-10 w-full border rounded-lg px-3 text-sm bg-white">
-                                <option value="posting">Posting ERP</option>
-                                <option value="seen">Terlihat di e-Request</option>
-                            </select>
-                        </div>
-                    @else
-                        <input id="giDateMode" type="hidden" value="posting">
-                    @endif
-                    <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                        <div>
-                            <label class="mb-1 block text-xs font-semibold text-gray-500 uppercase">Dari Tanggal</label>
-                            <input id="giStartDate" type="date" value="{{ $defaultStart }}" class="h-10 w-full border rounded-lg px-3 text-sm">
-                        </div>
-                        <div>
-                            <label class="mb-1 block text-xs font-semibold text-gray-500 uppercase">Sampai Tanggal</label>
-                            <input id="giEndDate" type="date" value="{{ $defaultEnd }}" class="h-10 w-full border rounded-lg px-3 text-sm">
-                        </div>
-                    </div>
-                </section>
+            <input id="giDateMode" type="hidden" value="posting">
+            <input id="giStartDate" type="hidden" value="{{ $defaultStart }}">
+            <input id="giEndDate" type="hidden" value="{{ $defaultEnd }}">
 
-                <section class="rounded-lg border border-slate-200 bg-white p-3 xl:col-span-4">
+            <div class="grid grid-cols-1 gap-4 xl:grid-cols-12">
+                <section class="rounded-lg border border-slate-200 bg-white p-3 xl:col-span-6">
                     <div class="mb-2 text-xs font-bold uppercase tracking-wide text-slate-500">Klasifikasi</div>
                     <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
                         <div>
@@ -103,7 +82,7 @@
                     </div>
                 </section>
 
-                <section class="rounded-lg border border-emerald-200 bg-emerald-50 p-3 xl:col-span-4">
+                <section class="rounded-lg border border-emerald-200 bg-emerald-50 p-3 xl:col-span-6">
                     <div class="mb-2 text-xs font-bold uppercase tracking-wide text-emerald-700">Range Total Nilai</div>
                     <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
                         <div>
@@ -119,11 +98,28 @@
             </div>
 
             <div class="mt-4 grid grid-cols-1 gap-3 lg:grid-cols-12 lg:items-end">
-                <div class="lg:col-span-7 xl:col-span-8">
+                @if(in_array(strtolower((string) (auth()->user()->role ?? '')), ['admin', 'administrator', 'approval', 'approval_level1'], true))
+                    <div class="lg:col-span-2">
+                        <label class="mb-1 block text-xs font-semibold text-gray-500 uppercase">Mode Tanggal</label>
+                        <select id="giDateModeVisible" class="h-10 w-full border rounded-lg px-3 text-sm bg-white">
+                            <option value="posting">Posting ERP</option>
+                            <option value="seen">Terlihat di e-Request</option>
+                        </select>
+                    </div>
+                @endif
+                <div class="lg:col-span-2">
+                    <label class="mb-1 block text-xs font-semibold text-gray-500 uppercase">Dari Tanggal</label>
+                    <input id="giStartDateQuick" type="date" value="{{ $defaultStart }}" class="h-10 w-full border rounded-lg px-3 text-sm">
+                </div>
+                <div class="lg:col-span-2">
+                    <label class="mb-1 block text-xs font-semibold text-gray-500 uppercase">Sampai Tanggal</label>
+                    <input id="giEndDateQuick" type="date" value="{{ $defaultEnd }}" class="h-10 w-full border rounded-lg px-3 text-sm">
+                </div>
+                <div class="{{ in_array(strtolower((string) (auth()->user()->role ?? '')), ['admin', 'administrator', 'approval', 'approval_level1'], true) ? 'lg:col-span-3' : 'lg:col-span-5' }}">
                     <label class="mb-1 block text-xs font-semibold text-gray-500 uppercase">Cari</label>
                     <input id="giSearch" type="text" class="h-10 w-full border rounded-lg px-3 text-sm" placeholder="No GI, kode, nama material, lokasi...">
                 </div>
-                <div class="lg:col-span-2 xl:col-span-1">
+                <div class="lg:col-span-1">
                     <label class="mb-1 block text-xs font-semibold text-gray-500 uppercase">Baris</label>
                     <select id="giPerPage" class="h-10 w-full border rounded-lg px-3 text-sm bg-white">
                         <option value="20">20</option>
@@ -131,7 +127,7 @@
                         <option value="100">100</option>
                     </select>
                 </div>
-                <div class="flex gap-2 lg:col-span-3 xl:col-span-3">
+                <div class="flex gap-2 lg:col-span-2 xl:col-span-2">
                     <button type="button" onclick="loadGoodIssue(1)" class="h-10 flex-1 rounded-lg bg-blue-600 px-4 text-sm font-semibold text-white hover:bg-blue-700">
                         Tampilkan
                     </button>
@@ -232,6 +228,18 @@ function toggleGiTimeDetail(button) {
     const isHidden = detail.classList.toggle('hidden');
     button.setAttribute('aria-expanded', String(!isHidden));
     button.textContent = isHidden ? 'Detail waktu' : 'Tutup detail';
+}
+
+function selectedGiDateMode() {
+    return document.getElementById('giDateModeVisible')?.value || document.getElementById('giDateMode').value;
+}
+
+function selectedGiStartDate() {
+    return document.getElementById('giStartDateQuick')?.value || document.getElementById('giStartDate').value;
+}
+
+function selectedGiEndDate() {
+    return document.getElementById('giEndDateQuick')?.value || document.getElementById('giEndDate').value;
 }
 
 function renderSummary(summary = {}) {
@@ -347,9 +355,9 @@ async function loadGoodIssue(page = 1) {
     body.innerHTML = '<tr><td colspan="7" class="px-4 py-10 text-center text-gray-500">Memuat data...</td></tr>';
 
     const params = new URLSearchParams({
-        start_date: document.getElementById('giStartDate').value,
-        end_date: document.getElementById('giEndDate').value,
-        date_mode: document.getElementById('giDateMode').value,
+        start_date: selectedGiStartDate(),
+        end_date: selectedGiEndDate(),
+        date_mode: selectedGiDateMode(),
         material_type: document.getElementById('giMaterialType').value,
         cost_center: document.getElementById('giCostCenter').value.trim(),
         min_total: minTotal === null ? '' : String(minTotal),
@@ -381,6 +389,11 @@ function resetGoodIssueFilters() {
     document.getElementById('giStartDate').value = '{{ $defaultStart }}';
     document.getElementById('giEndDate').value = '{{ $defaultEnd }}';
     document.getElementById('giDateMode').value = 'posting';
+    document.getElementById('giStartDateQuick').value = '{{ $defaultStart }}';
+    document.getElementById('giEndDateQuick').value = '{{ $defaultEnd }}';
+    if (document.getElementById('giDateModeVisible')) {
+        document.getElementById('giDateModeVisible').value = 'posting';
+    }
     document.getElementById('giMaterialType').value = 'all';
     document.getElementById('giCostCenter').value = '';
     document.getElementById('giMinTotal').value = '';
@@ -400,9 +413,9 @@ function exportGoodIssueXlsx() {
     }
 
     const params = new URLSearchParams({
-        start_date: document.getElementById('giStartDate').value,
-        end_date: document.getElementById('giEndDate').value,
-        date_mode: document.getElementById('giDateMode').value,
+        start_date: selectedGiStartDate(),
+        end_date: selectedGiEndDate(),
+        date_mode: selectedGiDateMode(),
         material_type: document.getElementById('giMaterialType').value,
         cost_center: document.getElementById('giCostCenter').value.trim(),
         min_total: minTotal === null ? '' : String(minTotal),
