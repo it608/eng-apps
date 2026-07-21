@@ -187,6 +187,14 @@
                         class="report-tab-btn">
                         PB vs GI
                     </button>
+
+                    <button
+                        type="button"
+                        @click="changeTab('burnrate')"
+                        :class="activeTab === 'burnrate' ? 'text-blue-600 border-blue-600 bg-blue-50/50' : 'text-gray-600 border-transparent hover:text-blue-600'"
+                        class="report-tab-btn">
+                        Budget Burn
+                    </button>
                 </div>
 
                 <button
@@ -298,7 +306,7 @@
                     </div>
                 </div>
 
-                <div x-show="['costcenter', 'pbgi'].includes(activeTab)" class="grid grid-cols-1 md:grid-cols-3 gap-3 mt-4">
+                <div x-show="['costcenter', 'pbgi', 'burnrate'].includes(activeTab)" class="grid grid-cols-1 md:grid-cols-3 gap-3 mt-4">
                     <div>
                         <label class="block text-xs font-medium text-gray-500 mb-1">Mode Trend</label>
                         <select
@@ -326,7 +334,8 @@
                     <span x-show="pagination" x-text="`${formatNumber(pagination?.total || 0)} data ditemukan`"></span>
                     <span x-show="activeTab === 'costcenter'">Sumber: ERP Good Issue read-only</span>
                     <span x-show="activeTab === 'pbgi'">Sumber: DB e-Request fulfillment</span>
-                    <span x-show="!pagination && !['costcenter', 'pbgi'].includes(activeTab)">Ringkasan berdasarkan filter periode aktif</span>
+                    <span x-show="activeTab === 'burnrate'">Sumber: ERP Good Issue read-only</span>
+                    <span x-show="!pagination && !['costcenter', 'pbgi', 'burnrate'].includes(activeTab)">Ringkasan berdasarkan filter periode aktif</span>
                 </div>
             </div>
 
@@ -702,7 +711,120 @@
                 </div>
             </div>
 
-            <div x-show="pagination && !['overview', 'costcenter', 'pbgi'].includes(activeTab)" class="px-6 py-4 border-t border-gray-200 flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+            {{-- Budget Burn Rate --}}
+            <div x-show="activeTab === 'burnrate'" class="space-y-5">
+                <div class="grid grid-cols-1 gap-4 md:grid-cols-4">
+                    <div class="rounded-xl border border-emerald-200 bg-emerald-50 p-4">
+                        <div class="text-xs font-semibold uppercase tracking-wide text-emerald-700">Total GI Spend</div>
+                        <div class="mt-1 font-mono text-xl font-semibold text-emerald-900" x-text="formatCurrency(burnRate.totals.total_spend)"></div>
+                        <div class="mt-2 text-xs text-emerald-700">
+                            <span x-text="formatNumber(burnRate.totals.documents)"></span> dokumen GI
+                        </div>
+                    </div>
+
+                    <div class="rounded-xl border border-blue-200 bg-blue-50 p-4">
+                        <div class="text-xs font-semibold uppercase tracking-wide text-blue-700">Average Daily Burn</div>
+                        <div class="mt-1 font-mono text-xl font-semibold text-blue-900" x-text="formatCurrency(burnRate.totals.average_daily)"></div>
+                        <div class="mt-2 text-xs text-blue-700">Rata-rata periode aktif</div>
+                    </div>
+
+                    <div class="rounded-xl border border-purple-200 bg-purple-50 p-4">
+                        <div class="text-xs font-semibold uppercase tracking-wide text-purple-700">Forecast Month-End</div>
+                        <div class="mt-1 font-mono text-xl font-semibold text-purple-900" x-text="formatCurrency(burnRate.totals.forecast_month_end)"></div>
+                        <div class="mt-2 text-xs text-purple-700">Proyeksi ritme berjalan</div>
+                    </div>
+
+                    <div class="rounded-xl border border-amber-200 bg-amber-50 p-4">
+                        <div class="text-xs font-semibold uppercase tracking-wide text-amber-700">Highest Period</div>
+                        <div class="mt-1 font-mono text-xl font-semibold text-amber-900" x-text="formatCurrency(burnRate.totals.highest_period_spend)"></div>
+                        <div class="mt-2 text-xs text-amber-700" x-text="burnRate.totals.highest_period_label || '-'"></div>
+                    </div>
+                </div>
+
+                <div class="cost-chart-panel p-5">
+                    <div class="mb-4 flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+                        <div>
+                            <h3 class="text-base font-semibold text-gray-900">Budget Burn Rate</h3>
+                            <p class="mt-1 text-sm text-gray-500">
+                                Bar menunjukkan spend GI per <span x-text="(burnRate.grouping_label || 'Bulanan').toLowerCase()"></span>, garis menunjukkan cumulative spend.
+                            </p>
+                        </div>
+                        <div class="flex flex-wrap gap-3 text-xs">
+                            <div class="inline-flex items-center gap-2 rounded-full border border-gray-200 px-3 py-1.5">
+                                <span class="h-2.5 w-2.5 rounded-full bg-emerald-600"></span>
+                                <span class="font-medium text-gray-700">Spend GI</span>
+                            </div>
+                            <div class="inline-flex items-center gap-2 rounded-full border border-gray-200 px-3 py-1.5">
+                                <span class="h-2.5 w-2.5 rounded-full bg-blue-600"></span>
+                                <span class="font-medium text-gray-700">Cumulative</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="overflow-x-auto">
+                        <div class="min-w-[760px]" x-html="burnRateChartSvg()"></div>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 gap-5 xl:grid-cols-3">
+                    <div class="rounded-xl border border-gray-200 bg-white p-4">
+                        <h3 class="text-sm font-semibold text-gray-900">Breakdown Cost Center</h3>
+                        <div class="mt-4 space-y-3">
+                            <template x-for="row in burnRate.cost_centers" :key="`burn-cost-${row.label}`">
+                                <div>
+                                    <div class="flex items-center justify-between gap-3 text-sm">
+                                        <span class="font-medium text-gray-700" x-text="row.label"></span>
+                                        <span class="font-mono font-semibold text-gray-900" x-text="formatCurrency(row.spend)"></span>
+                                    </div>
+                                    <div class="mt-2 h-2 rounded-full bg-gray-100">
+                                        <div class="h-2 rounded-full bg-emerald-500" :style="`width:${Math.min(100, Number(row.share || 0))}%`"></div>
+                                    </div>
+                                    <div class="mt-1 text-xs text-gray-500">
+                                        <span x-text="formatNumber(row.share)"></span>% dari spend
+                                    </div>
+                                </div>
+                            </template>
+
+                            <div x-show="burnRate.cost_centers.length === 0" class="py-8 text-center text-sm text-gray-500">
+                                Belum ada spend GI untuk periode ini.
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="overflow-x-auto rounded-xl border border-gray-200 xl:col-span-2">
+                        <table class="w-full text-sm">
+                            <thead class="bg-gray-50 text-xs uppercase tracking-wide text-gray-600">
+                                <tr>
+                                    <th class="px-4 py-3 text-left">Periode</th>
+                                    <th class="px-4 py-3 text-right">Spend GI</th>
+                                    <th class="px-4 py-3 text-right">Cumulative</th>
+                                    <th class="px-4 py-3 text-right">Dokumen</th>
+                                    <th class="px-4 py-3 text-right">Item</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-gray-100">
+                                <template x-for="row in burnRate.rows" :key="`burn-row-${row.period_key}`">
+                                    <tr>
+                                        <td class="px-4 py-3 font-semibold text-gray-900" x-text="row.label"></td>
+                                        <td class="px-4 py-3 text-right font-mono" x-text="formatCurrency(row.spend)"></td>
+                                        <td class="px-4 py-3 text-right font-mono text-blue-700" x-text="formatCurrency(row.cumulative)"></td>
+                                        <td class="px-4 py-3 text-right" x-text="formatNumber(row.documents)"></td>
+                                        <td class="px-4 py-3 text-right" x-text="formatNumber(row.items)"></td>
+                                    </tr>
+                                </template>
+
+                                <tr x-show="!loading && burnRate.rows.length === 0">
+                                    <td colspan="5" class="px-4 py-10 text-center text-gray-500">
+                                        Belum ada data burn rate untuk periode ini.
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <div x-show="pagination && !['overview', 'costcenter', 'pbgi', 'burnrate'].includes(activeTab)" class="px-6 py-4 border-t border-gray-200 flex flex-col md:flex-row md:items-center md:justify-between gap-3">
                 <div class="text-sm text-gray-500">
                     Halaman <span x-text="pagination?.current_page || 1"></span> dari <span x-text="pagination?.last_page || 1"></span>
                 </div>
@@ -776,6 +898,26 @@ function reportCenter() {
                 realization_rate: 0
             }
         },
+        burnRate: {
+            period: { start: '-', end: '-' },
+            grouping: 'monthly',
+            grouping_label: 'Bulanan',
+            labels: [],
+            rows: [],
+            cost_centers: [],
+            max_spend: 1,
+            max_cumulative: 1,
+            totals: {
+                total_spend: 0,
+                average_daily: 0,
+                forecast_month_end: 0,
+                highest_period_label: '-',
+                highest_period_spend: 0,
+                documents: 0,
+                items: 0,
+                active_periods: 0
+            }
+        },
         pagination: null,
         summary: {
             pb_total: 0,
@@ -842,6 +984,9 @@ function reportCenter() {
             ],
             pbgi: [
                 { value: 'all', label: 'Semua Status' }
+            ],
+            burnrate: [
+                { value: 'all', label: 'Semua Status' }
             ]
         },
 
@@ -904,6 +1049,10 @@ function reportCenter() {
                     this.pagination = null;
                 } else if (this.activeTab === 'pbgi') {
                     this.pbGi = result.data || this.pbGi;
+                    this.rows = [];
+                    this.pagination = null;
+                } else if (this.activeTab === 'burnrate') {
+                    this.burnRate = result.data || this.burnRate;
                     this.rows = [];
                     this.pagination = null;
                 } else {
@@ -1300,6 +1449,115 @@ function reportCenter() {
                     <line x1="${left}" x2="${right}" y1="${bottom}" y2="${bottom}" stroke="#cbd5e1" stroke-width="1.2"></line>
                     <line x1="${left}" x2="${left}" y1="${top}" y2="${bottom}" stroke="#cbd5e1" stroke-width="1.2"></line>
                     ${bars}
+                    ${axisLabels}
+                </svg>
+            `;
+        },
+
+        burnRateChartLabelIndexes() {
+            const labels = this.burnRate.labels || [];
+            const total = labels.length;
+
+            if (total <= 12) {
+                return labels.map((_, index) => index);
+            }
+
+            const step = Math.ceil(total / 8);
+            const indexes = new Set([0, total - 1]);
+
+            for (let index = 0; index < total; index += step) {
+                indexes.add(index);
+            }
+
+            return Array.from(indexes).sort((a, b) => a - b);
+        },
+
+        burnRateAxisLabel(label) {
+            if (this.burnRate.grouping === 'daily') {
+                return String(label || '').split(' ')[0];
+            }
+
+            return label;
+        },
+
+        burnRateChartSvg() {
+            const labels = this.burnRate.labels || [];
+            const rows = this.burnRate.rows || [];
+            const totalSpend = Number(this.burnRate.totals?.total_spend || 0);
+
+            if (!labels.length || !rows.length || totalSpend <= 0) {
+                return `
+                    <div class="flex h-[320px] items-center justify-center rounded-lg border border-dashed border-gray-200 text-sm text-gray-500">
+                        Belum ada data GI Engineering untuk periode ini.
+                    </div>
+                `;
+            }
+
+            const spendMax = Math.max(Number(this.burnRate.max_spend || 0), 1);
+            const cumulativeMax = Math.max(Number(this.burnRate.max_cumulative || 0), 1);
+            const left = 84;
+            const right = 890;
+            const top = 42;
+            const bottom = 270;
+            const plotHeight = bottom - top;
+            const groupWidth = (right - left) / Math.max(labels.length, 1);
+            const barWidth = Math.max(10, Math.min(32, groupWidth * 0.42));
+
+            const spendY = value => bottom - ((Number(value || 0) / spendMax) * plotHeight);
+            const cumulativeY = value => bottom - ((Number(value || 0) / cumulativeMax) * plotHeight);
+            const ticks = [0, 1, 2, 3, 4].map(index => {
+                const spendValue = spendMax * ((4 - index) / 4);
+                const y = top + (index * (plotHeight / 4));
+
+                return `
+                    <g>
+                        <line x1="${left}" x2="${right}" y1="${y}" y2="${y}" stroke="#e5e7eb" stroke-width="1"></line>
+                        <text x="${left - 10}" y="${y + 4}" text-anchor="end" fill="#6b7280" font-size="11">${this.escapeSvg(this.formatCurrencyShort(spendValue))}</text>
+                    </g>
+                `;
+            }).join('');
+
+            const bars = rows.map((row, index) => {
+                const spend = Number(row.spend || 0);
+                const centerX = left + (index * groupWidth) + (groupWidth / 2);
+                const x = centerX - (barWidth / 2);
+                const y = spendY(spend);
+                const height = Math.max(0, bottom - y);
+
+                return `
+                    <rect x="${x}" y="${y}" width="${barWidth}" height="${height}" rx="5" fill="#059669" opacity="0.82">
+                        <title>${this.escapeSvg(`${row.label}: ${this.formatCurrency(spend)} GI spend`)}</title>
+                    </rect>
+                `;
+            }).join('');
+
+            const points = rows.map((row, index) => {
+                const x = left + (index * groupWidth) + (groupWidth / 2);
+                const y = cumulativeY(row.cumulative || 0);
+
+                return { x, y, value: Number(row.cumulative || 0), label: row.label };
+            });
+            const linePoints = points.map(point => `${point.x},${point.y}`).join(' ');
+            const circles = points.map(point => `
+                <circle cx="${point.x}" cy="${point.y}" r="4" fill="#ffffff" stroke="#2563eb" stroke-width="2">
+                    <title>${this.escapeSvg(`${point.label}: cumulative ${this.formatCurrency(point.value)}`)}</title>
+                </circle>
+            `).join('');
+
+            const axisLabels = this.burnRateChartLabelIndexes().map(index => {
+                const x = left + (index * groupWidth) + (groupWidth / 2);
+
+                return `<text x="${x}" y="304" text-anchor="middle" fill="#64748b" font-size="10.5" font-weight="500">${this.escapeSvg(this.burnRateAxisLabel(labels[index]))}</text>`;
+            }).join('');
+
+            return `
+                <svg class="cost-chart-svg" viewBox="0 0 920 330" role="img" aria-label="Budget burn rate chart">
+                    ${ticks}
+                    <line x1="${left}" x2="${right}" y1="${bottom}" y2="${bottom}" stroke="#cbd5e1" stroke-width="1.2"></line>
+                    <line x1="${left}" x2="${left}" y1="${top}" y2="${bottom}" stroke="#cbd5e1" stroke-width="1.2"></line>
+                    ${bars}
+                    <polyline fill="none" stroke="#2563eb" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" points="${linePoints}"></polyline>
+                    ${circles}
                     ${axisLabels}
                 </svg>
             `;

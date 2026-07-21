@@ -28,6 +28,8 @@ class ReportController extends Controller
                 $payload = $this->getCostCenterData($request);
             } elseif ($tab === 'pbgi') {
                 $payload = $this->getPbGiData($request);
+            } elseif ($tab === 'burnrate') {
+                $payload = $this->getBudgetBurnRateData($request);
             } else {
                 $payload = $this->getOverviewData($request);
             }
@@ -68,6 +70,9 @@ class ReportController extends Controller
             } elseif ($tab === 'pbgi') {
                 [$headers, $rows, $sheetName] = $this->buildPbGiExport($request);
                 $filename = "report_pb_vs_gi_realization_{$timestamp}.xlsx";
+            } elseif ($tab === 'burnrate') {
+                [$headers, $rows, $sheetName] = $this->buildBudgetBurnRateExport($request);
+                $filename = "report_budget_burn_rate_{$timestamp}.xlsx";
             } else {
                 [$headers, $rows, $sheetName] = $this->buildOverviewExport($request);
                 $filename = "report_overview_{$timestamp}.xlsx";
@@ -100,7 +105,7 @@ class ReportController extends Controller
     {
         $tab = strtolower((string) $tab);
 
-        return in_array($tab, ['overview', 'transaksi', 'workorder', 'costcenter', 'pbgi'], true)
+        return in_array($tab, ['overview', 'transaksi', 'workorder', 'costcenter', 'pbgi', 'burnrate'], true)
             ? $tab
             : 'overview';
     }
@@ -527,6 +532,146 @@ class ReportController extends Controller
                 'mode' => 'pbgi',
                 'grouping' => $grouping,
                 'source' => 'DB e-Request fulfillment',
+            ],
+        ];
+    }
+
+    private function getBudgetBurnRateData(Request $request): array
+    {
+        [$start, $end] = $this->costCenterPeriod($request);
+        $grouping = $this->costCenterGrouping($request, $start, $end);
+        $buckets = $this->costCenterBuckets($start, $end, $grouping);
+        $dateExpression = $grouping === 'daily'
+            ? 'b.budat::date'
+            : "DATE_TRUNC('month', b.budat)::date";
+        $keyExpression = $grouping === 'daily'
+            ? "TO_CHAR(bucket_date, 'YYYY-MM-DD')"
+            : "TO_CHAR(bucket_date, 'YYYY-MM')";
+        $params = [$start->toDateString(), $end->toDateString()];
+
+        $rows = DB::connection('pgsql2')->select("
+            WITH filtered AS (
+                SELECT
+                    {$dateExpression} AS bucket_date,
+                    b.mblnr AS nomor_gi,
+                    COALESCE(d.menge, 0) AS quantity,
+                    COALESCE(d.wrbtr, 0) AS nilai,
+                    UPPER(COALESCE(NULLIF(TRIM(cc.name_costctr), ''), NULLIF(TRIM(cc.desc_costctr), ''), NULLIF(TRIM(cc.code_costctr), ''), '')) AS cost_center_name
+                FROM tb_skb008_1mmseg b
+                JOIN tb_skb008_2dmseg d ON d.idmse = b.idmse
+                LEFT JOIN tb_skb051_1mcostctr cc
+                    ON cc.id_costctr = COALESCE(NULLIF(d.kostl, 0), NULLIF(b.kostl, 0))
+                WHERE b.budat BETWEEN ? AND ?
+                  AND d.bwart = '201'
+                  AND COALESCE(d.saknr, 0) <> 7755
+            )
+            SELECT
+                {$keyExpression} AS period_key,
+                COUNT(DISTINCT nomor_gi) AS documents,
+                COUNT(*) AS items,
+                COALESCE(SUM(quantity), 0) AS quantity,
+                COALESCE(SUM(nilai), 0) AS spend
+            FROM filtered
+            WHERE cost_center_name LIKE '%CIVIL%'
+               OR cost_center_name LIKE '%MAINTENANCE%'
+               OR cost_center_name LIKE '%MAINT%'
+               OR cost_center_name LIKE '%REPAIR%'
+            GROUP BY period_key
+            ORDER BY period_key
+        ", $params);
+
+        $costCenterRows = DB::connection('pgsql2')->select("
+            WITH filtered AS (
+                SELECT
+                    COALESCE(d.wrbtr, 0) AS nilai,
+                    UPPER(COALESCE(NULLIF(TRIM(cc.name_costctr), ''), NULLIF(TRIM(cc.desc_costctr), ''), NULLIF(TRIM(cc.code_costctr), ''), '')) AS cost_center_name
+                FROM tb_skb008_1mmseg b
+                JOIN tb_skb008_2dmseg d ON d.idmse = b.idmse
+                LEFT JOIN tb_skb051_1mcostctr cc
+                    ON cc.id_costctr = COALESCE(NULLIF(d.kostl, 0), NULLIF(b.kostl, 0))
+                WHERE b.budat BETWEEN ? AND ?
+                  AND d.bwart = '201'
+                  AND COALESCE(d.saknr, 0) <> 7755
+            )
+            SELECT
+                CASE
+                    WHEN cost_center_name LIKE '%CIVIL%' THEN 'Civil'
+                    WHEN cost_center_name LIKE '%MAINTENANCE%' OR cost_center_name LIKE '%MAINT%' THEN 'Maintenance'
+                    WHEN cost_center_name LIKE '%REPAIR%' THEN 'Repair'
+                    ELSE 'Other'
+                END AS label,
+                COALESCE(SUM(nilai), 0) AS spend
+            FROM filtered
+            WHERE cost_center_name LIKE '%CIVIL%'
+               OR cost_center_name LIKE '%MAINTENANCE%'
+               OR cost_center_name LIKE '%MAINT%'
+               OR cost_center_name LIKE '%REPAIR%'
+            GROUP BY label
+            ORDER BY spend DESC
+        ", $params);
+
+        $rowMap = collect($rows)->keyBy('period_key');
+        $cumulative = 0.0;
+        $periodRows = [];
+
+        foreach ($buckets as $bucket) {
+            $row = $rowMap->get($bucket['key']);
+            $spend = (float) ($row->spend ?? 0);
+            $cumulative += $spend;
+
+            $periodRows[] = [
+                'period_key' => $bucket['key'],
+                'label' => $bucket['label'],
+                'spend' => $spend,
+                'cumulative' => $cumulative,
+                'documents' => (int) ($row->documents ?? 0),
+                'items' => (int) ($row->items ?? 0),
+                'quantity' => (float) ($row->quantity ?? 0),
+            ];
+        }
+
+        $activeRows = array_values(array_filter($periodRows, fn ($row) => $row['spend'] > 0));
+        $periodDays = max(1, $start->copy()->startOfDay()->diffInDays($end->copy()->startOfDay()) + 1);
+        $elapsedDays = max(1, min($periodDays, $start->copy()->startOfDay()->diffInDays(now()->copy()->startOfDay()) + 1));
+        $totalSpend = array_sum(array_column($periodRows, 'spend'));
+        $averageDaily = $totalSpend / $elapsedDays;
+        $forecastMonthEnd = $grouping === 'daily'
+            ? $averageDaily * max(1, $end->copy()->daysInMonth)
+            : $totalSpend;
+        $highestRow = collect($periodRows)->sortByDesc('spend')->first() ?: ['label' => '-', 'spend' => 0];
+
+        return [
+            'data' => [
+                'period' => [
+                    'start' => $start->format('d/m/Y'),
+                    'end' => $end->format('d/m/Y'),
+                ],
+                'grouping' => $grouping,
+                'grouping_label' => $grouping === 'daily' ? 'Harian' : 'Bulanan',
+                'labels' => array_column($periodRows, 'label'),
+                'rows' => $periodRows,
+                'cost_centers' => collect($costCenterRows)->map(fn ($row) => [
+                    'label' => $row->label ?: '-',
+                    'spend' => (float) ($row->spend ?? 0),
+                    'share' => $totalSpend > 0 ? round(((float) ($row->spend ?? 0) / $totalSpend) * 100, 2) : 0,
+                ])->values(),
+                'max_spend' => max(1, ...array_column($periodRows, 'spend')),
+                'max_cumulative' => max(1, ...array_column($periodRows, 'cumulative')),
+                'totals' => [
+                    'total_spend' => $totalSpend,
+                    'average_daily' => $averageDaily,
+                    'forecast_month_end' => $forecastMonthEnd,
+                    'highest_period_label' => $highestRow['label'] ?? '-',
+                    'highest_period_spend' => (float) ($highestRow['spend'] ?? 0),
+                    'documents' => array_sum(array_column($periodRows, 'documents')),
+                    'items' => array_sum(array_column($periodRows, 'items')),
+                    'active_periods' => count($activeRows),
+                ],
+            ],
+            'meta' => [
+                'mode' => 'burnrate',
+                'grouping' => $grouping,
+                'source' => 'ERP Good Issue read-only',
             ],
         ];
     }
@@ -964,6 +1109,33 @@ class ReportController extends Controller
             'Nilai Gap',
             'Realization Rate (%)',
         ], $rows, 'PB vs GI'];
+    }
+
+    private function buildBudgetBurnRateExport(Request $request): array
+    {
+        $payload = $this->getBudgetBurnRateData($request)['data'];
+        $rows = collect($payload['rows'])
+            ->map(fn ($row, $index) => [
+                $index + 1,
+                $row['label'],
+                (float) $row['spend'],
+                (float) $row['cumulative'],
+                (int) $row['documents'],
+                (int) $row['items'],
+                (float) $row['quantity'],
+            ])
+            ->values()
+            ->all();
+
+        return [[
+            'No',
+            'Periode',
+            'Spend GI',
+            'Cumulative Spend',
+            'Dokumen GI',
+            'Item',
+            'Qty',
+        ], $rows, 'Budget Burn Rate'];
     }
 
     private function buildOverviewExport(Request $request): array
