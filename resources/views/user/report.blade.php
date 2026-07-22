@@ -1523,7 +1523,7 @@ function reportCenter() {
 
         formatHours(value) {
             const hours = Number(value || 0) / 60;
-            return new Intl.NumberFormat('id-ID', { maximumFractionDigits: 2 }).format(hours) + ' jam';
+            return 'Setara ' + new Intl.NumberFormat('id-ID', { maximumFractionDigits: 2 }).format(hours) + ' jam';
         },
 
         overviewTotal(rows) {
