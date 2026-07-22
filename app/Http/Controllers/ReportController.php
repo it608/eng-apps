@@ -24,6 +24,8 @@ class ReportController extends Controller
                 $payload = $this->getTransaksiData($request);
             } elseif ($tab === 'workorder') {
                 $payload = $this->getWorkOrderData($request);
+            } elseif ($tab === 'wokpi') {
+                $payload = $this->getWorkOrderKpiData($request);
             } elseif ($tab === 'costcenter') {
                 $payload = $this->getCostCenterData($request);
             } elseif ($tab === 'pbgi') {
@@ -64,6 +66,9 @@ class ReportController extends Controller
             } elseif ($tab === 'transaksi') {
                 [$headers, $rows, $sheetName] = $this->buildTransaksiExport($request);
                 $filename = "report_permintaan_barang_{$timestamp}.xlsx";
+            } elseif ($tab === 'wokpi') {
+                [$headers, $rows, $sheetName] = $this->buildWorkOrderKpiExport($request);
+                $filename = "report_kpi_work_order_{$timestamp}.xlsx";
             } elseif ($tab === 'costcenter') {
                 [$headers, $rows, $sheetName] = $this->buildCostCenterExport($request);
                 $filename = "report_cost_center_engineering_{$timestamp}.xlsx";
@@ -105,7 +110,7 @@ class ReportController extends Controller
     {
         $tab = strtolower((string) $tab);
 
-        return in_array($tab, ['overview', 'transaksi', 'workorder', 'costcenter', 'pbgi', 'burnrate'], true)
+        return in_array($tab, ['overview', 'transaksi', 'workorder', 'wokpi', 'costcenter', 'pbgi', 'burnrate'], true)
             ? $tab
             : 'overview';
     }
@@ -263,6 +268,85 @@ class ReportController extends Controller
         return [
             'data' => collect($data->items())->map(fn ($row) => $this->formatWorkOrderRow($row))->values(),
             'pagination' => $this->paginationPayload($data),
+        ];
+    }
+
+    private function getWorkOrderKpiData(Request $request): array
+    {
+        [$start, $end] = $this->costCenterPeriod($request);
+        $totalDays = max(1, $start->copy()->startOfDay()->diffInDays($end->copy()->startOfDay()) + 1);
+        $totalPeriodMinutes = $totalDays * 24 * 60;
+
+        $rows = $this->baseWorkOrderQuery($request)
+            ->get()
+            ->groupBy(fn ($row) => trim((string) ($row->assigned_regu ?? '')) ?: 'Belum Assign')
+            ->map(function ($items, $section) use ($totalPeriodMinutes) {
+                $totalWo = $items->count();
+                $fulfilled = $items->filter(fn ($row) => $this->isWorkOrderClosed($row))->count();
+                $onProgress = $items->filter(fn ($row) => $this->isWorkOrderOnProgress($row))->count();
+                $leadMinutes = $items->sum(fn ($row) => $this->workOrderLeadMinutes($row));
+                $repairQty = $totalWo;
+
+                return [
+                    'section' => $section,
+                    'total_wo' => $totalWo,
+                    'fulfilled_wo' => $fulfilled,
+                    'on_progress_wo' => $onProgress,
+                    'open_wo' => $items->filter(fn ($row) => $this->isWorkOrderOpen($row))->count(),
+                    'fulfillment_rate' => $totalWo > 0 ? round(($fulfilled / $totalWo) * 100, 1) : 0,
+                    'on_progress_rate' => $totalWo > 0 ? round(($onProgress / $totalWo) * 100, 1) : 0,
+                    'repair_qty' => $repairQty,
+                    'lead_time_minutes' => $leadMinutes,
+                    'mttr_minutes' => $repairQty > 0 ? round($leadMinutes / $repairQty, 1) : 0,
+                    'mtbf_minutes' => $repairQty > 0 ? round($totalPeriodMinutes / $repairQty, 1) : 0,
+                ];
+            })
+            ->sortByDesc('total_wo')
+            ->values();
+
+        $totals = [
+            'section_count' => $rows->count(),
+            'total_wo' => $rows->sum('total_wo'),
+            'fulfilled_wo' => $rows->sum('fulfilled_wo'),
+            'on_progress_wo' => $rows->sum('on_progress_wo'),
+            'repair_qty' => $rows->sum('repair_qty'),
+            'lead_time_minutes' => $rows->sum('lead_time_minutes'),
+        ];
+
+        $totals['fulfillment_rate'] = $totals['total_wo'] > 0
+            ? round(($totals['fulfilled_wo'] / $totals['total_wo']) * 100, 1)
+            : 0;
+        $totals['on_progress_rate'] = $totals['total_wo'] > 0
+            ? round(($totals['on_progress_wo'] / $totals['total_wo']) * 100, 1)
+            : 0;
+        $totals['mttr_minutes'] = $totals['repair_qty'] > 0
+            ? round($totals['lead_time_minutes'] / $totals['repair_qty'], 1)
+            : 0;
+        $totals['mtbf_minutes'] = $totals['repair_qty'] > 0
+            ? round($totalPeriodMinutes / $totals['repair_qty'], 1)
+            : 0;
+
+        return [
+            'data' => [
+                'period' => [
+                    'start' => $start->format('d/m/Y'),
+                    'end' => $end->format('d/m/Y'),
+                    'total_days' => $totalDays,
+                    'total_minutes' => $totalPeriodMinutes,
+                ],
+                'rows' => $rows,
+                'totals' => $totals,
+                'definitions' => [
+                    'fulfillment' => 'WO Fulfilment = WO selesai / total WO pada seksi tersebut.',
+                    'progress' => 'WO On Progress = WO dengan progress open/progress / total WO pada seksi tersebut.',
+                    'mttr' => 'MTTR (Mean Time To Repair) = total lead time WO / qty WO, dalam menit.',
+                    'mtbf' => 'MTBF (Mean Time Between Failures) = total menit periode / qty WO, dalam menit.',
+                ],
+            ],
+            'meta' => [
+                'mode' => 'wokpi',
+                'source' => 'e-Request WO',
+            ],
         ];
     }
 
@@ -772,6 +856,7 @@ class ReportController extends Controller
                 'wo.progress_at',
                 'wo.closed_at',
                 'wo.rejection_notes',
+                'wo.assigned_regu',
                 'creator.name as created_by_name',
                 'creator.email as created_by_email',
                 'approver.name as approved_by_name',
@@ -974,6 +1059,7 @@ class ReportController extends Controller
             'status_label' => $this->pretty($row->status),
             'progress_status' => $progressStatus ?: '-',
             'progress_label' => $this->pretty($progressStatus),
+            'section' => $row->assigned_regu ?: 'Belum Assign',
             'created_by' => $row->created_by_name ?: '-',
             'tanggal_dibuat' => $this->formatDate($row->created_at),
             'submitted_at' => $this->formatDateTime($row->submitted_at),
@@ -1089,6 +1175,41 @@ class ReportController extends Controller
             'Lead Time',
             'Catatan Reject',
         ], $rows, 'Report WO'];
+    }
+
+    private function buildWorkOrderKpiExport(Request $request): array
+    {
+        $payload = $this->getWorkOrderKpiData($request)['data'];
+        $rows = collect($payload['rows'])
+            ->map(fn ($row, $index) => [
+                $index + 1,
+                $row['section'],
+                (int) $row['total_wo'],
+                (int) $row['fulfilled_wo'],
+                (float) $row['fulfillment_rate'],
+                (int) $row['on_progress_wo'],
+                (float) $row['on_progress_rate'],
+                (int) $row['repair_qty'],
+                (float) $row['lead_time_minutes'],
+                (float) $row['mttr_minutes'],
+                (float) $row['mtbf_minutes'],
+            ])
+            ->values()
+            ->all();
+
+        return [[
+            'No',
+            'Seksi',
+            'Total WO',
+            'WO Fulfilment',
+            'WO Fulfilment (%)',
+            'WO On Progress',
+            'WO On Progress (%)',
+            'Qty WO Repair',
+            'Lead Time (menit)',
+            'MTTR - Mean Time To Repair (menit)',
+            'MTBF - Mean Time Between Failures (menit)',
+        ], $rows, 'KPI WO'];
     }
 
     private function buildCostCenterExport(Request $request): array
@@ -1262,6 +1383,41 @@ class ReportController extends Controller
         } catch (\Throwable $e) {
             return '-';
         }
+    }
+
+    private function workOrderLeadMinutes($row): float
+    {
+        $start = $row->open_at ?: $row->approved_at ?: $row->submitted_at ?: $row->created_at;
+        $end = $row->closed_at ?: $row->completed_at;
+
+        if (!$start || !$end) {
+            return 0;
+        }
+
+        try {
+            return max(0, Carbon::parse($start)->diffInMinutes(Carbon::parse($end)));
+        } catch (\Throwable $e) {
+            return 0;
+        }
+    }
+
+    private function isWorkOrderClosed($row): bool
+    {
+        return $row->status === 'completed' || $row->progress_status === 'closed' || !empty($row->closed_at) || !empty($row->completed_at);
+    }
+
+    private function isWorkOrderOnProgress($row): bool
+    {
+        if ($this->isWorkOrderClosed($row)) {
+            return false;
+        }
+
+        return $row->status === 'approved' && in_array($row->progress_status ?: 'open', ['open', 'progress'], true);
+    }
+
+    private function isWorkOrderOpen($row): bool
+    {
+        return !$this->isWorkOrderClosed($row) && $row->status === 'approved' && ($row->progress_status === null || $row->progress_status === 'open');
     }
 
     private function pretty($value): string

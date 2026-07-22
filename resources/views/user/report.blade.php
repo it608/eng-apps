@@ -203,6 +203,14 @@
                                 class="rounded-md border px-3 py-2 transition">
                                 Work Order
                             </button>
+
+                            <button
+                                type="button"
+                                @click="changeTab('wokpi')"
+                                :class="activeTab === 'wokpi' ? 'text-blue-700 bg-white shadow-sm border-gray-200' : 'text-gray-600 border-transparent hover:text-blue-600 hover:bg-white'"
+                                class="rounded-md border px-3 py-2 transition">
+                                KPI WO
+                            </button>
                         </div>
                     </div>
                 </div>
@@ -346,7 +354,7 @@
                         <span>Sumber data:</span>
                         <span x-text="reportSourceLabel()"></span>
                     </span>
-                    <span x-show="!pagination && !['costcenter', 'pbgi', 'burnrate'].includes(activeTab)">Ringkasan berdasarkan filter periode aktif</span>
+                    <span x-show="!pagination && !['costcenter', 'pbgi', 'wokpi', 'burnrate'].includes(activeTab)">Ringkasan berdasarkan filter periode aktif</span>
                 </div>
             </div>
 
@@ -621,6 +629,137 @@
                         </tr>
                     </tbody>
                 </table>
+            </div>
+
+            {{-- Work Order KPI --}}
+            <div x-show="activeTab === 'wokpi'" class="space-y-5">
+                <div class="grid grid-cols-1 gap-4 md:grid-cols-4">
+                    <div class="rounded-xl border border-emerald-200 bg-emerald-50 p-4">
+                        <div class="text-xs font-semibold uppercase tracking-wide text-emerald-700">WO Fulfilment</div>
+                        <div class="mt-1 font-mono text-2xl font-semibold text-emerald-900" x-text="formatPercent(woKpi.totals.fulfillment_rate)"></div>
+                        <div class="mt-2 text-xs text-emerald-700">
+                            <span x-text="formatNumber(woKpi.totals.fulfilled_wo)"></span> dari
+                            <span x-text="formatNumber(woKpi.totals.total_wo)"></span> WO selesai
+                        </div>
+                    </div>
+
+                    <div class="rounded-xl border border-blue-200 bg-blue-50 p-4">
+                        <div class="text-xs font-semibold uppercase tracking-wide text-blue-700">WO On Progress</div>
+                        <div class="mt-1 font-mono text-2xl font-semibold text-blue-900" x-text="formatPercent(woKpi.totals.on_progress_rate)"></div>
+                        <div class="mt-2 text-xs text-blue-700">
+                            <span x-text="formatNumber(woKpi.totals.on_progress_wo)"></span> WO masih open/progress
+                        </div>
+                    </div>
+
+                    <div class="rounded-xl border border-violet-200 bg-violet-50 p-4">
+                        <div class="text-xs font-semibold uppercase tracking-wide text-violet-700">MTTR</div>
+                        <div class="mt-1 font-mono text-2xl font-semibold text-violet-900" x-text="formatMinutes(woKpi.totals.mttr_minutes)"></div>
+                        <div class="mt-2 text-xs text-violet-700">Mean Time To Repair</div>
+                    </div>
+
+                    <div class="rounded-xl border border-amber-200 bg-amber-50 p-4">
+                        <div class="text-xs font-semibold uppercase tracking-wide text-amber-700">MTBF</div>
+                        <div class="mt-1 font-mono text-2xl font-semibold text-amber-900" x-text="formatMinutes(woKpi.totals.mtbf_minutes)"></div>
+                        <div class="mt-2 text-xs text-amber-700">Mean Time Between Failures</div>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 gap-4 xl:grid-cols-2">
+                    <div class="rounded-xl border border-gray-200 bg-white p-4">
+                        <div class="text-sm font-semibold text-gray-900">Cara Baca KPI</div>
+                        <div class="mt-3 grid gap-3 text-sm text-gray-600 md:grid-cols-2">
+                            <div class="rounded-lg bg-gray-50 p-3">
+                                <div class="font-semibold text-gray-900">MTTR</div>
+                                <div class="mt-1">Mean Time To Repair: rata-rata durasi penyelesaian WO repair.</div>
+                                <div class="mt-2 text-xs font-semibold text-gray-500">Rumus: Lead time / Qty WO</div>
+                            </div>
+                            <div class="rounded-lg bg-gray-50 p-3">
+                                <div class="font-semibold text-gray-900">MTBF</div>
+                                <div class="mt-1">Mean Time Between Failures: rata-rata jarak antar WO repair dalam periode filter.</div>
+                                <div class="mt-2 text-xs font-semibold text-gray-500">Rumus: total menit periode / Qty WO</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="rounded-xl border border-gray-200 bg-white p-4">
+                        <div class="text-sm font-semibold text-gray-900">Basis Periode</div>
+                        <div class="mt-3 grid grid-cols-3 gap-3 text-sm">
+                            <div>
+                                <div class="text-xs font-semibold uppercase tracking-wide text-gray-500">Dari</div>
+                                <div class="mt-1 font-semibold text-gray-900" x-text="woKpi.period.start"></div>
+                            </div>
+                            <div>
+                                <div class="text-xs font-semibold uppercase tracking-wide text-gray-500">Sampai</div>
+                                <div class="mt-1 font-semibold text-gray-900" x-text="woKpi.period.end"></div>
+                            </div>
+                            <div>
+                                <div class="text-xs font-semibold uppercase tracking-wide text-gray-500">Total Hari</div>
+                                <div class="mt-1 font-semibold text-gray-900">
+                                    <span x-text="formatNumber(woKpi.period.total_days)"></span> hari
+                                </div>
+                            </div>
+                        </div>
+                        <div class="mt-3 rounded-lg bg-blue-50 px-3 py-2 text-xs font-medium text-blue-700">
+                            Sumber data: e-Request WO. Saat ini kategori repair mengikuti data WO dalam filter karena tabel WO belum memiliki kolom jenis pekerjaan khusus.
+                        </div>
+                    </div>
+                </div>
+
+                <div class="overflow-x-auto rounded-xl border border-gray-200 bg-white">
+                    <table class="w-full text-sm">
+                        <thead>
+                            <tr class="bg-gray-50 border-b border-gray-200 text-xs uppercase tracking-wide text-gray-600">
+                                <th class="px-4 py-3 text-left">Seksi</th>
+                                <th class="px-4 py-3 text-right">Total WO</th>
+                                <th class="px-4 py-3 text-right">Fulfilment</th>
+                                <th class="px-4 py-3 text-right">On Progress</th>
+                                <th class="px-4 py-3 text-right">Lead Time</th>
+                                <th class="px-4 py-3 text-right">MTTR</th>
+                                <th class="px-4 py-3 text-right">MTBF</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-gray-100">
+                            <template x-for="row in woKpi.rows" :key="row.section">
+                                <tr class="hover:bg-gray-50">
+                                    <td class="px-4 py-4">
+                                        <div class="font-semibold text-gray-900" x-text="row.section"></div>
+                                        <div class="text-xs text-gray-500">
+                                            <span x-text="formatNumber(row.open_wo)"></span> open
+                                        </div>
+                                    </td>
+                                    <td class="px-4 py-4 text-right font-mono font-semibold" x-text="formatNumber(row.total_wo)"></td>
+                                    <td class="px-4 py-4 text-right">
+                                        <div class="font-mono font-semibold text-emerald-700" x-text="formatPercent(row.fulfillment_rate)"></div>
+                                        <div class="text-xs text-gray-500">
+                                            <span x-text="formatNumber(row.fulfilled_wo)"></span> WO
+                                        </div>
+                                    </td>
+                                    <td class="px-4 py-4 text-right">
+                                        <div class="font-mono font-semibold text-blue-700" x-text="formatPercent(row.on_progress_rate)"></div>
+                                        <div class="text-xs text-gray-500">
+                                            <span x-text="formatNumber(row.on_progress_wo)"></span> WO
+                                        </div>
+                                    </td>
+                                    <td class="px-4 py-4 text-right font-mono text-gray-700" x-text="formatMinutes(row.lead_time_minutes)"></td>
+                                    <td class="px-4 py-4 text-right font-mono font-semibold text-violet-700" x-text="formatMinutes(row.mttr_minutes)"></td>
+                                    <td class="px-4 py-4 text-right font-mono font-semibold text-amber-700" x-text="formatMinutes(row.mtbf_minutes)"></td>
+                                </tr>
+                            </template>
+
+                            <tr x-show="!loading && woKpi.rows.length === 0">
+                                <td colspan="7" class="px-4 py-10 text-center text-gray-500">
+                                    Tidak ada data KPI WO untuk filter ini.
+                                </td>
+                            </tr>
+
+                            <tr x-show="loading">
+                                <td colspan="7" class="px-4 py-10 text-center text-gray-500">
+                                    Memuat data KPI WO...
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
             </div>
 
             {{-- Cost Center Analytics --}}
@@ -950,7 +1089,7 @@
                 </div>
             </div>
 
-            <div x-show="pagination && !['overview', 'costcenter', 'pbgi', 'burnrate'].includes(activeTab)" class="px-6 py-4 border-t border-gray-200 flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+            <div x-show="pagination && !['overview', 'costcenter', 'pbgi', 'wokpi', 'burnrate'].includes(activeTab)" class="px-6 py-4 border-t border-gray-200 flex flex-col md:flex-row md:items-center md:justify-between gap-3">
                 <div class="text-sm text-gray-500">
                     Halaman <span x-text="pagination?.current_page || 1"></span> dari <span x-text="pagination?.last_page || 1"></span>
                 </div>
@@ -1024,6 +1163,23 @@ function reportCenter() {
                 gap_value: 0,
                 realization_rate: 0
             }
+        },
+        woKpi: {
+            period: { start: '-', end: '-', total_days: 0, total_minutes: 0 },
+            rows: [],
+            totals: {
+                section_count: 0,
+                total_wo: 0,
+                fulfilled_wo: 0,
+                on_progress_wo: 0,
+                repair_qty: 0,
+                lead_time_minutes: 0,
+                fulfillment_rate: 0,
+                on_progress_rate: 0,
+                mttr_minutes: 0,
+                mtbf_minutes: 0
+            },
+            definitions: {}
         },
         burnRate: {
             period: { start: '-', end: '-' },
@@ -1106,6 +1262,14 @@ function reportCenter() {
                 { value: 'progress', label: 'Progress: Progress' },
                 { value: 'closed', label: 'Progress: Closed' }
             ],
+            wokpi: [
+                { value: 'all', label: 'Semua Status' },
+                { value: 'approved', label: 'Approved' },
+                { value: 'completed', label: 'Completed' },
+                { value: 'open', label: 'Progress: Open' },
+                { value: 'progress', label: 'Progress: Progress' },
+                { value: 'closed', label: 'Progress: Closed' }
+            ],
             costcenter: [
                 { value: 'all', label: 'Semua Status' }
             ],
@@ -1130,6 +1294,7 @@ function reportCenter() {
                 overview: 'e-Request',
                 transaksi: 'e-Request PB',
                 workorder: 'e-Request WO',
+                wokpi: 'e-Request WO',
                 costcenter: 'ERP Good Issue, read-only',
                 pbgi: 'e-Request fulfillment',
                 burnrate: 'ERP Good Issue, read-only'
@@ -1190,6 +1355,10 @@ function reportCenter() {
                     this.pagination = null;
                 } else if (this.activeTab === 'pbgi') {
                     this.pbGi = result.data || this.pbGi;
+                    this.rows = [];
+                    this.pagination = null;
+                } else if (this.activeTab === 'wokpi') {
+                    this.woKpi = result.data || this.woKpi;
                     this.rows = [];
                     this.pagination = null;
                 } else if (this.activeTab === 'burnrate') {
@@ -1327,6 +1496,31 @@ function reportCenter() {
 
         formatCurrency(value) {
             return 'Rp ' + new Intl.NumberFormat('id-ID', { maximumFractionDigits: 0 }).format(Number(value || 0));
+        },
+
+        formatPercent(value) {
+            return new Intl.NumberFormat('id-ID', {
+                minimumFractionDigits: Number(value || 0) % 1 === 0 ? 0 : 1,
+                maximumFractionDigits: 1
+            }).format(Number(value || 0)) + '%';
+        },
+
+        formatMinutes(value) {
+            const minutes = Number(value || 0);
+
+            if (minutes <= 0) {
+                return '0 menit';
+            }
+
+            if (minutes >= 1440) {
+                return new Intl.NumberFormat('id-ID', { maximumFractionDigits: 1 }).format(minutes / 1440) + ' hari';
+            }
+
+            if (minutes >= 60) {
+                return new Intl.NumberFormat('id-ID', { maximumFractionDigits: 1 }).format(minutes / 60) + ' jam';
+            }
+
+            return new Intl.NumberFormat('id-ID', { maximumFractionDigits: 1 }).format(minutes) + ' menit';
         },
 
         overviewTotal(rows) {
