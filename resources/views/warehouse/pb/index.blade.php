@@ -108,12 +108,20 @@
                                 </div>
                             </td>
                             <td class="px-6 py-4 text-center">
+                                <div class="flex items-center justify-center gap-2">
                                 <button type="button"
                                         @click="openDetail(pb)"
                                         class="inline-flex h-9 w-9 items-center justify-center rounded-lg text-blue-600 hover:bg-blue-50"
                                         title="Proses item">
                                     <i class="fas fa-clipboard-check"></i>
                                 </button>
+                                    <a :href="`/warehouse/pb/${pb.id}/print`"
+                                       target="_blank"
+                                       class="inline-flex h-9 w-9 items-center justify-center rounded-lg text-slate-600 hover:bg-slate-100"
+                                       title="Print PB approved">
+                                        <i class="fas fa-print"></i>
+                                    </a>
+                                </div>
                             </td>
                         </tr>
                     </template>

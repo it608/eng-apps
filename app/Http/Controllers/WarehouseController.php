@@ -347,6 +347,51 @@ class WarehouseController extends Controller
         return view('warehouse.pb.stock-receipt', compact('receipt'));
     }
 
+    public function printPb($id)
+    {
+        $pb = DB::table('trBPB as pb')
+            ->leftJoin('users as requester', 'pb.user_id', '=', 'requester.id')
+            ->leftJoin('users as verifier', 'pb.verified_by', '=', 'verifier.id')
+            ->leftJoin('users as approver1', 'pb.approval_level_1_by', '=', 'approver1.id')
+            ->leftJoin('users as approver2', 'pb.approval_level_2_by', '=', 'approver2.id')
+            ->leftJoin('users as finalApprover', 'pb.approved_by', '=', 'finalApprover.id')
+            ->where('pb.id', $id)
+            ->whereIn('pb.status', ['approved', 'in_progress', 'completed'])
+            ->where(function ($q) {
+                $q->where('pb.is_legacy', false)
+                    ->orWhereNull('pb.is_legacy');
+            })
+            ->select(
+                'pb.*',
+                'requester.name as requester_name',
+                'requester.username as requester_username',
+                'verifier.name as verifier_name',
+                'verifier.username as verifier_username',
+                'approver1.name as approver1_name',
+                'approver1.username as approver1_username',
+                'approver2.name as approver2_name',
+                'approver2.username as approver2_username',
+                'finalApprover.name as final_approver_name',
+                'finalApprover.username as final_approver_username'
+            )
+            ->first();
+
+        abort_if(!$pb, 404);
+
+        $detail = DB::table('trBPBDetail')
+            ->where('trBPB_id', $id)
+            ->orderBy('id')
+            ->get();
+
+        $totals = (object) [
+            'item_count' => $detail->count(),
+            'qty' => $detail->sum(fn ($item) => (float) ($item->jumlah ?? 0)),
+            'value' => $detail->sum(fn ($item) => (float) ($item->total_price ?? 0)),
+        ];
+
+        return view('warehouse.pb.print', compact('pb', 'detail', 'totals'));
+    }
+
     private function syncHeaderErpReferences($pbId): void
     {
         if (

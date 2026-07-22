@@ -242,6 +242,9 @@ Route::middleware(['auth', 'role:warehouse,admin'])
     ->group(function () {
         Route::get('/pb', [WarehouseController::class, 'index'])->name('pb.index');
         Route::get('/pb/data', [WarehouseController::class, 'data'])->name('pb.data');
+        Route::get('/pb/{id}/print', [WarehouseController::class, 'printPb'])
+            ->whereNumber('id')
+            ->name('pb.print');
         Route::get('/pb/{id}', [WarehouseController::class, 'show'])->whereNumber('id')->name('pb.show');
         Route::post('/pb/{id}/erp-reference', [WarehouseController::class, 'updateReference'])
             ->whereNumber('id')
