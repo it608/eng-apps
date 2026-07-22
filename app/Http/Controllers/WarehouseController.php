@@ -355,6 +355,14 @@ class WarehouseController extends Controller
             ->leftJoin('users as approver1', 'pb.approval_level_1_by', '=', 'approver1.id')
             ->leftJoin('users as approver2', 'pb.approval_level_2_by', '=', 'approver2.id')
             ->leftJoin('users as finalApprover', 'pb.approved_by', '=', 'finalApprover.id')
+            ->leftJoin('mtMesin', function ($join) {
+                $join->on(DB::raw('COALESCE(pb.untuk_id, pb.mesin_id)'), '=', 'mtMesin.msnID')
+                    ->where('pb.untuk', '=', 'mesin');
+            })
+            ->leftJoin('mtBangunan', function ($join) {
+                $join->on(DB::raw('COALESCE(pb.untuk_id, pb.bangunan_id)'), '=', 'mtBangunan.buildID')
+                    ->where('pb.untuk', '=', 'bangunan');
+            })
             ->where('pb.id', $id)
             ->whereIn('pb.status', ['approved', 'in_progress', 'completed'])
             ->where(function ($q) {
@@ -372,7 +380,9 @@ class WarehouseController extends Controller
                 'approver2.name as approver2_name',
                 'approver2.username as approver2_username',
                 'finalApprover.name as final_approver_name',
-                'finalApprover.username as final_approver_username'
+                'finalApprover.username as final_approver_username',
+                DB::raw("COALESCE(mtMesin.msnName, mtBangunan.buildName, pb.untuk) as tujuan_nama"),
+                DB::raw("COALESCE(mtMesin.msnCode, mtBangunan.buildCode, '') as tujuan_kode")
             )
             ->first();
 

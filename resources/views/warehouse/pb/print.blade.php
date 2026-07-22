@@ -1,172 +1,246 @@
 @php
     $formatDate = function ($value, $withTime = false) {
-        if (!$value) {
-            return '-';
-        }
+        if (!$value) return '-';
 
         try {
-            return \Carbon\Carbon::parse($value)->format($withTime ? 'd/m/Y H:i' : 'd/m/Y');
+            return \Carbon\Carbon::parse($value)
+                ->locale('id')
+                ->translatedFormat($withTime ? 'd M Y, H.i' : 'd M Y');
         } catch (\Throwable $e) {
             return '-';
         }
     };
 
-    $formatNumber = fn ($value) => number_format((float) ($value ?? 0), 2, ',', '.');
-    $formatCurrency = fn ($value) => 'Rp ' . number_format((float) ($value ?? 0), 0, ',', '.');
-    $displayUser = function ($name, $username) {
-        $name = trim((string) $name);
-        $username = trim((string) $username);
-
-        if ($name !== '' && $username !== '') {
-            return "{$name} ({$username})";
-        }
-
-        return $name !== '' ? $name : ($username !== '' ? $username : '-');
+    $formatNumber = fn ($value) => number_format((float) ($value ?? 0), 2, '.', '');
+    $status = strtolower((string) ($pb->status ?? 'approved'));
+    $statusLabel = match ($status) {
+        'completed' => 'Selesai',
+        'in_progress' => 'Diproses',
+        'approved' => 'Disetujui',
+        default => ucfirst($status),
     };
-
-    $approvalL1User = $displayUser($pb->approver1_name ?? null, $pb->approver1_username ?? null);
-    $approvalL2User = $displayUser($pb->approver2_name ?? null, $pb->approver2_username ?? null);
-    $finalUser = $displayUser($pb->final_approver_name ?? null, $pb->final_approver_username ?? null);
-    $requesterUser = $displayUser($pb->requester_name ?? null, $pb->requester_username ?? null);
-    $verifierUser = $displayUser($pb->verifier_name ?? null, $pb->verifier_username ?? null);
+    $isApproved = in_array($status, ['approved', 'in_progress', 'completed'], true);
+    $approvedAt = $pb->approved_at ?? $pb->approval_level_2_at ?? $pb->approval_level_1_at ?? null;
+    $printedAt = now();
+    $targetType = strtolower((string) ($pb->untuk ?? ''));
+    $targetLabel = $targetType === 'bangunan' ? 'Bangunan' : ($targetType === 'mesin' ? 'Mesin' : ucfirst($targetType ?: '-'));
+    $targetInitial = $targetType === 'bangunan' ? 'B' : ($targetType === 'mesin' ? 'M' : strtoupper(substr($targetLabel, 0, 1)));
+    $targetName = $pb->tujuan_nama ?? $pb->untuk ?? '-';
+    $targetCode = $pb->tujuan_kode ?? '';
 @endphp
 <!DOCTYPE html>
 <html lang="id">
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Print PB {{ $pb->nomor_pb }}</title>
+    <title>Bon Permintaan Barang - {{ $pb->nomor_pb }}</title>
     <style>
-        @page {
-            size: A4;
-            margin: 14mm;
-        }
-
-        * {
-            box-sizing: border-box;
-        }
+        * { box-sizing: border-box; }
 
         body {
             margin: 0;
-            background: #f3f4f6;
-            color: #111827;
-            font-family: Arial, Helvetica, sans-serif;
-            font-size: 12px;
-            line-height: 1.45;
-        }
-
-        .page {
-            width: 210mm;
-            min-height: 297mm;
-            margin: 0 auto;
-            background: #ffffff;
-            padding: 18mm;
-            box-shadow: 0 12px 30px rgba(15, 23, 42, 0.12);
-        }
-
-        .toolbar {
-            width: 210mm;
-            margin: 18px auto 12px;
-            display: flex;
-            justify-content: flex-end;
-            gap: 8px;
-        }
-
-        .btn {
-            border: 1px solid #cbd5e1;
-            border-radius: 8px;
-            background: #ffffff;
+            padding: 20px;
+            background: #f5f5f5;
             color: #0f172a;
-            cursor: pointer;
-            font-weight: 700;
-            padding: 9px 14px;
+            font-family: "Segoe UI", Arial, sans-serif;
         }
 
-        .btn-primary {
-            border-color: #2563eb;
-            background: #2563eb;
-            color: #ffffff;
+        .print-container {
+            position: relative;
+            max-width: 800px;
+            margin: 0 auto;
+            background: #fff;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, .1);
+        }
+
+        .watermark {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            z-index: 10;
+            transform: translate(-50%, -50%) rotate(-45deg);
+            border: 5px solid rgba(34, 197, 94, .2);
+            border-radius: 20px;
+            color: rgba(34, 197, 94, .1);
+            font-size: 60px;
+            font-weight: 800;
+            padding: 20px 60px;
+            pointer-events: none;
+            text-transform: uppercase;
+            white-space: nowrap;
         }
 
         .header {
-            display: flex;
-            justify-content: space-between;
-            gap: 24px;
-            border-bottom: 3px solid #111827;
-            padding-bottom: 14px;
+            margin-bottom: 30px;
+            padding-bottom: 20px;
+            border-bottom: 2px solid #2563eb;
+            text-align: center;
         }
 
-        .brand {
-            font-size: 18px;
+        .header h1 {
+            margin: 0 0 5px;
+            color: #1e3a8a;
+            font-size: 28px;
             font-weight: 800;
-            letter-spacing: 0.3px;
+            letter-spacing: 1px;
+            text-transform: uppercase;
         }
 
-        .subtitle {
-            margin-top: 3px;
+        .header h3 {
+            margin: 0;
+            color: #4b5563;
+            font-size: 16px;
+            font-weight: 400;
+        }
+
+        .status-container {
+            margin: 15px 0 25px;
+            text-align: center;
+        }
+
+        .status-badge {
+            display: inline-block;
+            min-width: 128px;
+            padding: 8px 24px;
+            border-radius: 30px;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, .1);
+            font-size: 14px;
+            font-weight: 800;
+            letter-spacing: 1px;
+            text-align: center;
+            text-transform: uppercase;
+        }
+
+        .status-approved,
+        .status-completed,
+        .status-in_progress {
+            border: 1px solid #16a34a;
+            background: #22c55e;
+            color: #fff;
+        }
+
+        .status-backdate {
+            margin-left: 8px;
+            border: 1px solid #fcd34d;
+            background: #fef3c7;
+            color: #92400e;
+        }
+
+        .info-grid {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 20px;
+            margin-bottom: 20px;
+            border: 1px solid #e2e8f0;
+            border-radius: 10px;
+            background: #f8fafc;
+            padding: 20px;
+        }
+
+        .info-item {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .info-label {
+            margin-bottom: 4px;
+            color: #64748b;
+            font-size: 11px;
+            font-weight: 700;
+            letter-spacing: .5px;
+            text-transform: uppercase;
+        }
+
+        .info-value {
+            color: #0f172a;
+            font-size: 15px;
+            font-weight: 600;
+        }
+
+        .info-value.highlight {
+            display: inline-block;
+            width: fit-content;
+            border-radius: 6px;
+            background: #dbeafe;
+            color: #1e40af;
+            padding: 4px 8px;
+            font-weight: 700;
+        }
+
+        .asset-card {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            margin: 20px 0;
+            border-left: 4px solid #2563eb;
+            border-radius: 8px;
+            background: #eff6ff;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, .05);
+            padding: 15px 20px;
+        }
+
+        .asset-icon {
+            display: flex;
+            width: 40px;
+            height: 40px;
+            align-items: center;
+            justify-content: center;
+            border-radius: 8px;
+            background: #2563eb;
+            color: #fff;
+            font-size: 16px;
+            font-weight: 800;
+        }
+
+        .asset-label {
+            margin-bottom: 4px;
+            color: #2563eb;
+            font-size: 11px;
+            font-weight: 700;
+            letter-spacing: .5px;
+            text-transform: uppercase;
+        }
+
+        .asset-name {
+            color: #0f172a;
+            font-size: 16px;
+            font-weight: 700;
+        }
+
+        .asset-code {
+            margin-top: 2px;
             color: #475569;
             font-size: 12px;
         }
 
-        .doc-title {
-            text-align: right;
-        }
-
-        .doc-title h1 {
-            margin: 0;
-            font-size: 22px;
-            letter-spacing: 0.5px;
-        }
-
-        .doc-number {
-            margin-top: 5px;
-            color: #2563eb;
-            font-size: 13px;
-            font-weight: 800;
-        }
-
-        .section {
-            margin-top: 16px;
-        }
-
-        .section-title {
-            margin-bottom: 8px;
-            color: #0f172a;
-            font-size: 13px;
-            font-weight: 800;
-            text-transform: uppercase;
-        }
-
-        .grid {
-            display: grid;
-            gap: 10px;
-            grid-template-columns: repeat(4, 1fr);
-        }
-
-        .box {
-            min-height: 54px;
-            border: 1px solid #dbe3ef;
+        .note-box {
+            display: flex;
+            gap: 12px;
+            margin: 20px 0;
+            border: 1px solid #facc15;
             border-radius: 8px;
-            padding: 10px;
+            background: #fef9c3;
+            padding: 15px 20px;
+            color: #422006;
+            font-style: italic;
         }
 
-        .box-wide {
-            grid-column: span 2;
+        .note-box strong {
+            font-style: normal;
         }
 
-        .label {
-            color: #64748b;
-            font-size: 10px;
-            font-weight: 800;
-            letter-spacing: 0.4px;
-            text-transform: uppercase;
+        .backdate-box {
+            border-color: #fcd34d;
+            background: #fffbeb;
         }
 
-        .value {
-            margin-top: 4px;
-            color: #111827;
-            font-size: 12px;
-            font-weight: 700;
+        .table-container {
+            margin: 25px 0;
+            overflow: hidden;
+            border: 1px solid #e2e8f0;
+            border-radius: 10px;
         }
 
         table {
@@ -175,228 +249,215 @@
         }
 
         th {
-            background: #f1f5f9;
-            border: 1px solid #dbe3ef;
-            color: #334155;
-            font-size: 10px;
-            padding: 8px;
+            background: #1e293b;
+            color: #fff;
+            font-size: 12px;
+            font-weight: 700;
+            letter-spacing: .5px;
+            padding: 12px 10px;
             text-align: left;
             text-transform: uppercase;
         }
 
         td {
-            border: 1px solid #dbe3ef;
-            padding: 8px;
+            border-bottom: 1px solid #e2e8f0;
+            font-size: 13px;
+            padding: 10px;
             vertical-align: top;
         }
 
-        .text-right {
-            text-align: right;
-        }
+        tbody tr:last-child td { border-bottom: 0; }
 
-        .text-center {
-            text-align: center;
-        }
+        .text-center { text-align: center; }
+        .text-right { text-align: right; }
 
-        .muted {
-            color: #64748b;
-            font-size: 11px;
-        }
-
-        .sign-grid {
-            display: grid;
-            gap: 10px;
-            grid-template-columns: repeat(4, 1fr);
-        }
-
-        .sign-box {
-            min-height: 92px;
-            border: 1px solid #dbe3ef;
+        .total-section {
+            display: flex;
+            justify-content: flex-end;
+            gap: 30px;
+            margin: 20px 0;
+            border: 1px solid #cbd5e1;
             border-radius: 8px;
-            padding: 10px;
-            text-align: center;
+            background: #f1f5f9;
+            padding: 15px 20px;
         }
 
-        .sign-name {
-            margin-top: 34px;
+        .total-item { text-align: right; }
+
+        .total-label {
+            color: #475569;
+            font-size: 12px;
+            text-transform: uppercase;
+        }
+
+        .total-value {
+            color: #0f172a;
+            font-size: 18px;
             font-weight: 800;
         }
 
-        .footer {
-            margin-top: 16px;
-            border-top: 1px solid #dbe3ef;
-            padding-top: 8px;
-            color: #64748b;
+        .approval-info {
             display: flex;
-            justify-content: space-between;
-            font-size: 10px;
+            align-items: center;
+            gap: 12px;
+            margin: 20px 0;
+            border: 1px solid #86efac;
+            border-radius: 8px;
+            background: #f0fdf4;
+            color: #166534;
+            padding: 15px 20px;
+        }
+
+        .print-date {
+            margin-top: 25px;
+            border-top: 1px dashed #cbd5e1;
+            padding-top: 15px;
+            color: #94a3b8;
+            font-size: 11px;
+            text-align: right;
         }
 
         @media print {
             body {
-                background: #ffffff;
-            }
-
-            .toolbar {
-                display: none;
-            }
-
-            .page {
-                width: auto;
-                min-height: auto;
-                margin: 0;
+                background: #fff;
                 padding: 0;
+            }
+
+            .print-container {
                 box-shadow: none;
+                padding: 20px;
             }
         }
     </style>
 </head>
 <body>
-    <div class="toolbar">
-        <button type="button" class="btn" onclick="window.close()">Tutup</button>
-        <button type="button" class="btn btn-primary" onclick="window.print()">Print PB</button>
-    </div>
+    <div class="print-container">
+        @if($isApproved)
+            <div class="watermark">APPROVED</div>
+        @endif
 
-    <main class="page">
-        <header class="header">
+        <div class="header">
+            <h1>BON PERMINTAAN BARANG</h1>
+            <h3>Nomor: {{ $pb->nomor_pb }}</h3>
+        </div>
+
+        <div class="status-container">
+            <span class="status-badge status-{{ $status }}">{{ $statusLabel }}</span>
+            @if((bool) ($pb->is_backdate ?? false))
+                <span class="status-badge status-backdate">Backdate</span>
+            @endif
+        </div>
+
+        <div class="info-grid">
+            <div class="info-item">
+                <span class="info-label">Tanggal Permintaan</span>
+                <span class="info-value">{{ $formatDate($pb->tanggal_permintaan) }}</span>
+            </div>
+            <div class="info-item">
+                <span class="info-label">Bagian</span>
+                <span class="info-value">{{ $pb->bagian ?? 'Engineering' }}</span>
+            </div>
+            <div class="info-item">
+                <span class="info-label">Untuk</span>
+                <span class="info-value highlight">{{ strtoupper($pb->untuk ?? '-') }}</span>
+            </div>
+            <div class="info-item">
+                <span class="info-label">Dari Gudang</span>
+                <span class="info-value">{{ $pb->dari_gudang ?? '-' }}</span>
+            </div>
+            <div class="info-item">
+                <span class="info-label">Jenis Pekerjaan</span>
+                <span class="info-value">{{ strtoupper($pb->jenis_pekerjaan ?? '-') }}</span>
+            </div>
+            <div class="info-item">
+                <span class="info-label">Tanggal Diperlukan</span>
+                <span class="info-value">{{ $formatDate($pb->tanggal_diperlukan) }}</span>
+            </div>
+        </div>
+
+        @if((bool) ($pb->is_backdate ?? false))
+            <div class="note-box backdate-box">
+                <div>
+                    <strong>PB BACKDATE:</strong> {{ $pb->backdate_reason ?: '-' }}<br>
+                    <span style="font-size:11px;color:#92400e;">Diinput pada: {{ $formatDate($pb->created_at, true) }}</span>
+                </div>
+            </div>
+        @endif
+
+        <div class="asset-card">
+            <div class="asset-icon">{{ $targetInitial }}</div>
             <div>
-                <div class="brand">PT. SEKARBUMI TBK</div>
-                <div class="subtitle">e-Request Engineering Apps</div>
-                <div class="subtitle">Dokumen PB sudah selesai approval dan masuk Warehouse Fulfillment.</div>
+                <div class="asset-label">{{ $targetLabel }}</div>
+                <div class="asset-name">{{ $targetName }}</div>
+                @if($targetCode !== '')
+                    <div class="asset-code">Kode: {{ $targetCode }}</div>
+                @endif
             </div>
-            <div class="doc-title">
-                <h1>BON PERMINTAAN BARANG</h1>
-                <div class="doc-number">{{ $pb->nomor_pb }}</div>
-            </div>
-        </header>
+        </div>
 
-        <section class="section">
-            <div class="section-title">Informasi PB</div>
-            <div class="grid">
-                <div class="box">
-                    <div class="label">Tanggal PB</div>
-                    <div class="value">{{ $formatDate($pb->tanggal_permintaan) }}</div>
-                </div>
-                <div class="box">
-                    <div class="label">Tanggal Diperlukan</div>
-                    <div class="value">{{ $formatDate($pb->tanggal_diperlukan) }}</div>
-                </div>
-                <div class="box">
-                    <div class="label">Bagian</div>
-                    <div class="value">{{ $pb->bagian ?? '-' }}</div>
-                </div>
-                <div class="box">
-                    <div class="label">Requestor</div>
-                    <div class="value">{{ $requesterUser }}</div>
-                </div>
-                <div class="box">
-                    <div class="label">Untuk</div>
-                    <div class="value">{{ ucfirst((string) ($pb->untuk ?? '-')) }}</div>
-                </div>
-                <div class="box">
-                    <div class="label">Gudang</div>
-                    <div class="value">{{ $pb->dari_gudang ?? '-' }}</div>
-                </div>
-                <div class="box">
-                    <div class="label">Jenis Pekerjaan</div>
-                    <div class="value">{{ ucfirst((string) ($pb->jenis_pekerjaan ?? '-')) }}</div>
-                </div>
-                <div class="box">
-                    <div class="label">Status PB</div>
-                    <div class="value">{{ ucfirst(str_replace('_', ' ', (string) ($pb->status ?? '-'))) }}</div>
-                </div>
-                <div class="box box-wide">
-                    <div class="label">Keterangan</div>
-                    <div class="value">{{ $pb->keterangan ?: '-' }}</div>
-                </div>
-                <div class="box box-wide">
-                    <div class="label">Referensi GI ERP</div>
-                    <div class="value">{{ $pb->erp_gi_number ?: '-' }}</div>
-                </div>
+        @if(!empty($pb->keterangan))
+            <div class="note-box">
+                <div><strong>Keterangan:</strong> {{ $pb->keterangan }}</div>
             </div>
-        </section>
+        @endif
 
-        <section class="section">
-            <div class="section-title">Approval</div>
-            <div class="sign-grid">
-                <div class="sign-box">
-                    <div class="label">Verifikasi SH</div>
-                    <div class="sign-name">{{ $verifierUser }}</div>
-                    <div class="muted">{{ $formatDate($pb->verified_at ?? null, true) }}</div>
-                </div>
-                <div class="sign-box">
-                    <div class="label">Approval L1</div>
-                    <div class="sign-name">{{ $approvalL1User }}</div>
-                    <div class="muted">{{ $formatDate($pb->approval_level_1_at ?? null, true) }}</div>
-                </div>
-                <div class="sign-box">
-                    <div class="label">Approval L2</div>
-                    <div class="sign-name">{{ ($pb->approval_level_required ?? 1) >= 2 ? $approvalL2User : 'Tidak diperlukan' }}</div>
-                    <div class="muted">{{ ($pb->approval_level_required ?? 1) >= 2 ? $formatDate($pb->approval_level_2_at ?? null, true) : '-' }}</div>
-                </div>
-                <div class="sign-box">
-                    <div class="label">Final Approved</div>
-                    <div class="sign-name">{{ $finalUser }}</div>
-                    <div class="muted">{{ $formatDate($pb->approved_at ?? null, true) }}</div>
-                </div>
-            </div>
-        </section>
-
-        <section class="section">
-            <div class="section-title">Daftar Barang</div>
+        <div class="table-container">
             <table>
                 <thead>
                     <tr>
-                        <th class="text-center" style="width: 36px;">No</th>
-                        <th>Nama Barang</th>
-                        <th style="width: 110px;">Kode</th>
-                        <th class="text-right" style="width: 90px;">Qty</th>
-                        <th style="width: 70px;">Satuan</th>
-                        <th class="text-right" style="width: 120px;">Harga</th>
-                        <th class="text-right" style="width: 130px;">Total</th>
-                        <th>Status</th>
+                        <th style="width: 5%;">No</th>
+                        <th style="width: 50%;">Nama Barang</th>
+                        <th style="width: 10%;">Jumlah</th>
+                        <th style="width: 10%;">Satuan</th>
+                        <th style="width: 25%;">Keterangan</th>
                     </tr>
                 </thead>
                 <tbody>
-                    @forelse ($detail as $item)
+                    @forelse($detail as $item)
                         <tr>
                             <td class="text-center">{{ $loop->iteration }}</td>
-                            <td>
-                                <strong>{{ $item->nama_barang }}</strong>
-                                @if($item->keterangan)
-                                    <div class="muted">{{ $item->keterangan }}</div>
-                                @endif
-                            </td>
-                            <td>{{ $item->kode_barang ?: '-' }}</td>
+                            <td>{{ $item->nama_barang }}</td>
                             <td class="text-right">{{ $formatNumber($item->jumlah) }}</td>
-                            <td>{{ $item->satuan ?: '-' }}</td>
-                            <td class="text-right">{{ $formatCurrency($item->unit_price) }}</td>
-                            <td class="text-right">{{ $formatCurrency($item->total_price) }}</td>
-                            <td>{{ ucfirst(str_replace('_', ' ', (string) ($item->fulfillment_status ?? 'pending'))) }}</td>
+                            <td class="text-center">{{ $item->satuan ?: '-' }}</td>
+                            <td>{{ $item->keterangan ?: '-' }}</td>
                         </tr>
                     @empty
                         <tr>
-                            <td colspan="8" class="text-center muted">Tidak ada barang.</td>
+                            <td colspan="5" class="text-center">Tidak ada barang.</td>
                         </tr>
                     @endforelse
                 </tbody>
-                <tfoot>
-                    <tr>
-                        <td colspan="3"><strong>Total</strong></td>
-                        <td class="text-right"><strong>{{ $formatNumber($totals->qty) }}</strong></td>
-                        <td><strong>{{ $totals->item_count }} item</strong></td>
-                        <td></td>
-                        <td class="text-right"><strong>{{ $formatCurrency($totals->value) }}</strong></td>
-                        <td></td>
-                    </tr>
-                </tfoot>
             </table>
-        </section>
+        </div>
 
-        <footer class="footer">
-            <span>Dicetak dari e-Request Engineering Apps</span>
-            <span>Waktu cetak: {{ now()->format('d/m/Y H:i') }}</span>
-        </footer>
-    </main>
+        <div class="total-section">
+            <div class="total-item">
+                <div class="total-label">Total Item</div>
+                <div class="total-value">{{ $totals->item_count }} item</div>
+            </div>
+            <div class="total-item">
+                <div class="total-label">Total Jumlah</div>
+                <div class="total-value">{{ $formatNumber($totals->qty) }}</div>
+            </div>
+        </div>
+
+        @if($approvedAt)
+            <div class="approval-info">
+                <div>
+                    <strong>DISETUJUI PADA:</strong> {{ $formatDate($approvedAt, true) }}
+                </div>
+            </div>
+        @endif
+
+        <div class="print-date">
+            Dicetak pada: {{ $printedAt->locale('id')->translatedFormat('d M Y') }}
+        </div>
+    </div>
+
+    <script>
+        window.onload = function () {
+            window.print();
+        };
+    </script>
 </body>
 </html>
