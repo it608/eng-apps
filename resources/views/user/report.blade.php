@@ -670,13 +670,13 @@
                         <div class="mt-3 grid gap-3 text-sm text-gray-600 md:grid-cols-2">
                             <div class="rounded-lg bg-gray-50 p-3">
                                 <div class="font-semibold text-gray-900">MTTR</div>
-                                <div class="mt-1">Mean Time To Repair: rata-rata durasi penyelesaian WO repair.</div>
+                                <div class="mt-1">Mean Time To Repair: rata-rata durasi penyelesaian WO.</div>
                                 <div class="mt-2 text-xs font-semibold text-gray-500">Rumus: Lead time / Qty WO</div>
                             </div>
                             <div class="rounded-lg bg-gray-50 p-3">
                                 <div class="font-semibold text-gray-900">MTBF</div>
-                                <div class="mt-1">Mean Time Between Failures: rata-rata jarak antar WO repair dalam periode filter.</div>
-                                <div class="mt-2 text-xs font-semibold text-gray-500">Rumus: total menit periode / Qty WO</div>
+                                <div class="mt-1">Mean Time Between Failures: rata-rata jarak antar WO dalam periode filter.</div>
+                                <div class="mt-2 text-xs font-semibold text-gray-500">Rumus: (Total days * 24 * 60) / Qty WO</div>
                             </div>
                         </div>
                     </div>
@@ -700,7 +700,7 @@
                             </div>
                         </div>
                         <div class="mt-3 rounded-lg bg-blue-50 px-3 py-2 text-xs font-medium text-blue-700">
-                            Sumber data: e-Request WO. Saat ini kategori repair mengikuti data WO dalam filter karena tabel WO belum memiliki kolom jenis pekerjaan khusus.
+                            Sumber data: e-Request WO. Rumus mengikuti periode dan filter yang sedang aktif.
                         </div>
                     </div>
                 </div>
@@ -1172,7 +1172,7 @@ function reportCenter() {
                 total_wo: 0,
                 fulfilled_wo: 0,
                 on_progress_wo: 0,
-                repair_qty: 0,
+                qty_wo: 0,
                 lead_time_minutes: 0,
                 fulfillment_rate: 0,
                 on_progress_rate: 0,
@@ -1507,19 +1507,6 @@ function reportCenter() {
 
         formatMinutes(value) {
             const minutes = Number(value || 0);
-
-            if (minutes <= 0) {
-                return '0 menit';
-            }
-
-            if (minutes >= 1440) {
-                return new Intl.NumberFormat('id-ID', { maximumFractionDigits: 1 }).format(minutes / 1440) + ' hari';
-            }
-
-            if (minutes >= 60) {
-                return new Intl.NumberFormat('id-ID', { maximumFractionDigits: 1 }).format(minutes / 60) + ' jam';
-            }
-
             return new Intl.NumberFormat('id-ID', { maximumFractionDigits: 1 }).format(minutes) + ' menit';
         },
 

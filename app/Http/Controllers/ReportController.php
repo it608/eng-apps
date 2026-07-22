@@ -285,7 +285,7 @@ class ReportController extends Controller
                 $fulfilled = $items->filter(fn ($row) => $this->isWorkOrderClosed($row))->count();
                 $onProgress = $items->filter(fn ($row) => $this->isWorkOrderOnProgress($row))->count();
                 $leadMinutes = $items->sum(fn ($row) => $this->workOrderLeadMinutes($row));
-                $repairQty = $totalWo;
+                $qtyWo = $totalWo;
 
                 return [
                     'section' => $section,
@@ -295,10 +295,10 @@ class ReportController extends Controller
                     'open_wo' => $items->filter(fn ($row) => $this->isWorkOrderOpen($row))->count(),
                     'fulfillment_rate' => $totalWo > 0 ? round(($fulfilled / $totalWo) * 100, 1) : 0,
                     'on_progress_rate' => $totalWo > 0 ? round(($onProgress / $totalWo) * 100, 1) : 0,
-                    'repair_qty' => $repairQty,
+                    'qty_wo' => $qtyWo,
                     'lead_time_minutes' => $leadMinutes,
-                    'mttr_minutes' => $repairQty > 0 ? round($leadMinutes / $repairQty, 1) : 0,
-                    'mtbf_minutes' => $repairQty > 0 ? round($totalPeriodMinutes / $repairQty, 1) : 0,
+                    'mttr_minutes' => $qtyWo > 0 ? round($leadMinutes / $qtyWo, 1) : 0,
+                    'mtbf_minutes' => $qtyWo > 0 ? round($totalPeriodMinutes / $qtyWo, 1) : 0,
                 ];
             })
             ->sortByDesc('total_wo')
@@ -309,7 +309,7 @@ class ReportController extends Controller
             'total_wo' => $rows->sum('total_wo'),
             'fulfilled_wo' => $rows->sum('fulfilled_wo'),
             'on_progress_wo' => $rows->sum('on_progress_wo'),
-            'repair_qty' => $rows->sum('repair_qty'),
+            'qty_wo' => $rows->sum('qty_wo'),
             'lead_time_minutes' => $rows->sum('lead_time_minutes'),
         ];
 
@@ -319,11 +319,11 @@ class ReportController extends Controller
         $totals['on_progress_rate'] = $totals['total_wo'] > 0
             ? round(($totals['on_progress_wo'] / $totals['total_wo']) * 100, 1)
             : 0;
-        $totals['mttr_minutes'] = $totals['repair_qty'] > 0
-            ? round($totals['lead_time_minutes'] / $totals['repair_qty'], 1)
+        $totals['mttr_minutes'] = $totals['qty_wo'] > 0
+            ? round($totals['lead_time_minutes'] / $totals['qty_wo'], 1)
             : 0;
-        $totals['mtbf_minutes'] = $totals['repair_qty'] > 0
-            ? round($totalPeriodMinutes / $totals['repair_qty'], 1)
+        $totals['mtbf_minutes'] = $totals['qty_wo'] > 0
+            ? round($totalPeriodMinutes / $totals['qty_wo'], 1)
             : 0;
 
         return [
@@ -339,8 +339,8 @@ class ReportController extends Controller
                 'definitions' => [
                     'fulfillment' => 'WO Fulfilment = WO selesai / total WO pada seksi tersebut.',
                     'progress' => 'WO On Progress = WO dengan progress open/progress / total WO pada seksi tersebut.',
-                    'mttr' => 'MTTR (Mean Time To Repair) = total lead time WO / qty WO, dalam menit.',
-                    'mtbf' => 'MTBF (Mean Time Between Failures) = total menit periode / qty WO, dalam menit.',
+                    'mttr' => 'MTTR (Mean Time To Repair) = Lead time / Qty WO. Output: menit.',
+                    'mtbf' => 'MTBF (Mean Time Between Failures) = (Total days * 24 * 60) / Qty WO. Output: menit.',
                 ],
             ],
             'meta' => [
@@ -1189,7 +1189,7 @@ class ReportController extends Controller
                 (float) $row['fulfillment_rate'],
                 (int) $row['on_progress_wo'],
                 (float) $row['on_progress_rate'],
-                (int) $row['repair_qty'],
+                (int) $row['qty_wo'],
                 (float) $row['lead_time_minutes'],
                 (float) $row['mttr_minutes'],
                 (float) $row['mtbf_minutes'],
@@ -1205,7 +1205,7 @@ class ReportController extends Controller
             'WO Fulfilment (%)',
             'WO On Progress',
             'WO On Progress (%)',
-            'Qty WO Repair',
+            'Qty WO',
             'Lead Time (menit)',
             'MTTR - Mean Time To Repair (menit)',
             'MTBF - Mean Time Between Failures (menit)',
