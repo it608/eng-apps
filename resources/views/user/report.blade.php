@@ -484,7 +484,8 @@
                             <th class="px-4 py-3 text-left">Requester</th>
                             <th class="px-4 py-3 text-left">Tujuan</th>
                             <th class="px-4 py-3 text-left">Jenis</th>
-                            <th class="px-4 py-3 text-right">Item</th>
+                            <th class="px-4 py-3 text-left min-w-[320px]">Barang Diminta</th>
+                            <th class="px-4 py-3 text-right">Ringkasan</th>
                             <th class="px-4 py-3 text-left">Status</th>
                         </tr>
                     </thead>
@@ -516,6 +517,22 @@
                                     </div>
                                 </td>
                                 <td class="px-4 py-4 text-gray-700" x-text="row.jenis_pekerjaan"></td>
+                                <td class="px-4 py-4">
+                                    <div class="space-y-2">
+                                        <template x-for="item in (row.items || []).slice(0, 2)" :key="`${row.id}-${item.name}-${item.qty_label}`">
+                                            <div class="rounded-lg border border-gray-200 bg-gray-50 px-3 py-2">
+                                                <div class="line-clamp-2 text-sm font-semibold text-gray-900" x-text="item.name"></div>
+                                                <div class="mt-1 inline-flex rounded-full bg-white px-2 py-0.5 text-[11px] font-semibold text-gray-600">
+                                                    <span>Qty&nbsp;</span><span x-text="item.qty_label"></span><span>&nbsp;</span><span x-text="item.unit"></span>
+                                                </div>
+                                            </div>
+                                        </template>
+                                        <div x-show="(row.items || []).length > 2" class="inline-flex rounded-full border border-blue-200 bg-blue-50 px-2.5 py-1 text-xs font-semibold text-blue-700">
+                                            +<span x-text="(row.items || []).length - 2"></span>&nbsp;item lainnya
+                                        </div>
+                                        <div x-show="!(row.items || []).length" class="text-sm text-gray-400">-</div>
+                                    </div>
+                                </td>
                                 <td class="px-4 py-4 text-right">
                                     <div class="font-semibold text-gray-900" x-text="formatNumber(row.jumlah_barang)"></div>
                                     <div class="text-xs text-gray-500">Qty: <span x-text="formatNumber(row.total_jumlah)"></span></div>
@@ -527,13 +544,13 @@
                         </template>
 
                         <tr x-show="!loading && rows.length === 0">
-                            <td colspan="8" class="px-4 py-10 text-center text-gray-500">
+                            <td colspan="9" class="px-4 py-10 text-center text-gray-500">
                                 Tidak ada data transaksi untuk filter ini.
                             </td>
                         </tr>
 
                         <tr x-show="loading">
-                            <td colspan="8" class="px-4 py-10 text-center text-gray-500">
+                            <td colspan="9" class="px-4 py-10 text-center text-gray-500">
                                 Memuat data...
                             </td>
                         </tr>

@@ -710,6 +710,7 @@ class ReportController extends Controller
                 END as tujuan_kode"),
                 DB::raw("(SELECT COUNT(*) FROM trBPBDetail d WHERE d.trbpb_id = pb.id) as jumlah_barang"),
                 DB::raw("(SELECT COALESCE(SUM(d.jumlah), 0) FROM trBPBDetail d WHERE d.trbpb_id = pb.id) as total_jumlah"),
+                DB::raw("(SELECT GROUP_CONCAT(CONCAT_WS('|||', COALESCE(NULLIF(TRIM(d.nama_barang), ''), '-'), COALESCE(d.jumlah, 0), COALESCE(NULLIF(TRIM(d.satuan), ''), '-')) ORDER BY d.id SEPARATOR '~~~') FROM trBPBDetail d WHERE d.trbpb_id = pb.id) as item_summary"),
             ]);
 
         $this->applyDateRange($query, $request, 'pb.tanggal_permintaan');
@@ -723,7 +724,13 @@ class ReportController extends Controller
                     ->orWhere('pb.keterangan', 'LIKE', "%{$search}%")
                     ->orWhere('requester.name', 'LIKE', "%{$search}%")
                     ->orWhere('mesin.msnName', 'LIKE', "%{$search}%")
-                    ->orWhere('bangunan.buildName', 'LIKE', "%{$search}%");
+                    ->orWhere('bangunan.buildName', 'LIKE', "%{$search}%")
+                    ->orWhereExists(function ($sub) use ($search) {
+                        $sub->select(DB::raw(1))
+                            ->from('trBPBDetail as detail_search')
+                            ->whereColumn('detail_search.trbpb_id', 'pb.id')
+                            ->where('detail_search.nama_barang', 'LIKE', "%{$search}%");
+                    });
             });
         }
 
@@ -908,8 +915,42 @@ class ReportController extends Controller
             'requester' => $row->requester_name ?: '-',
             'jumlah_barang' => (int) $row->jumlah_barang,
             'total_jumlah' => (float) $row->total_jumlah,
+            'items' => $this->parsePbItems($row->item_summary ?? ''),
             'keterangan' => $row->keterangan ?: '-',
         ];
+    }
+
+    private function parsePbItems(?string $summary): array
+    {
+        $summary = trim((string) $summary);
+
+        if ($summary === '') {
+            return [];
+        }
+
+        return collect(explode('~~~', $summary))
+            ->map(function ($item) {
+                [$name, $qty, $unit] = array_pad(explode('|||', $item), 3, '-');
+
+                return [
+                    'name' => trim($name) ?: '-',
+                    'qty' => (float) $qty,
+                    'qty_label' => $this->formatNumberClean((float) $qty),
+                    'unit' => trim($unit) ?: '-',
+                ];
+            })
+            ->filter(fn ($item) => $item['name'] !== '-')
+            ->values()
+            ->all();
+    }
+
+    private function formatNumberClean(float $value): string
+    {
+        if (floor($value) === $value) {
+            return number_format($value, 0, ',', '.');
+        }
+
+        return rtrim(rtrim(number_format($value, 2, ',', '.'), '0'), ',');
     }
 
     private function formatWorkOrderRow($row): array
@@ -976,6 +1017,9 @@ class ReportController extends Controller
                 trim(($row->tujuan_kode ?: '-') . ' - ' . ($row->tujuan_nama ?: '-'), ' -'),
                 $this->formatGudang($row->dari_gudang),
                 $this->pretty($row->jenis_pekerjaan),
+                collect($this->parsePbItems($row->item_summary ?? ''))
+                    ->map(fn ($item) => "{$item['name']} ({$item['qty_label']} {$item['unit']})")
+                    ->implode('; '),
                 (int) $row->jumlah_barang,
                 (float) $row->total_jumlah,
                 $this->pretty($row->status),
@@ -994,6 +1038,7 @@ class ReportController extends Controller
             'Detail Tujuan',
             'Gudang',
             'Jenis Pekerjaan',
+            'Nama Barang',
             'Jumlah Item',
             'Total Qty',
             'Status',
