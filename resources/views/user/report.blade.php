@@ -654,12 +654,14 @@
                     <div class="rounded-xl border border-violet-200 bg-violet-50 p-4">
                         <div class="text-xs font-semibold uppercase tracking-wide text-violet-700">MTTR</div>
                         <div class="mt-1 font-mono text-2xl font-semibold text-violet-900" x-text="formatMinutes(woKpi.totals.mttr_minutes)"></div>
+                        <div class="mt-1 font-mono text-sm font-semibold text-violet-700" x-text="formatHours(woKpi.totals.mttr_minutes)"></div>
                         <div class="mt-2 text-xs text-violet-700">Mean Time To Repair</div>
                     </div>
 
                     <div class="rounded-xl border border-amber-200 bg-amber-50 p-4">
                         <div class="text-xs font-semibold uppercase tracking-wide text-amber-700">MTBF</div>
                         <div class="mt-1 font-mono text-2xl font-semibold text-amber-900" x-text="formatMinutes(woKpi.totals.mtbf_minutes)"></div>
+                        <div class="mt-1 font-mono text-sm font-semibold text-amber-700" x-text="formatHours(woKpi.totals.mtbf_minutes)"></div>
                         <div class="mt-2 text-xs text-amber-700">Mean Time Between Failures</div>
                     </div>
                 </div>
@@ -740,9 +742,18 @@
                                             <span x-text="formatNumber(row.on_progress_wo)"></span> WO
                                         </div>
                                     </td>
-                                    <td class="px-4 py-4 text-right font-mono text-gray-700" x-text="formatMinutes(row.lead_time_minutes)"></td>
-                                    <td class="px-4 py-4 text-right font-mono font-semibold text-violet-700" x-text="formatMinutes(row.mttr_minutes)"></td>
-                                    <td class="px-4 py-4 text-right font-mono font-semibold text-amber-700" x-text="formatMinutes(row.mtbf_minutes)"></td>
+                                    <td class="px-4 py-4 text-right">
+                                        <div class="font-mono text-gray-700" x-text="formatMinutes(row.lead_time_minutes)"></div>
+                                        <div class="mt-1 font-mono text-xs text-gray-500" x-text="formatHours(row.lead_time_minutes)"></div>
+                                    </td>
+                                    <td class="px-4 py-4 text-right">
+                                        <div class="font-mono font-semibold text-violet-700" x-text="formatMinutes(row.mttr_minutes)"></div>
+                                        <div class="mt-1 font-mono text-xs text-violet-500" x-text="formatHours(row.mttr_minutes)"></div>
+                                    </td>
+                                    <td class="px-4 py-4 text-right">
+                                        <div class="font-mono font-semibold text-amber-700" x-text="formatMinutes(row.mtbf_minutes)"></div>
+                                        <div class="mt-1 font-mono text-xs text-amber-500" x-text="formatHours(row.mtbf_minutes)"></div>
+                                    </td>
                                 </tr>
                             </template>
 
@@ -1508,6 +1519,11 @@ function reportCenter() {
         formatMinutes(value) {
             const minutes = Number(value || 0);
             return new Intl.NumberFormat('id-ID', { maximumFractionDigits: 1 }).format(minutes) + ' menit';
+        },
+
+        formatHours(value) {
+            const hours = Number(value || 0) / 60;
+            return new Intl.NumberFormat('id-ID', { maximumFractionDigits: 2 }).format(hours) + ' jam';
         },
 
         overviewTotal(rows) {
