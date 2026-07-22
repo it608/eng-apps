@@ -490,7 +490,7 @@
                     </thead>
                     <tbody class="divide-y divide-gray-100">
                         <template x-for="record in transaksiDisplayRows()" :key="record.key">
-                            <tr :class="record.type === 'detail' ? 'bg-blue-50/30' : 'hover:bg-gray-50'">
+                            <tr :class="record.type === 'detail' ? 'bg-sky-50/70' : 'hover:bg-gray-50'">
                                 <td x-show="record.type === 'main'" class="px-4 py-4 text-gray-700" x-text="rowNumber(record.index)"></td>
                                 <td x-show="record.type === 'main'" class="px-4 py-4">
                                     <div class="font-semibold text-gray-900" x-text="record.row.nomor"></div>
@@ -532,21 +532,21 @@
                                 </td>
 
                                 <td x-show="record.type === 'detail'" colspan="8" class="px-4 pb-5 pt-0">
-                                    <div class="rounded-xl border border-blue-100 bg-white p-4 shadow-sm">
+                                    <div class="rounded-xl border border-sky-200 bg-sky-50 p-4 shadow-sm ring-1 ring-sky-100">
                                         <div class="mb-3 flex items-center justify-between gap-3">
                                             <div>
                                                 <div class="text-sm font-semibold text-gray-900">Barang Diminta</div>
                                                 <div class="text-xs text-gray-500" x-text="record.row.nomor"></div>
                                             </div>
-                                            <button type="button" @click="togglePbItems(record.row.id)" class="rounded-full border border-gray-200 px-3 py-1 text-xs font-semibold text-gray-600 hover:bg-gray-50">
+                                            <button type="button" @click="togglePbItems(record.row.id)" class="rounded-full border border-sky-200 bg-white px-3 py-1 text-xs font-semibold text-sky-700 hover:bg-sky-50">
                                                 Tutup
                                             </button>
                                         </div>
                                         <div class="grid grid-cols-1 gap-2 md:grid-cols-2 xl:grid-cols-3">
                                             <template x-for="item in (record.row.items || [])" :key="`${record.row.id}-${item.name}-${item.qty_label}-${item.unit}`">
-                                                <div class="rounded-lg border border-gray-200 bg-gray-50 px-3 py-2">
+                                                <div class="rounded-lg border border-sky-100 bg-white px-3 py-2 shadow-sm">
                                                     <div class="line-clamp-2 text-sm font-semibold text-gray-900" x-text="item.name"></div>
-                                                    <div class="mt-1 inline-flex rounded-full bg-white px-2 py-0.5 text-[11px] font-semibold text-gray-600">
+                                                    <div class="mt-1 inline-flex rounded-full bg-slate-50 px-2 py-0.5 text-[11px] font-semibold text-gray-600">
                                                         <span>Qty&nbsp;</span><span x-text="item.qty_label"></span><span>&nbsp;</span><span x-text="item.unit"></span>
                                                     </div>
                                                 </div>
