@@ -484,73 +484,87 @@
                             <th class="px-4 py-3 text-left">Requester</th>
                             <th class="px-4 py-3 text-left">Tujuan</th>
                             <th class="px-4 py-3 text-left">Jenis</th>
-                            <th class="px-4 py-3 text-left min-w-[320px]">Barang Diminta</th>
-                            <th class="px-4 py-3 text-right">Ringkasan</th>
+                            <th class="px-4 py-3 text-right">Item</th>
                             <th class="px-4 py-3 text-left">Status</th>
                         </tr>
                     </thead>
                     <tbody class="divide-y divide-gray-100">
-                        <template x-for="(row, index) in rows" :key="row.id">
-                            <tr class="hover:bg-gray-50">
-                                <td class="px-4 py-4 text-gray-700" x-text="rowNumber(index)"></td>
-                                <td class="px-4 py-4">
-                                    <div class="font-semibold text-gray-900" x-text="row.nomor"></div>
-                                    <div class="text-xs text-gray-500" x-text="row.gudang"></div>
+                        <template x-for="record in transaksiDisplayRows()" :key="record.key">
+                            <tr :class="record.type === 'detail' ? 'bg-blue-50/30' : 'hover:bg-gray-50'">
+                                <td x-show="record.type === 'main'" class="px-4 py-4 text-gray-700" x-text="rowNumber(record.index)"></td>
+                                <td x-show="record.type === 'main'" class="px-4 py-4">
+                                    <div class="font-semibold text-gray-900" x-text="record.row.nomor"></div>
+                                    <div class="text-xs text-gray-500" x-text="record.row.gudang"></div>
                                 </td>
-                                <td class="px-4 py-4">
-                                    <div class="text-gray-900" x-text="row.tanggal"></div>
-                                    <div class="text-xs text-gray-500">Diperlukan: <span x-text="row.tanggal_diperlukan"></span></div>
+                                <td x-show="record.type === 'main'" class="px-4 py-4">
+                                    <div class="text-gray-900" x-text="record.row.tanggal"></div>
+                                    <div class="text-xs text-gray-500">Diperlukan: <span x-text="record.row.tanggal_diperlukan"></span></div>
                                 </td>
-                                <td class="px-4 py-4 text-gray-700" x-text="row.requester"></td>
-                                <td class="px-4 py-4">
+                                <td x-show="record.type === 'main'" class="px-4 py-4 text-gray-700" x-text="record.row.requester"></td>
+                                <td x-show="record.type === 'main'" class="px-4 py-4">
                                     <div
                                         class="inline-block max-w-sm cursor-help rounded-lg px-2 py-1 -mx-2 transition hover:bg-blue-50 focus:bg-blue-50 focus:outline-none focus:ring-2 focus:ring-blue-200"
                                         tabindex="0"
-                                        :title="row.tujuan || '-'"
-                                        @mouseenter="showTujuanTooltip($event, row)"
+                                        :title="record.row.tujuan || '-'"
+                                        @mouseenter="showTujuanTooltip($event, record.row)"
                                         @mousemove="positionTooltip($event)"
                                         @mouseleave="hideTooltip()"
-                                        @focus="showTujuanTooltip($event, row)"
+                                        @focus="showTujuanTooltip($event, record.row)"
                                         @blur="hideTooltip()">
-                                        <div class="text-gray-900" x-text="row.untuk"></div>
-                                        <div class="text-xs text-gray-500 max-w-xs truncate" x-text="row.tujuan"></div>
+                                        <div class="text-gray-900" x-text="record.row.untuk"></div>
+                                        <div class="text-xs text-gray-500 max-w-xs truncate" x-text="record.row.tujuan"></div>
                                     </div>
                                 </td>
-                                <td class="px-4 py-4 text-gray-700" x-text="row.jenis_pekerjaan"></td>
-                                <td class="px-4 py-4">
-                                    <div class="space-y-2">
-                                        <template x-for="item in (row.items || []).slice(0, 2)" :key="`${row.id}-${item.name}-${item.qty_label}`">
-                                            <div class="rounded-lg border border-gray-200 bg-gray-50 px-3 py-2">
-                                                <div class="line-clamp-2 text-sm font-semibold text-gray-900" x-text="item.name"></div>
-                                                <div class="mt-1 inline-flex rounded-full bg-white px-2 py-0.5 text-[11px] font-semibold text-gray-600">
-                                                    <span>Qty&nbsp;</span><span x-text="item.qty_label"></span><span>&nbsp;</span><span x-text="item.unit"></span>
-                                                </div>
+                                <td x-show="record.type === 'main'" class="px-4 py-4 text-gray-700" x-text="record.row.jenis_pekerjaan"></td>
+                                <td x-show="record.type === 'main'" class="px-4 py-4 text-right">
+                                    <div class="font-semibold text-gray-900" x-text="formatNumber(record.row.jumlah_barang)"></div>
+                                    <div class="text-xs text-gray-500">Qty: <span x-text="formatNumber(record.row.total_jumlah)"></span></div>
+                                    <button
+                                        type="button"
+                                        x-show="(record.row.items || []).length"
+                                        @click="togglePbItems(record.row.id)"
+                                        class="mt-2 inline-flex items-center gap-1 rounded-full border border-blue-200 bg-blue-50 px-2.5 py-1 text-xs font-semibold text-blue-700 hover:bg-blue-100">
+                                        <span x-text="isPbExpanded(record.row.id) ? 'Tutup barang' : 'Lihat barang'"></span>
+                                    </button>
+                                </td>
+                                <td x-show="record.type === 'main'" class="px-4 py-4">
+                                    <span :class="statusClass(record.row.status)" class="inline-flex px-2.5 py-1 rounded-full text-xs font-semibold" x-text="record.row.status_label"></span>
+                                </td>
+
+                                <td x-show="record.type === 'detail'" colspan="8" class="px-4 pb-5 pt-0">
+                                    <div class="rounded-xl border border-blue-100 bg-white p-4 shadow-sm">
+                                        <div class="mb-3 flex items-center justify-between gap-3">
+                                            <div>
+                                                <div class="text-sm font-semibold text-gray-900">Barang Diminta</div>
+                                                <div class="text-xs text-gray-500" x-text="record.row.nomor"></div>
                                             </div>
-                                        </template>
-                                        <div x-show="(row.items || []).length > 2" class="inline-flex rounded-full border border-blue-200 bg-blue-50 px-2.5 py-1 text-xs font-semibold text-blue-700">
-                                            +<span x-text="(row.items || []).length - 2"></span>&nbsp;item lainnya
+                                            <button type="button" @click="togglePbItems(record.row.id)" class="rounded-full border border-gray-200 px-3 py-1 text-xs font-semibold text-gray-600 hover:bg-gray-50">
+                                                Tutup
+                                            </button>
                                         </div>
-                                        <div x-show="!(row.items || []).length" class="text-sm text-gray-400">-</div>
+                                        <div class="grid grid-cols-1 gap-2 md:grid-cols-2 xl:grid-cols-3">
+                                            <template x-for="item in (record.row.items || [])" :key="`${record.row.id}-${item.name}-${item.qty_label}-${item.unit}`">
+                                                <div class="rounded-lg border border-gray-200 bg-gray-50 px-3 py-2">
+                                                    <div class="line-clamp-2 text-sm font-semibold text-gray-900" x-text="item.name"></div>
+                                                    <div class="mt-1 inline-flex rounded-full bg-white px-2 py-0.5 text-[11px] font-semibold text-gray-600">
+                                                        <span>Qty&nbsp;</span><span x-text="item.qty_label"></span><span>&nbsp;</span><span x-text="item.unit"></span>
+                                                    </div>
+                                                </div>
+                                            </template>
+                                        </div>
                                     </div>
-                                </td>
-                                <td class="px-4 py-4 text-right">
-                                    <div class="font-semibold text-gray-900" x-text="formatNumber(row.jumlah_barang)"></div>
-                                    <div class="text-xs text-gray-500">Qty: <span x-text="formatNumber(row.total_jumlah)"></span></div>
-                                </td>
-                                <td class="px-4 py-4">
-                                    <span :class="statusClass(row.status)" class="inline-flex px-2.5 py-1 rounded-full text-xs font-semibold" x-text="row.status_label"></span>
                                 </td>
                             </tr>
                         </template>
 
                         <tr x-show="!loading && rows.length === 0">
-                            <td colspan="9" class="px-4 py-10 text-center text-gray-500">
+                            <td colspan="8" class="px-4 py-10 text-center text-gray-500">
                                 Tidak ada data transaksi untuk filter ini.
                             </td>
                         </tr>
 
                         <tr x-show="loading">
-                            <td colspan="9" class="px-4 py-10 text-center text-gray-500">
+                            <td colspan="8" class="px-4 py-10 text-center text-gray-500">
                                 Memuat data...
                             </td>
                         </tr>
@@ -970,6 +984,7 @@ function reportCenter() {
         activeTab: 'overview',
         loading: false,
         rows: [],
+        expandedPbId: null,
         overview: {
             pb_status: [],
             wo_status: [],
@@ -1126,6 +1141,7 @@ function reportCenter() {
         changeTab(tab) {
             this.activeTab = tab;
             this.rows = [];
+            this.expandedPbId = null;
             this.pagination = null;
             this.filters.status = 'all';
             this.filters.page = 1;
@@ -1182,6 +1198,7 @@ function reportCenter() {
                     this.pagination = null;
                 } else {
                     this.rows = result.data || [];
+                    this.expandedPbId = null;
                     this.pagination = result.pagination || null;
                 }
 
@@ -1275,6 +1292,32 @@ function reportCenter() {
             const perPage = this.pagination?.per_page || parseInt(this.filters.per_page, 10) || 20;
 
             return ((currentPage - 1) * perPage) + index + 1;
+        },
+
+        togglePbItems(id) {
+            const key = String(id);
+            this.expandedPbId = this.expandedPbId === key ? null : key;
+        },
+
+        isPbExpanded(id) {
+            return this.expandedPbId === String(id);
+        },
+
+        transaksiDisplayRows() {
+            if (this.activeTab !== 'transaksi') {
+                return [];
+            }
+
+            const output = [];
+            (this.rows || []).forEach((row, index) => {
+                output.push({ type: 'main', key: `main-${row.id}`, row, index });
+
+                if (this.isPbExpanded(row.id)) {
+                    output.push({ type: 'detail', key: `detail-${row.id}`, row, index });
+                }
+            });
+
+            return output;
         },
 
         formatNumber(value) {
